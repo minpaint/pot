@@ -1,0 +1,266 @@
+/* 📱 Адаптивные стили для OT Online
+ * Базовая инфраструктура для мобильной адаптации
+ * Breakpoints: 320px, 576px, 768px, 992px, 1200px
+ */
+
+/* ============================================================================
+   CSS ПЕРЕМЕННЫЕ (Custom Properties)
+   ============================================================================ */
+:root {
+    /* Размеры sidebar */
+    --sidebar-width-desktop: 200px;
+    --sidebar-width-tablet: 180px;
+    --sidebar-width-mobile: 280px;
+
+    /* Адаптивные отступы используя clamp() */
+    --content-padding: clamp(1rem, 2.5vw, 2rem);
+    --card-padding: clamp(0.75rem, 2vw, 1.5rem);
+    --section-padding: clamp(1.5rem, 3vw, 2.5rem);
+
+    /* Адаптивные размеры шрифтов */
+    --font-size-h1: clamp(1.5rem, 4vw, 2.5rem);
+    --font-size-h2: clamp(1.3rem, 3.5vw, 2rem);
+    --font-size-h3: clamp(1.15rem, 3vw, 1.75rem);
+    --font-size-h4: clamp(1rem, 2.5vw, 1.5rem);
+    --font-size-h5: clamp(0.95rem, 2vw, 1.25rem);
+    --font-size-h6: clamp(0.9rem, 1.8vw, 1.1rem);
+    --font-size-base: clamp(0.9rem, 1.5vw, 1rem);
+    --font-size-small: clamp(0.8rem, 1.3vw, 0.875rem);
+
+    /* Touch-friendly размеры */
+    --touch-target-min: 44px;  /* Минимум для iOS/Android */
+    --input-height-mobile: 48px;
+    --button-height-mobile: 48px;
+
+    /* Spacing система */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+
+    /* Z-index система */
+    --z-sidebar: 1000;
+    --z-sidebar-overlay: 999;
+    --z-actions-bar: 100;
+    --z-modal: 1050;
+    --z-tooltip: 1060;
+}
+
+/* ============================================================================
+   БАЗОВЫЕ АДАПТИВНЫЕ СТИЛИ
+   ============================================================================ */
+
+/* Typography - адаптивные заголовки */
+h1 { font-size: var(--font-size-h1); }
+h2 { font-size: var(--font-size-h2); }
+h3 { font-size: var(--font-size-h3); }
+h4 { font-size: var(--font-size-h4); }
+h5 { font-size: var(--font-size-h5); }
+h6 { font-size: var(--font-size-h6); }
+
+/* ============================================================================
+   BREAKPOINT: < 576px (Смартфоны портрет)
+   ============================================================================ */
+@media (max-width: 575px) {
+    /* Базовые отступы */
+    .content-area {
+        padding: 15px;
+    }
+
+    /* Заголовки еще компактнее */
+    .card-header {
+        padding: 0.75rem;
+    }
+
+    .card-body {
+        padding: 0.75rem;
+    }
+
+    /* Кнопки на всю ширину */
+    .btn-block-mobile {
+        width: 100%;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* ============================================================================
+   BREAKPOINT: 576px - 767px (Смартфоны ландшафт / большие смартфоны)
+   ============================================================================ */
+@media (min-width: 576px) and (max-width: 767px) {
+    .content-area {
+        padding: 20px;
+    }
+}
+
+/* ============================================================================
+   BREAKPOINT: 768px - 991px (Планшеты портрет)
+   ============================================================================ */
+@media (min-width: 768px) and (max-width: 991px) {
+    /* Компактный режим для планшетов */
+    .content-area {
+        padding: 25px;
+    }
+}
+
+/* ============================================================================
+   BREAKPOINT: 992px - 1199px (Планшеты ландшафт / малые десктопы)
+   ============================================================================ */
+@media (min-width: 992px) and (max-width: 1199px) {
+    .content-area {
+        padding: 30px;
+    }
+}
+
+/* ============================================================================
+   BREAKPOINT: >= 1200px (Обычные десктопы)
+   ============================================================================ */
+@media (min-width: 1200px) {
+    .content-area {
+        padding: 30px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+}
+
+/* ============================================================================
+   TOUCH ОПТИМИЗАЦИИ
+   ============================================================================ */
+@media (max-width: 991px) {
+    /* Все интерактивные элементы минимум 44x44px */
+    button,
+    a.btn,
+    input[type="submit"],
+    input[type="button"],
+    .btn {
+        min-height: var(--touch-target-min);
+        touch-action: manipulation;
+    }
+
+    /* Чекбоксы и радиокнопки крупнее */
+    input[type="checkbox"],
+    input[type="radio"] {
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+    }
+
+    /* Отключаем hover эффекты на touch устройствах */
+    @media (hover: none) {
+        .hover-shadow:hover {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+
+        .btn:hover {
+            transform: none;
+        }
+    }
+}
+
+/* ============================================================================
+   ACCESSIBILITY - prefers-reduced-motion
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ============================================================================
+   iOS СПЕЦИФИЧНЫЕ ФИКСЫ
+   ============================================================================ */
+
+/* Предотвращение zoom на focus для iOS */
+@supports (-webkit-touch-callout: none) {
+    input,
+    select,
+    textarea,
+    .select2-selection {
+        font-size: 16px !important;
+    }
+}
+
+/* Safe area для iPhone X, 11, 12, 13 и новее */
+@supports (padding: max(0px)) {
+    body {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+
+    .content-area {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+
+    .sidebar {
+        padding-left: env(safe-area-inset-left);
+    }
+}
+
+/* ============================================================================
+   ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ
+   ============================================================================ */
+
+/* Скрытие на определенных размерах экрана */
+.hide-mobile {
+    @media (max-width: 767px) {
+        display: none !important;
+    }
+}
+
+.hide-tablet {
+    @media (min-width: 768px) and (max-width: 991px) {
+        display: none !important;
+    }
+}
+
+.hide-desktop {
+    @media (min-width: 992px) {
+        display: none !important;
+    }
+}
+
+/* Показывать только на мобильных */
+.show-mobile {
+    display: none !important;
+    @media (max-width: 767px) {
+        display: block !important;
+    }
+}
+
+/* Адаптивный текст */
+.text-responsive {
+    font-size: var(--font-size-base);
+}
+
+/* Адаптивный контейнер */
+.container-responsive {
+    padding-left: var(--content-padding);
+    padding-right: var(--content-padding);
+}
+
+/* ============================================================================
+   PERFORMANCE ОПТИМИЗАЦИИ
+   ============================================================================ */
+
+/* Оптимизация перерисовок для анимируемых элементов */
+.sidebar,
+.sidebar-overlay,
+.actions-bar,
+.modal {
+    will-change: transform;
+}
+
+/* Smooth scrolling для поддерживаемых браузеров */
+@media (prefers-reduced-motion: no-preference) {
+    html {
+        scroll-behavior: smooth;
+    }
+}

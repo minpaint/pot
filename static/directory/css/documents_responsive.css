@@ -1,0 +1,480 @@
+/* 📄 Адаптивные стили для интерфейса документов
+ * Генерация, выбор и просмотр документов на мобильных устройствах
+ */
+
+/* ============================================================================
+   БАЗОВЫЕ СТИЛИ ДЛЯ ДОКУМЕНТОВ
+   ============================================================================ */
+
+.document-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.document-card {
+    border: 2px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: #fff;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.document-card:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+}
+
+.document-card input[type="checkbox"] {
+    margin-right: 1rem;
+}
+
+.document-card-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.document-card-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.document-card-description {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* ============================================================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (<768px)
+   ============================================================================ */
+
+@media (max-width: 767px) {
+    /* Document grid → список */
+    .document-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    /* Документы как список карточек */
+    .document-card {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background: #fff;
+    }
+
+    .document-card:active {
+        transform: scale(0.98);
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+
+    .document-card input[type="checkbox"] {
+        width: 24px;
+        height: 24px;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+
+    .document-card-icon {
+        font-size: 1.5rem;
+        margin: 0 0.75rem 0 0;
+        flex-shrink: 0;
+    }
+
+    .document-card-content {
+        flex: 1;
+    }
+
+    .document-card-title {
+        font-size: 0.95rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .document-card-description {
+        font-size: 0.8rem;
+        line-height: 1.3;
+    }
+
+    /* Protocol/Order forms - компактные списки */
+    .members-list .list-group-item {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    /* Кнопки добавления участников */
+    .add-member-btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        min-height: 48px;
+    }
+
+    /* Поля дат и времени */
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"] {
+        font-size: 16px !important; /* Предотвращает zoom на iOS */
+        height: 48px;
+        padding: 0.75rem;
+    }
+
+    /* Информационные карточки документов */
+    .document-info-card {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+    }
+
+    .document-info-card .card-header {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .document-info-card .card-body {
+        padding: 0.75rem;
+    }
+
+    /* Списки в документах */
+    .document-list {
+        font-size: 0.9rem;
+    }
+
+    .document-list-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .document-list-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Превью документов */
+    .document-preview {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .document-preview-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Таблицы в документах */
+    .document-table {
+        font-size: 0.85rem;
+    }
+
+    .document-table th,
+    .document-table td {
+        padding: 0.5rem 0.25rem;
+    }
+
+    /* Кнопки действий с документами */
+    .document-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .document-actions .btn {
+        width: 100%;
+        min-height: 48px;
+    }
+}
+
+/* ============================================================================
+   СМАРТФОНЫ ПОРТРЕТ (<576px)
+   ============================================================================ */
+
+@media (max-width: 575px) {
+    .document-card {
+        padding: 0.75rem;
+    }
+
+    .document-card-icon {
+        font-size: 1.25rem;
+        margin-right: 0.5rem;
+    }
+
+    .document-card-title {
+        font-size: 0.9rem;
+    }
+
+    .document-card-description {
+        font-size: 0.75rem;
+    }
+
+    /* Очень компактные формы документов */
+    .document-form .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .document-form label {
+        font-size: 0.85rem;
+        margin-bottom: 0.4rem;
+    }
+
+    /* Списки участников/элементов */
+    .members-list {
+        font-size: 0.85rem;
+    }
+
+    .members-list .list-group-item {
+        padding: 0.5rem;
+    }
+
+    .members-list .badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    /* Preview компактнее */
+    .document-preview {
+        padding: 0.75rem;
+    }
+
+    .document-preview-title {
+        font-size: 0.95rem;
+    }
+}
+
+/* ============================================================================
+   ПЛАНШЕТЫ (768px - 991px)
+   ============================================================================ */
+
+@media (min-width: 768px) and (max-width: 991px) {
+    .document-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .document-card {
+        padding: 0.75rem;
+    }
+
+    .document-card-icon {
+        font-size: 1.5rem;
+    }
+
+    .document-card-title {
+        font-size: 0.9rem;
+    }
+
+    .document-card-description {
+        font-size: 0.8rem;
+    }
+}
+
+/* ============================================================================
+   SELECTION MODE - ВЫБОР ДОКУМЕНТОВ
+   ============================================================================ */
+
+@media (max-width: 767px) {
+    .document-selection-mode .document-card {
+        position: relative;
+        padding-left: 3rem; /* Место для чекбокса */
+    }
+
+    .document-selection-mode input[type="checkbox"] {
+        position: absolute;
+        top: 50%;
+        left: 0.75rem;
+        transform: translateY(-50%);
+        margin: 0;
+    }
+
+    /* Выбранные документы */
+    .document-card.selected {
+        border-color: #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+    }
+
+    .document-card.selected .document-card-title {
+        color: #0d6efd;
+    }
+}
+
+/* ============================================================================
+   ФОРМЫ ПРОТОКОЛОВ И ПРИКАЗОВ
+   ============================================================================ */
+
+@media (max-width: 767px) {
+    /* Форма протокола */
+    .protocol-form .form-row {
+        flex-direction: column;
+    }
+
+    .protocol-form .form-group {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    /* Таблица участников */
+    .protocol-members-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Подписи */
+    .signature-block {
+        margin-bottom: 1.5rem;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+    }
+
+    .signature-line {
+        border-bottom: 1px solid #dee2e6;
+        margin-top: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .signature-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    /* Печать документа */
+    .print-area {
+        padding: 1rem;
+    }
+
+    /* Скрываем печать на мобильных */
+    .print-only {
+        display: none;
+    }
+}
+
+/* ============================================================================
+   DOCUMENT VIEWER - ПРОСМОТР ДОКУМЕНТОВ
+   ============================================================================ */
+
+@media (max-width: 767px) {
+    .document-viewer {
+        padding: 1rem;
+    }
+
+    .document-viewer-header {
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .document-viewer-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .document-viewer-meta {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .document-viewer-content {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        padding: 0.75rem;
+    }
+
+    .document-viewer-actions {
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        padding: 1rem;
+        border-top: 2px solid #dee2e6;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    }
+
+    .document-viewer-actions .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* ============================================================================
+   СТИЛИ ДЛЯ ПЕЧАТИ
+   ============================================================================ */
+
+@media print {
+    /* Скрываем все интерактивные элементы при печати */
+    .document-actions,
+    .document-viewer-actions,
+    .btn,
+    input[type="checkbox"],
+    .sidebar,
+    .top-bar {
+        display: none !important;
+    }
+
+    /* Печатаем на всю ширину */
+    .document-viewer,
+    .document-preview,
+    .print-area {
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Убираем тени и рамки */
+    .document-card,
+    .document-preview {
+        border: none;
+        box-shadow: none;
+    }
+
+    /* Показываем элементы только для печати */
+    .print-only {
+        display: block !important;
+    }
+}
+
+/* ============================================================================
+   УТИЛИТАРНЫЕ КЛАССЫ ДЛЯ ДОКУМЕНТОВ
+   ============================================================================ */
+
+.document-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.document-badge-draft {
+    background: #ffc107;
+    color: #000;
+}
+
+.document-badge-approved {
+    background: #28a745;
+    color: #fff;
+}
+
+.document-badge-archived {
+    background: #6c757d;
+    color: #fff;
+}
+
+@media (max-width: 575px) {
+    .document-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+}

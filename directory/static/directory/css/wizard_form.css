@@ -90,3 +90,237 @@
     font-size: 0.9rem;
     margin-top: 0.5rem;
 }
+
+/* ============================================================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ ДЛЯ ФОРМ ПРИЕМА
+   ============================================================================ */
+
+/* Breakpoint: < 576px (Смартфоны портрет) */
+@media (max-width: 575px) {
+    /* Wizard steps - вертикальный стек */
+    .wizard-steps {
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .wizard-step {
+        width: 100%;
+        max-width: 250px;
+        height: auto;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 0.75rem;
+    }
+
+    .wizard-step::before {
+        content: attr(data-step);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #6c757d;
+        color: white;
+        font-weight: bold;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .wizard-step.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .wizard-step.active::before {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .wizard-step.completed {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    .wizard-step.completed::before {
+        content: "✓";
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .step-connector {
+        display: none;
+    }
+
+    .step-label {
+        margin-top: 0;
+        text-align: left;
+        font-size: 0.85rem;
+        color: #495057;
+        flex: 1;
+    }
+
+    .wizard-step.active .step-label {
+        color: white;
+        font-weight: 600;
+    }
+
+    .wizard-step.completed .step-label {
+        color: white;
+    }
+
+    /* Формы - все колонки на 100% */
+    #hiring-form .row > [class*='col-'] {
+        flex: 0 0 100%;
+        max-width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    /* Компактные карточки */
+    .card {
+        margin-bottom: 1rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    .card-header {
+        padding: 0.75rem 1rem;
+    }
+
+    .card-header h5,
+    .card-header h6 {
+        font-size: 1rem;
+        margin-bottom: 0;
+    }
+
+    /* Секции форм */
+    .form-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* Кнопки форм на всю ширину */
+    #hiring-form .btn,
+    #hiring-form .btn-lg {
+        width: 100%;
+        min-height: 48px;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Группа кнопок вертикально */
+    #hiring-form .form-group.text-right,
+    #hiring-form .form-actions,
+    #hiring-form .btn-toolbar {
+        display: flex;
+        flex-direction: column-reverse; /* Submit вверху */
+        gap: 0.5rem;
+    }
+
+    /* Модальные окна в формах */
+    .modal-body .list-group {
+        font-size: 0.9rem;
+    }
+
+    .modal-body .list-group-item {
+        padding: 0.75rem;
+    }
+
+    .modal-body .badge {
+        font-size: 0.75rem;
+    }
+}
+
+/* Breakpoint: 576px - 767px (Смартфоны ландшафт) */
+@media (min-width: 576px) and (max-width: 767px) {
+    .wizard-step {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+
+    .step-label {
+        font-size: 0.8rem;
+    }
+
+    /* Формы - 2 колонки где возможно */
+    #hiring-form .row > [class*='col-md-6'] {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    #hiring-form .row > [class*='col-md-3'] {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    /* Кнопки меньше */
+    #hiring-form .btn {
+        min-height: 44px;
+        font-size: 0.95rem;
+    }
+}
+
+/* Breakpoint: 768px - 991px (Планшеты портрет) */
+@media (min-width: 768px) and (max-width: 991px) {
+    /* Компактные wizard steps */
+    .wizard-step {
+        width: 38px;
+        height: 38px;
+    }
+
+    .step-label {
+        font-size: 0.85rem;
+    }
+
+    /* Формы - стандартная сетка Bootstrap работает */
+    .card-body {
+        padding: 1.25rem;
+    }
+
+    /* Select2 немного меньше */
+    .select2-container--default .select2-selection--single,
+    .select2-container .select2-selection--single {
+        height: 42px !important;
+        min-height: 42px !important;
+    }
+}
+
+/* Адаптация для очень маленьких экранов */
+@media (max-width: 360px) {
+    .wizard-step {
+        padding: 0.5rem 0.75rem;
+        max-width: 100%;
+    }
+
+    .wizard-step::before {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+    }
+
+    .step-label {
+        font-size: 0.8rem;
+    }
+
+    .card-body {
+        padding: 0.75rem;
+    }
+
+    .card-header {
+        padding: 0.5rem 0.75rem;
+    }
+
+    #hiring-form .btn {
+        font-size: 0.9rem;
+        padding: 0.6rem 0.75rem;
+    }
+}

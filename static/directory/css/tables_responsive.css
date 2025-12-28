@@ -1,0 +1,345 @@
+/* 📊 Универсальный адаптивный паттерн для таблиц
+ * Автоматически превращает таблицы в карточки на мобильных устройствах
+ * Использование: добавьте класс .responsive-table к вашей таблице
+ */
+
+/* ============================================================================
+   БАЗОВЫЕ СТИЛИ ДЛЯ АДАПТИВНЫХ ТАБЛИЦ
+   ============================================================================ */
+
+.responsive-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.responsive-table thead th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.responsive-table tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.responsive-table tbody td {
+    padding: 12px 8px;
+    vertical-align: middle;
+}
+
+/* ============================================================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ - КАРТОЧНЫЙ ВИД (<768px)
+   ============================================================================ */
+
+@media (max-width: 767px) {
+    /* Скрываем thead */
+    .responsive-table thead {
+        display: none;
+    }
+
+    /* Превращаем таблицу, tbody и tr в блочные элементы */
+    .responsive-table,
+    .responsive-table tbody,
+    .responsive-table tbody tr {
+        display: block;
+        width: 100%;
+    }
+
+    /* Каждая строка становится карточкой */
+    .responsive-table tbody tr {
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        position: relative;
+    }
+
+    .responsive-table tbody tr:hover {
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    /* Все ячейки в блок */
+    .responsive-table tbody td {
+        display: block;
+        text-align: left !important;
+        padding: 0.5rem 0;
+        border: none;
+    }
+
+    /* Добавляем лейблы перед данными через data-label */
+    .responsive-table tbody td::before {
+        content: attr(data-label);
+        display: block;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+    }
+
+    /* Первая ячейка - заголовок карточки */
+    .responsive-table tbody td:first-child {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #2c3e50;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 0.5rem;
+    }
+
+    .responsive-table tbody td:first-child::before {
+        display: none; /* Скрываем label для первой ячейки */
+    }
+
+    /* Последняя ячейка - кнопки действий */
+    .responsive-table tbody td:last-child {
+        border-top: 1px solid #dee2e6;
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .responsive-table tbody td:last-child::before {
+        content: "Действия";
+    }
+
+    /* Кнопки действий в карточке */
+    .responsive-table tbody td:last-child .btn-group {
+        display: flex;
+        gap: 0.25rem;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .responsive-table tbody td:last-child .btn {
+        flex: 1;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 0.85rem;
+        padding: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Скрываем пустые ячейки */
+    .responsive-table tbody td:empty {
+        display: none;
+    }
+}
+
+/* ============================================================================
+   АДАПТАЦИЯ ДЛЯ ОЧЕНЬ МАЛЕНЬКИХ ЭКРАНОВ (<360px)
+   ============================================================================ */
+
+@media (max-width: 360px) {
+    .responsive-table tbody tr {
+        padding: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .responsive-table tbody td {
+        padding: 0.4rem 0;
+        font-size: 0.9rem;
+    }
+
+    .responsive-table tbody td::before {
+        font-size: 0.75rem;
+    }
+
+    .responsive-table tbody td:first-child {
+        font-size: 0.95rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .responsive-table tbody td:last-child .btn {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.3rem;
+        min-height: 40px;
+    }
+}
+
+/* ============================================================================
+   ПЛАНШЕТЫ (768px - 991px)
+   ============================================================================ */
+
+@media (min-width: 768px) and (max-width: 991px) {
+    .responsive-table thead th,
+    .responsive-table tbody td {
+        padding: 10px 6px;
+        font-size: 0.9rem;
+    }
+
+    /* Компактнее на планшетах */
+    .responsive-table tbody td .btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+    }
+}
+
+/* ============================================================================
+   АДАПТИВНАЯ ПАГИНАЦИЯ
+   ============================================================================ */
+
+@media (max-width: 575px) {
+    .pagination {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        justify-content: center;
+    }
+
+    .pagination .page-item {
+        flex: 0 0 auto;
+    }
+
+    .pagination .page-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        min-width: 40px;
+        text-align: center;
+    }
+
+    /* Скрываем промежуточные страницы, оставляем первую, последнюю и активную */
+    .pagination .page-item:not(.active):not(:first-child):not(:last-child):not(:nth-child(2)):not(:nth-last-child(2)) {
+        display: none;
+    }
+
+    /* Показываем только ... между страницами */
+    .pagination .page-item.disabled {
+        display: block;
+    }
+}
+
+/* ============================================================================
+   АЛЬТЕРНАТИВНЫЙ СТИЛЬ - КОМПАКТНЫЕ КАРТОЧКИ
+   ============================================================================ */
+
+/* Добавьте класс .table-cards-compact для более компактного вида */
+@media (max-width: 767px) {
+    .table-cards-compact tbody tr {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .table-cards-compact tbody td {
+        padding: 0.3rem 0;
+        font-size: 0.85rem;
+    }
+
+    .table-cards-compact tbody td::before {
+        font-size: 0.7rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .table-cards-compact tbody td:first-child {
+        font-size: 0.9rem;
+        padding-bottom: 0.5rem;
+    }
+}
+
+/* ============================================================================
+   АЛЬТЕРНАТИВНЫЙ СТИЛЬ - БЕЗ ЛЕЙБЛОВ
+   ============================================================================ */
+
+/* Добавьте класс .table-cards-no-labels чтобы скрыть лейблы полей */
+@media (max-width: 767px) {
+    .table-cards-no-labels tbody td::before {
+        display: none;
+    }
+
+    .table-cards-no-labels tbody td {
+        padding: 0.25rem 0;
+    }
+
+    .table-cards-no-labels tbody td:first-child {
+        border-bottom: none;
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* ============================================================================
+   СТИЛИ ДЛЯ ТАБЛИЦ С ЧЕКБОКСАМИ
+   ============================================================================ */
+
+@media (max-width: 767px) {
+    /* Если в таблице есть чекбоксы в первой колонке */
+    .responsive-table.has-checkboxes tbody td:first-child {
+        position: absolute;
+        top: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+        padding: 0;
+        border: none;
+        margin: 0;
+    }
+
+    .responsive-table.has-checkboxes tbody td:first-child::before {
+        display: none;
+    }
+
+    /* Вторая колонка становится заголовком */
+    .responsive-table.has-checkboxes tbody td:nth-child(2) {
+        padding-left: 2.5rem; /* Место для чекбокса */
+        font-weight: 600;
+        font-size: 1rem;
+        color: #2c3e50;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 0.5rem;
+    }
+
+    .responsive-table.has-checkboxes tbody td:nth-child(2)::before {
+        display: none;
+    }
+
+    /* Остальные ячейки с отступом */
+    .responsive-table.has-checkboxes tbody td:not(:first-child):not(:nth-child(2)):not(:last-child) {
+        padding-left: 2.5rem;
+    }
+
+    /* Чекбокс touch-friendly */
+    .responsive-table.has-checkboxes input[type="checkbox"] {
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+    }
+}
+
+/* ============================================================================
+   ПОЛОСА ПРОКРУТКИ ДЛЯ ШИРОКИХ ТАБЛИЦ (fallback)
+   ============================================================================ */
+
+.table-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) {
+    /* На десктопе используем обычную таблицу в wrapper */
+    .table-scroll-wrapper {
+        border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
+    }
+}
+
+/* ============================================================================
+   УТИЛИТАРНЫЕ КЛАССЫ
+   ============================================================================ */
+
+/* Скрыть колонку на мобильных */
+.hide-mobile-column {
+    @media (max-width: 767px) {
+        display: none !important;
+    }
+}
+
+/* Показать только на мобильных */
+.show-mobile-only {
+    display: none;
+    @media (max-width: 767px) {
+        display: block !important;
+    }
+}

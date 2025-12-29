@@ -13,11 +13,102 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **OT_online** is a comprehensive occupational safety management system (охрана труда) built with Django 5.0. It manages organizational structure, employees, equipment, personal protective equipment (PPE/СИЗ), medical examinations, commissions, and safety quizzes for Russian/Belarusian organizations.
 
 **Primary Language:** Russian (with Belarusian support)
-**Python Environment:** Windows, uses virtual environment at `c:\venvs\OT_online\Scripts\python.exe`
+**Production Domain:** https://pot.by
+**Python Environment:**
+- **Production:** Linux (Ubuntu), `/home/django/webapps/potby/venv/`
+- **Development:** Windows (legacy), `c:\venvs\OT_online\Scripts\python.exe`
+
+## Production Architecture
+
+**ВАЖНО:** Проект развёрнут в **двухуровневой архитектуре** через CWP (CentOS Web Panel).
+
+```
+Интернет (pot.by)
+       ↓ HTTPS
+[CWP Server: 192.168.37.55] ← SSL терминация, security headers, редиректы
+       ↓ HTTP (внутренняя сеть)
+[Django Server: 192.168.37.10:8020] ← Nginx → Gunicorn → Django
+       ↓
+PostgreSQL (localhost:5432)
+Redis (localhost:6379)
+```
+
+### Ключевые особенности архитектуры:
+
+1. **CWP сервер (192.168.37.55) - Фронтальный прокси:**
+   - Принимает HTTPS запросы от внешнего мира
+   - SSL терминация (Let's Encrypt сертификаты)
+   - HTTP → HTTPS редиректы
+   - www.pot.by → pot.by редиректы
+   - Security headers (HSTS, X-Frame-Options, CSP)
+   - Rate limiting
+   - Проксирует на Django сервер по HTTP
+
+2. **Django сервер (192.168.37.10) - Backend:**
+   - Работает по HTTP внутри локальной сети (192.168.37.0/24)
+   - Порт 8020 **НЕ открыт** для внешнего доступа
+   - Nginx (локальный) на порту 80 проксирует на Gunicorn :8020
+   - Gunicorn (3 workers) запускает Django WSGI приложение
+   - PostgreSQL и Redis доступны только локально
+
+3. **Безопасность:**
+   - **Первый уровень (CWP):** SSL, HSTS, security headers, блокировка по IP
+   - **Второй уровень (Django):** CSRF, аутентификация, валидация, application-level security
+   - **DEBUG всегда False** в production (жёстко установлено в settings.py)
+   - **Кастомные страницы ошибок** без раскрытия технической информации
+
+### Логи в production
+
+В логах Django все запросы приходят от **192.168.37.55** (CWP сервер):
+```
+192.168.37.55 - - [29/Dec/2025:16:27:49 +0300] "GET /admin/ HTTP/1.0" 200 35985
+```
+Реальный IP клиента находится в заголовке `X-Forwarded-For`.
+
+### Важные IP адреса
+
+- `192.168.37.55` - CWP сервер (фронтальный прокси)
+- `192.168.37.10` - Django сервер (backend, недоступен извне)
+- **Оба IP адреса ДОЛЖНЫ быть в `ALLOWED_HOSTS`** для корректной работы прокси
+
+См. подробную документацию: [docs/CWP_ARCHITECTURE.md](docs/CWP_ARCHITECTURE.md)
 
 ## Common Commands
 
-### Development
+### Production (Linux)
+
+```bash
+# Управление Gunicorn
+cd /home/django/webapps/potby
+./start_gunicorn.sh      # Запуск с проверкой DEBUG
+./reload_gunicorn.sh     # Graceful reload (без даунтайма)
+./stop_gunicorn.sh       # Остановка
+
+# Проверка безопасности
+DJANGO_SETTINGS_MODULE=settings_prod venv/bin/python \
+    utility_scripts/check_debug_status.py
+
+# Применить миграции
+python manage.py migrate --settings=settings_prod
+
+# Собрать статику
+python manage.py collectstatic --noinput --settings=settings_prod
+
+# Django shell (production)
+python manage.py shell --settings=settings_prod
+
+# Проверка
+python manage.py check --settings=settings_prod
+
+# Логи
+tail -f logs/gunicorn.access.log
+tail -f logs/gunicorn.error.log
+
+# Процессы
+ps aux | grep gunicorn | grep potby
+```
+
+### Development (Windows)
 
 ```bash
 # Run development server
@@ -67,6 +158,72 @@ py manage.py import_quiz_questions
 # Import quiz questions (v2, improved)
 py manage.py import_quiz_questions_v2
 ```
+
+## Development Guidelines
+
+### 🚨 КРИТИЧНО: DEBUG и Error Handlers
+
+**ВАЖНО:** В production DEBUG ВСЕГДА должен быть False!
+
+1. **DEBUG жёстко отключён в settings.py:**
+   ```python
+   DEBUG = False  # КРИТИЧНО: всегда False в production!
+   ```
+
+2. **settings_prod.py переопределяет:**
+   ```python
+   DEBUG = False
+   ```
+
+3. **Для development используйте settings_dev.py:**
+   ```bash
+   export DJANGO_SETTINGS_MODULE=settings_dev
+   python manage.py runserver
+   ```
+
+4. **Почему это критично:**
+   - DEBUG=True раскрывает полную структуру URL
+   - Показывает пути к файлам проекта
+   - Может показать SECRET_KEY в traceback
+   - Раскрывает установленные библиотеки и их версии
+   - **Даёт атакующим полную карту приложения!**
+
+5. **Error handlers (directory/error_handlers.py):**
+   - **НЕ ПЕРЕДАЮТ** exception details пользователю
+   - Детали логируются для разработчиков
+   - Пользователям показываются красивые кастомные страницы
+   - В шаблонах error-details не должно быть контента
+
+6. **Проверка перед деплоем:**
+   ```bash
+   DJANGO_SETTINGS_MODULE=settings_prod venv/bin/python \
+       scripts/check_debug_status.py
+   ```
+
+См. подробнее: [docs/DEBUG_MODE_FIX.md](docs/DEBUG_MODE_FIX.md)
+
+### Test and Utility Scripts
+
+**IMPORTANT:** All test and utility scripts MUST be created in the `utility_scripts/` directory, not in the project root.
+
+- **Location:** `G:\Мой диск\OT_online\utility_scripts/`
+- **Purpose:** Temporary scripts for testing, debugging, data analysis, or one-off tasks
+- **Git behavior:** This directory is ignored by Git (configured in `.gitignore`)
+- **Naming:** Use descriptive names like `check_*.py`, `test_*.py`, `debug_*.py`, `demo_*.py`
+
+**Examples of scripts that belong in utility_scripts/:**
+- Database check scripts (`check_medical_template.py`)
+- Test email scripts (`demo_medical_email.py`)
+- Data migration utilities (`recreate_templates.py`)
+- Debug scripts for specific features
+- One-time data population scripts
+
+**NEVER create test scripts in:**
+- Project root directory
+- App directories (`directory/`, `deadline_control/`)
+- Template or static directories
+
+Management commands for permanent functionality should use Django's `management/commands/` structure.
 
 ## Architecture Overview
 
@@ -338,3 +495,70 @@ Use `DATE_FORMAT`, `DATETIME_FORMAT` settings for Russian format:
 1. **pymorphy2 on Python 3.11+:** Requires `inspect.getargspec` monkeypatch in `manage.py`
 2. **Windows paths:** Project developed on Windows - path handling uses `Path` objects for cross-platform compatibility
 3. **Exam subdomain on localhost:** Use `exam.localhost:8001` format, ensure proper hosts file or browser support
+
+## Git Workflow на Production
+
+**КРИТИЧНО:** На production сервере **НЕ ДЕЛАЮТСЯ коммиты кода!**
+
+### Правильный workflow:
+
+```
+Development (локальный компьютер)
+    ↓ git commit & push
+GitHub Repository (origin)
+    ↓ git pull
+Production Server (192.168.37.10)
+    ↓ deploy
+pot.by (работающий сайт)
+```
+
+### Основные команды на production:
+
+```bash
+# Автоматический деплой (рекомендуется)
+./deploy_from_git.sh
+
+# Или вручную:
+git fetch origin
+git log HEAD..origin/main  # Посмотреть изменения
+git pull origin main
+python manage.py migrate --settings=settings_prod
+python manage.py collectstatic --noinput --settings=settings_prod
+./reload_gunicorn.sh
+```
+
+### Работа с локальными изменениями:
+
+```bash
+# Сохранить локальные изменения
+git stash save "Production local changes"
+
+# Получить обновления
+git pull origin main
+
+# Вернуть изменения (если нужно)
+git stash pop
+```
+
+### Важные правила:
+
+1. ❌ **НЕ коммитить** на production (кроме экстренных hotfix)
+2. ❌ **НЕ делать** `git push --force`
+3. ❌ **НЕ коммитить** .env файлы или секреты
+4. ✅ Всегда проверять изменения перед pull: `git fetch && git log HEAD..origin/main`
+5. ✅ Использовать `./deploy_from_git.sh` для автоматического деплоя
+6. ✅ Делать backup базы перед большими обновлениями
+
+### Скрипты управления:
+
+- `./deploy_from_git.sh` - Полный автоматический деплой из Git
+- `./start_gunicorn.sh` - Запуск Gunicorn с проверками
+- `./reload_gunicorn.sh` - Graceful reload без даунтайма
+- `./stop_gunicorn.sh` - Остановка Gunicorn
+- `scripts/check_debug_status.py` - Проверка настроек безопасности
+
+### Подробная документация:
+
+- **GIT_QUICKSTART.md** - Быстрый старт по Git на production
+- **docs/GIT_WORKFLOW.md** - Подробное руководство по Git workflow
+- **docs/CWP_ARCHITECTURE.md** - Архитектура развёртывания

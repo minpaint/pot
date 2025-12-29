@@ -3,6 +3,10 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from django.contrib.messages import constants as messages
+import warnings
+
+# 📌 Подавление предупреждений о pkg_resources от docxcompose
+warnings.filterwarnings('ignore', message='.*pkg_resources is deprecated.*')
 
 # 📌 Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -15,9 +19,14 @@ TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
 # 🔐 Основные настройки безопасности
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True' and not TESTING
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,exam.localhost,localhost:8001,exam.localhost:8001,127.0.0.1:8001').split(',')
+# КРИТИЧНО: DEBUG всегда False в production!
+# Для включения DEBUG в development используйте локальный .env
+DEBUG = False
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'pot.by,www.pot.by,192.168.37.10,127.0.0.1,localhost').split(',')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 🌐 Основной домен сайта (используется для формирования URL в email)
+SITE_DOMAIN = os.getenv('SITE_DOMAIN', 'pot.by')
 
 
 # 📱 Базовые приложения  ────────────────────────────────────────────────
@@ -40,11 +49,13 @@ THIRD_PARTY_APPS = [
     'crispy_bootstrap4',      # Bootstrap 4 для crispy-forms 🎨
     'import_export',          # Для импорта/экспорта данных
     'nested_admin',           # Для вложенных админ-интерфейсов
+    'django_ckeditor_5',      # WYSIWYG редактор CKEditor 5 📝✨
 ]
 
 # 🏠 Локальные приложения
 LOCAL_APPS = [
-    'directory.apps.DirectoryConfig', # Наше приложение "directory" 📦
+    'directory.apps.DirectoryConfig',  # Наше приложение "directory" 📦
+    'deadline_control.apps.DeadlineControlConfig',  # Контроль сроков ⏰
 ]
 
 # Добавляем debug_toolbar только если не в режиме тестирования и DEBUG=True
@@ -63,6 +74,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',         # Общие настройки 🔧
     'django.middleware.csrf.CsrfViewMiddleware',        # CSRF защита 🚫
     'django.contrib.auth.middleware.AuthenticationMiddleware', # Аутентификация 🔑
+    'directory.middleware.AccessCacheMiddleware',        # Request-level кеш прав доступа 🔐
     'django.contrib.messages.middleware.MessageMiddleware', # Сообщения 📨
     'django.middleware.clickjacking.XFrameOptionsMiddleware', # Защита от clickjacking 🖱️
     'directory.middleware.ExamSubdomainMiddleware',      # Изоляция exam.* поддомена 🔐
@@ -93,6 +105,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.media', # Добавлен процессор для MEDIA_URL
+                'deadline_control.context_processors.notifications.deadline_notifications', # Уведомления о сроках
             ],
         },
     },
@@ -162,7 +175,8 @@ STATICFILES_FINDERS = [
 ]
 
 # ИСПРАВЛЕНО: используем WhiteNoise для статики
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# STATICFILES_STORAGE устарел в Django 5.0, используем STORAGES в settings_prod.py
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # 📸 Медиа файлы
 MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
@@ -181,7 +195,7 @@ if not CORS_ORIGIN_ALLOW_ALL:
 
 # 🔐 Настройки аутентификации
 LOGIN_URL = 'directory:auth:login' # Убедитесь, что URL 'directory:auth:login' существует
-LOGIN_REDIRECT_URL = 'directory:home' # Убедитесь, что URL 'directory:home' существует
+LOGIN_REDIRECT_URL = 'home' # Редирект на главную страницу (корень сайта)
 LOGOUT_REDIRECT_URL = 'directory:auth:login'
 AUTH_USER_MODEL = 'auth.User' # Стандартная модель пользователя Django
 
@@ -307,7 +321,7 @@ LOGGING = {
         },
         'file': { # Запись в файл
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log', # Путь к файлу логов
+            'filename': BASE_DIR / 'logs/django.log', # Путь к файлу логов
             'formatter': 'verbose',
             'level': 'DEBUG', # Уровень для файла (более детальный)
             'encoding': 'utf-8', # Явно указываем кодировку UTF-8
@@ -317,12 +331,11 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'django.server',
         },
-        # Можно добавить обработчик для отправки ошибок на email:
-        # 'mail_admins': {
-        #     'level': 'ERROR',
-        #     'class': 'django.utils.log.AdminEmailHandler',
-        #     'include_html': True,
-        # }
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'include_html': True,
+        }
     },
     'root': { # Корневой логгер (ловит все, что не перехвачено другими логгерами)
         'handlers': ['console', 'file'], # Используемые обработчики
@@ -330,9 +343,9 @@ LOGGING = {
     },
     'loggers': { # Логгеры для конкретных приложений/модулей
         'django': { # Логгер Django
-            'handlers': ['console', 'file'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-            'propagate': False, # Не передавать сообщения корневому логгеру, т.к. он их уже обрабатывает
+            'handlers': ['console', 'file', 'mail_admins'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
         'django.server': { # Логгер сервера разработки
             'handlers': ['django.server'],
@@ -352,6 +365,11 @@ LOGGING = {
         'exam_security': { # Логгер для безопасности exam поддомена
             'handlers': ['file', 'console'],
             'level': 'WARNING', # Логируем только предупреждения и ошибки
+            'propagate': False,
+        },
+        'pymorphy3.opencorpora_dict.wrapper': { # Логгер для pymorphy3
+            'handlers': ['file'],
+            'level': 'WARNING', # Скрываем INFO сообщения о загрузке словарей
             'propagate': False,
         },
     },
@@ -383,3 +401,66 @@ WKHTMLTOPDF_CMD = os.getenv('WKHTMLTOPDF_CMD', 'C:\\Program Files\\wkhtmltopdf\\
 # 📝 Настройки для экзаменационного поддомена
 EXAM_SUBDOMAIN = os.getenv('EXAM_SUBDOMAIN', 'exam.localhost:8001')
 EXAM_PROTOCOL = os.getenv('EXAM_PROTOCOL', 'http')
+
+# Разрешаем exam.* поддомен автоматически
+exam_host = EXAM_SUBDOMAIN.split(':')[0]
+if exam_host and exam_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(exam_host)
+
+# ✍️ Настройки CKEditor 5
+customColorPalette = [
+    {'color': 'hsl(4, 90%, 58%)', 'label': 'Red'},
+    {'color': 'hsl(340, 82%, 52%)', 'label': 'Pink'},
+    {'color': 'hsl(291, 64%, 42%)', 'label': 'Purple'},
+    {'color': 'hsl(262, 52%, 47%)', 'label': 'Deep Purple'},
+    {'color': 'hsl(231, 48%, 48%)', 'label': 'Indigo'},
+    {'color': 'hsl(207, 90%, 54%)', 'label': 'Blue'},
+]
+
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'link',
+                    'bulletedList', 'numberedList', 'blockQuote', '|',
+                    'fontSize', 'fontFamily', 'fontColor', '|',
+                    'alignment', '|', 'removeFormat', 'undo', 'redo'],
+        'height': 300,
+        'language': 'ru',
+    },
+    'email_template': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'underline', 'link',
+                    '|', 'bulletedList', 'numberedList',
+                    '|', 'fontSize', 'fontColor',
+                    '|', 'removeFormat', 'undo', 'redo'],
+        'height': 250,
+        'language': 'ru',
+        'fontFamily': {
+            'options': [
+                'default',
+                'Arial, Helvetica, sans-serif',
+                'Courier New, Courier, monospace',
+                'Georgia, serif',
+                'Times New Roman, Times, serif',
+            ]
+        },
+        'fontSize': {
+            'options': [10, 12, 14, 16, 18, 20, 22],
+            'supportAllValues': True
+        },
+        'fontColor': {
+            'columns': 6,
+            'colors': customColorPalette,
+        },
+        'heading': {
+            'options': [
+                {'model': 'paragraph', 'title': 'Параграф', 'class': 'ck-heading_paragraph'},
+                {'model': 'heading1', 'view': 'h1', 'title': 'Заголовок 1', 'class': 'ck-heading_heading1'},
+                {'model': 'heading2', 'view': 'h2', 'title': 'Заголовок 2', 'class': 'ck-heading_heading2'},
+                {'model': 'heading3', 'view': 'h3', 'title': 'Заголовок 3', 'class': 'ck-heading_heading3'},
+            ]
+        },
+    },
+}
+
+# Дополнительные настройки CKEditor 5
+CKEDITOR_5_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"  # Хранилище для загруженных файлов
+CKEDITOR_5_UPLOAD_PATH = "ckeditor5/uploads/"  # Путь для загрузки файлов (если потребуется)

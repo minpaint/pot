@@ -45,6 +45,8 @@ generated_documents/
 
 # Logs & backups
 logs/
+logs/*.log
+logs/*.log.*
 backups/
 *.log
 *.log.*
@@ -57,8 +59,10 @@ backups/
 
 # Secrets
 .env
-.env.*
-*.env
+.env.local
+.env.*.local
+# Но НЕ исключаем .env.example (он нужен для документации)
+!.env.example
 
 # OS/IDE
 .DS_Store
@@ -84,9 +88,20 @@ Screenshot_*.png
 nul
 =2.0.1
 
-# Test scripts
+# Production runtime
+run/
+*.pid
+gunicorn*.sock
+
+# Production database backups
+*.backup
+backup_*.sql
+
+# Test scripts (временные скрипты для тестирования)
 test_*.py
 utility_scripts/
+
+# Production scripts в scripts/ коммитятся в Git
 
 # Development documentation (not needed in production)
 AGENTS.md

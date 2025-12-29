@@ -1,0 +1,48 @@
+<li>
+    <div class="equipment-item">
+        <div class="equipment-name">
+            <a href="{% url 'deadline_control:equipment:detail' equipment.pk %}">
+                ⚙️ {{ equipment.equipment_name }}
+            </a>
+        </div>
+        <div class="equipment-info">
+            {% if equipment.equipment_type %}
+                <span class="badge bg-secondary equipment-type-badge">{{ equipment.equipment_type.name }}</span>
+            {% endif %}
+            <span title="Инвентарный номер">📋 {{ equipment.inventory_number }}</span>
+            {% if equipment.last_maintenance_date %}
+                <span title="Последнее ТО">🔧 {{ equipment.last_maintenance_date|date:"d.m.Y" }}</span>
+            {% endif %}
+            {% if equipment.next_maintenance_date %}
+                <span title="Следующее ТО">📅 {{ equipment.next_maintenance_date|date:"d.m.Y" }}</span>
+            {% endif %}
+            {% if equipment.days_until_maintenance is not None %}
+                <span title="Дней до ТО">
+                    {% if equipment.days_until_maintenance < 0 %}
+                        ⏰ {{ equipment.days_overdue }} дн. просрочено
+                    {% else %}
+                        ⏱️ {{ equipment.days_until_maintenance }} дн.
+                    {% endif %}
+                </span>
+            {% endif %}
+            <span class="status-badge
+                {% if equipment.days_until_maintenance < 0 %}status-danger
+                {% elif equipment.days_until_maintenance <= 7 %}status-warning
+                {% else %}status-ok{% endif %}">
+                {% if equipment.days_until_maintenance < 0 %}
+                    Просрочено
+                {% elif equipment.days_until_maintenance <= 7 %}
+                    Скоро
+                {% else %}
+                    OK
+                {% endif %}
+            </span>
+        </div>
+        <div class="equipment-actions">
+            <a href="{% url 'deadline_control:equipment:update' equipment.pk %}"
+               class="btn btn-sm btn-info" title="Редактировать">✏️</a>
+            <a href="{% url 'deadline_control:equipment:delete' equipment.pk %}"
+               class="btn btn-sm btn-danger" title="Удалить">🗑️</a>
+        </div>
+    </div>
+</li>

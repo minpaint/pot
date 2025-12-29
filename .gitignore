@@ -96,6 +96,21 @@ gunicorn*.sock
 # Production database backups
 *.backup
 backup_*.sql
+backup_*.json
+
+# Import data (test/production data, not code)
+4import/
+*import/
+
+# Temporary files and notes
+NEXT_SESSION_PLAN.md
+hosts
+check-vpn-routes.sh
+*.docx
+!directory/data/templates/*.docx
+!/templates/**/*.docx
+*.bak
+*~
 
 # Test scripts (временные скрипты для тестирования)
 test_*.py

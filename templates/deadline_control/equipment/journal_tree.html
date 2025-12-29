@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
+<style>
+    .equipment-journal-container {
+        padding: 20px;
+    }
+
+    .page-header {
+        margin-bottom: 20px;
+    }
+
+    .filter-section {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+
+    .filter-field label {
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 6px;
+        display: block;
+        color: #495057;
+    }
+
+    .filter-field select,
+    .filter-field input[type="date"] {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+        min-width: 220px;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .tree-controls {
+        padding: 10px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .tree-btn {
+        padding: 6px 12px;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .tree-btn:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+
+    #result_list {
+        width: 100%;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    #result_list th {
+        background: #f8f9fa;
+        padding: 8px 6px;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        color: #495057;
+    }
+
+    #result_list td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+
+    .tree-row:hover td {
+        background-color: #f8f9fa;
+    }
+
+    .tree-icon {
+        margin-right: 4px;
+        font-size: 14px;
+    }
+
+    .toggle-btn {
+        display: inline-block;
+        margin-right: 4px;
+        padding: 1px 5px;
+        border: 1px solid #dee2e6;
+        background: white;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: monospace;
+        transition: all 0.2s;
+        min-width: 22px;
+        text-align: center;
+    }
+
+    .tree-row[data-level="0"] .field-name {
+        padding-left: 6px;
+        font-weight: 600;
+    }
+
+    .tree-row[data-level="1"] .field-name {
+        padding-left: 20px;
+        font-weight: 500;
+    }
+
+    .tree-row[data-level="2"] .field-name {
+        padding-left: 34px;
+    }
+
+    .tree-row[data-level="3"] .field-name {
+        padding-left: 48px;
+    }
+
+    .tree-row-hidden {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="equipment-journal-container">
+    <div class="page-header">
+        <h4 class="mb-2">{{ title }}</h4>
+        <p class="text-muted">Выберите тип оборудования и дату осмотра, затем сформируйте журнал.</p>
+    </div>
+
+    <form method="get" class="filter-section">
+        <div class="filter-row">
+            <div class="filter-field">
+                <label for="equipment_type">Тип оборудования</label>
+                <select id="equipment_type" name="equipment_type" required>
+                    <option value="">-- Выберите тип --</option>
+                    {% for eq_type in equipment_types %}
+                        <option value="{{ eq_type.id }}" {% if selected_equipment_type and eq_type.id == selected_equipment_type.id %}selected{% endif %}>
+                            {{ eq_type.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="inspection_date">Дата осмотра</label>
+                <input type="date" id="inspection_date" name="inspection_date" value="{{ inspection_date }}" required>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Показать</button>
+            </div>
+        </div>
+    </form>
+
+    {% if selected_equipment_type %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="equipment_type" value="{{ selected_equipment_type.id }}">
+            <input type="hidden" name="inspection_date" value="{{ inspection_date }}">
+
+            <div class="action-buttons">
+                <button type="submit" name="action" value="download_single" class="btn btn-primary btn-sm">
+                    Скачать общий журнал
+                </button>
+                <button type="submit" name="action" value="download_by_subdivision" class="btn btn-outline-primary btn-sm">
+                    Скачать по подразделениям (zip)
+                </button>
+            </div>
+        </form>
+
+        <div class="tree-controls">
+            <button type="button" class="tree-btn expand-all">Развернуть все</button>
+            <button type="button" class="tree-btn collapse-all">Свернуть все</button>
+        </div>
+
+        <div class="table-responsive">
+            <table id="result_list">
+                <thead>
+                    <tr>
+                        <th>Структура</th>
+                        <th>Данные</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org_data in tree_data %}
+                        <tr class="tree-row" data-level="0" data-node-id="org_{{ org_data.org.id }}">
+                            <td class="field-name">
+                                {% if org_data.subdivisions_list or org_data.equipment %}
+                                    <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                {% endif %}
+                                <span class="tree-icon">[ORG]</span>
+                                <strong>{{ org_data.org.short_name_ru|default:org_data.org.full_name_ru }}</strong>
+                            </td>
+                            <td>Всего: {{ org_data.equipment_count }}</td>
+                            <td>
+                                <button type="button"
+                                        onclick="openMassPreview({{ org_data.org.id }})"
+                                        class="btn btn-sm btn-outline-primary">
+                                    Предпросмотр рассылки
+                                </button>
+                            </td>
+                        </tr>
+
+                        {% for equipment in org_data.equipment %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org_data.org.id }}">
+                                <td class="field-name">
+                                    <span class="tree-icon">[EQ]</span>
+                                    {{ equipment.equipment_name }}
+                                </td>
+                                <td>{{ equipment.inventory_number|default:"-" }}</td>
+                                <td></td>
+                            </tr>
+                        {% endfor %}
+
+                        {% for sub_data in org_data.subdivisions_list %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org_data.org.id }}" data-node-id="sub_{{ sub_data.sub.id }}">
+                                <td class="field-name">
+                                    {% if sub_data.departments_list or sub_data.equipment %}
+                                        <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                    {% endif %}
+                                    <span class="tree-icon">[SUB]</span>
+                                    {{ sub_data.sub.name }}
+                                </td>
+                                <td>{{ sub_data.equipment_count }}</td>
+                                <td>
+                                    <a href="{% url 'deadline_control:equipment:send_journal_sample' sub_data.sub.id %}" class="btn btn-sm btn-outline-primary">
+                                        Отправить образец
+                                    </a>
+                                </td>
+                            </tr>
+
+                            {% for equipment in sub_data.equipment %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub_data.sub.id }}">
+                                    <td class="field-name">
+                                        <span class="tree-icon">[EQ]</span>
+                                        {{ equipment.equipment_name }}
+                                    </td>
+                                    <td>{{ equipment.inventory_number|default:"-" }}</td>
+                                    <td></td>
+                                </tr>
+                            {% endfor %}
+
+                            {% for dept_data in sub_data.departments_list %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub_data.sub.id }}" data-node-id="dept_{{ dept_data.dept.id }}">
+                                    <td class="field-name">
+                                        {% if dept_data.equipment %}
+                                            <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                        {% endif %}
+                                        <span class="tree-icon">[DEPT]</span>
+                                        {{ dept_data.dept.name }}
+                                    </td>
+                                    <td>{{ dept_data.equipment_count }}</td>
+                                    <td></td>
+                                </tr>
+
+                                {% for equipment in dept_data.equipment %}
+                                    <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept_data.dept.id }}">
+                                        <td class="field-name">
+                                            <span class="tree-icon">[EQ]</span>
+                                            {{ equipment.equipment_name }}
+                                        </td>
+                                        <td>{{ equipment.inventory_number|default:"-" }}</td>
+                                        <td></td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                Оборудование выбранного типа не найдено.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">Выберите тип оборудования для просмотра дерева и генерации журналов.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'admin/js/tree_view.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    window.openMassPreview = function(organizationId) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "deadline_control:equipment:preview_journals" 0 %}'.replace('/0/', '/' + organizationId + '/');
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken.value;
+            form.appendChild(csrfInput);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    };
+});
+</script>
+{% endblock %}

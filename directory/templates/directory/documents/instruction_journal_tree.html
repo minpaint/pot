@@ -1,0 +1,623 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load dict_filters %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
+<style>
+    /* Дополнительные стили для древовидного списка */
+    .instruction-journal-container {
+        padding: 20px;
+    }
+
+    .page-header {
+        margin-bottom: 20px;
+    }
+
+    .page-description {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 15px;
+    }
+
+    /* Поле для даты повторного инструктажа */
+    .date-input-section {
+        background: #e7f3ff;
+        border: 2px solid #0066cc;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .date-input-section label {
+        font-weight: 600;
+        font-size: 15px;
+        color: #0066cc;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .date-input-section input[type="date"] {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 200px;
+    }
+
+    .date-input-section input[type="date"]:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 0.2rem rgba(0,102,204,.25);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .selected-info {
+        color: #666;
+        font-size: 14px;
+        margin-left: auto;
+    }
+
+    #result_list {
+        width: 100%;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    #result_list th {
+        background: #f8f9fa;
+        padding: 8px 6px;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        color: #495057;
+    }
+
+    #result_list td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+
+    .tree-row:hover td {
+        background-color: #f8f9fa;
+    }
+
+    /* Колонки */
+    .column-checkbox {
+        width: 40px;
+        text-align: center;
+    }
+
+    .column-name {
+        width: 35%;
+    }
+
+    .column-position {
+        width: 25%;
+    }
+
+    .column-badge {
+        width: 20%;
+    }
+
+    /* Бейджи */
+    .badge-has-instructions {
+        background-color: #28a745;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        display: inline-block;
+    }
+
+    /* Кнопки управления деревом */
+    .tree-controls {
+        padding: 10px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .tree-btn {
+        padding: 6px 12px;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .tree-btn:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+
+    .tree-search-container {
+        flex: 1;
+        max-width: 300px;
+    }
+
+    .tree-search {
+        width: 100%;
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .tree-search:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+    /* Чекбоксы */
+    .form-check-input {
+        cursor: pointer;
+    }
+
+    /* Выделение выбранных строк */
+    .tree-row.selected {
+        background-color: #e7f3ff;
+    }
+
+    /* Иконки */
+    .tree-icon {
+        margin-right: 4px;
+        font-size: 14px;
+    }
+
+    /* Кнопки разворачивания */
+    .toggle-btn {
+        display: inline-block;
+        margin-right: 4px;
+        padding: 1px 5px;
+        border: 1px solid #dee2e6;
+        background: white;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: monospace;
+        transition: all 0.2s;
+        min-width: 22px;
+        text-align: center;
+    }
+
+    .toggle-btn:hover {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+    }
+
+    /* Отступы для уровней */
+    .tree-row[data-level="0"] .field-name {
+        padding-left: 6px;
+        font-weight: 600;
+    }
+
+    .tree-row[data-level="1"] .field-name {
+        padding-left: 20px;
+        font-weight: 500;
+    }
+
+    .tree-row[data-level="2"] .field-name {
+        padding-left: 34px;
+    }
+
+    .tree-row[data-level="3"] .field-name {
+        padding-left: 48px;
+    }
+
+    /* Скрытые элементы */
+    .tree-row-hidden {
+        display: none !important;
+    }
+
+    .hidden-by-search {
+        display: none !important;
+    }
+
+    .highlight-search td {
+        background-color: #fff3cd !important;
+    }
+
+    /* Стили для ответственных за ОТ */
+    .safety-responsible-row {
+        background-color: #fff9e6 !important;
+        border-left: 3px solid #ffc107 !important;
+    }
+
+    .safety-responsible-row:hover td {
+        background-color: #fff3cd !important;
+    }
+
+    .safety-crown-icon {
+        font-size: 16px;
+        margin-right: 4px;
+    }
+
+    /* Стили для строк без инструкций */
+    .no-instructions-row {
+        background-color: #fff3cd !important;
+    }
+
+    .no-instructions-row:hover td {
+        background-color: #ffe69c !important;
+    }
+
+    .no-instruction-warning {
+        color: #d63031;
+        font-weight: 600;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="instruction-journal-container">
+    <div class="page-header">
+        <h4 class="mb-2">{{ title }}</h4>
+        <p class="page-description">
+            Формирование образца заполнения журнала повторных инструктажей по охране труда.
+            Выберите дату повторного инструктажа и сотрудников для включения в образец.
+        </p>
+    </div>
+
+    <form method="post" id="instructionJournalForm">
+        {% csrf_token %}
+
+        <!-- Поля для даты, вида и причины инструктажа -->
+        <div class="date-input-section">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                <div>
+                    <label for="date_povtorny">📅 Дата инструктажа:</label>
+                    <input type="date" id="date_povtorny" name="date_povtorny"
+                           value="{{ default_date }}" required style="width: 100%;">
+                </div>
+                <div>
+                    <label for="instruction_type">📋 Вид инструктажа:</label>
+                    <select id="instruction_type" name="instruction_type" required
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
+                        <option value="Повторный" selected>Повторный</option>
+                        <option value="Внеплановый">Внеплановый</option>
+                        <option value="Целевой">Целевой</option>
+                    </select>
+                </div>
+            </div>
+            <div id="reasonField" style="display: none;">
+                <label for="instruction_reason">📝 Причина проведения внепланового/целевого инструктажа:</label>
+                <input type="text" id="instruction_reason" name="instruction_reason"
+                       placeholder="Укажите причину проведения инструктажа"
+                       style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button type="submit" name="action" value="download_single" class="btn btn-primary btn-sm">
+                <i class="fas fa-download"></i> Скачать общий образец
+            </button>
+            <button type="submit" name="action" value="download_by_subdivision" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-folder"></i> Скачать по подразделениям (zip)
+            </button>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="selectAll" checked>
+                <label class="form-check-label" for="selectAll">Выбрать всех</label>
+            </div>
+            <span class="selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong></span>
+        </div>
+
+        <!-- Контролы дерева -->
+        <div class="tree-controls">
+            <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
+            <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
+            <div class="tree-search-container">
+                <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам...">
+            </div>
+        </div>
+
+        <!-- Древовидная таблица -->
+        <div class="table-responsive">
+            <table id="result_list">
+                <thead>
+                    <tr>
+                        <th class="column-checkbox">
+                            <input type="checkbox" id="select-all" checked>
+                        </th>
+                        <th class="column-name">ФИО / Структура</th>
+                        <th class="column-position">Должность</th>
+                        <th class="column-badge">Номера инструкций</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org, org_data in tree.items %}
+                        {# Организация #}
+                        <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
+                            <td class="column-checkbox"></td>
+                            <td class="field-name">
+                                <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
+                                <strong>{{ org_data.name }}</strong>
+                            </td>
+                            <td></td>
+                            <td>
+                                <button type="button"
+                                   onclick="openMassPreview({{ org.id }})"
+                                   class="btn btn-sm btn-outline-primary"
+                                   style="font-size: 11px; padding: 2px 8px;"
+                                   title="Просмотреть и отправить образцы для ВСЕХ подразделений организации">
+                                    <i class="fas fa-eye"></i> Предпросмотр массовой отправки
+                                </button>
+                            </td>
+                        </tr>
+
+                        {# Сотрудники без подразделения #}
+                        {% for item in org_data.items %}
+                            <tr class="tree-row {% if item.employee.position.is_responsible_for_safety %}safety-responsible-row{% endif %}{% if not item.has_instructions %} no-instructions-row{% endif %}" data-level="1" data-parent-id="org_{{ org.id }}">
+                                <td class="column-checkbox">
+                                    <input type="checkbox" class="form-check-input employee-checkbox"
+                                           name="employee_ids" value="{{ item.employee.id }}" {% if not item.employee.position.is_responsible_for_safety %}checked{% endif %}>
+                                </td>
+                                <td class="field-name">
+                                    <span class="tree-icon {% if item.employee.position.is_responsible_for_safety %}safety-crown-icon{% endif %}">{% if item.employee.position.is_responsible_for_safety %}👑{% else %}{{ tree_settings.icons.employee }}{% endif %}</span>
+                                    {{ item.employee.full_name_nominative }}
+                                </td>
+                                <td>{{ item.employee.position.position_name }}</td>
+                                <td>
+                                    {% if item.has_instructions %}
+                                        <small style="color: #666;">{{ item.instructions }}</small>
+                                    {% else %}
+                                        <span class="no-instruction-warning">⚠️ Нет инструкций</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+
+                        {# Подразделения #}
+                        {% for sub, sub_data in org_data.subdivisions.items %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
+                                <td class="column-checkbox"></td>
+                                <td class="field-name">
+                                    <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                    <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
+                                    {{ sub_data.name }}
+                                </td>
+                                <td></td>
+                                <td>
+                                    <a href="{% url 'directory:documents:send_instruction_sample' sub.id %}"
+                                       class="btn btn-sm btn-outline-primary"
+                                       style="font-size: 11px; padding: 2px 8px;"
+                                       title="Отправить образец заполнения журнала на email получателей подразделения">
+                                        <i class="fas fa-envelope"></i> Отправить образец
+                                    </a>
+                                </td>
+                            </tr>
+
+                            {# Сотрудники без отдела #}
+                            {% for item in sub_data.items %}
+                                <tr class="tree-row {% if item.employee.position.is_responsible_for_safety %}safety-responsible-row{% endif %}{% if not item.has_instructions %} no-instructions-row{% endif %}" data-level="2" data-parent-id="sub_{{ sub.id }}">
+                                    <td class="column-checkbox">
+                                        <input type="checkbox" class="form-check-input employee-checkbox"
+                                               name="employee_ids" value="{{ item.employee.id }}" {% if not item.employee.position.is_responsible_for_safety %}checked{% endif %}>
+                                    </td>
+                                    <td class="field-name">
+                                        <span class="tree-icon {% if item.employee.position.is_responsible_for_safety %}safety-crown-icon{% endif %}">{% if item.employee.position.is_responsible_for_safety %}👑{% else %}{{ tree_settings.icons.employee }}{% endif %}</span>
+                                        {{ item.employee.full_name_nominative }}
+                                    </td>
+                                    <td>{{ item.employee.position.position_name }}</td>
+                                    <td>
+                                        {% if item.has_instructions %}
+                                            <small style="color: #666;">{{ item.instructions }}</small>
+                                        {% else %}
+                                            <span class="no-instruction-warning">⚠️ Нет инструкций</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+
+                            {# Отделы #}
+                            {% for dept, dept_data in sub_data.departments.items %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                                    <td class="column-checkbox"></td>
+                                    <td class="field-name">
+                                        <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                        <span class="tree-icon">{{ tree_settings.icons.department }}</span>
+                                        {{ dept_data.name }}
+                                    </td>
+                                    <td colspan="2"></td>
+                                </tr>
+
+                                {# Сотрудники в отделе #}
+                                {% for item in dept_data.items %}
+                                    <tr class="tree-row {% if item.employee.position.is_responsible_for_safety %}safety-responsible-row{% endif %}{% if not item.has_instructions %} no-instructions-row{% endif %}" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                        <td class="column-checkbox">
+                                            <input type="checkbox" class="form-check-input employee-checkbox"
+                                                   name="employee_ids" value="{{ item.employee.id }}" {% if not item.employee.position.is_responsible_for_safety %}checked{% endif %}>
+                                        </td>
+                                        <td class="field-name">
+                                            <span class="tree-icon {% if item.employee.position.is_responsible_for_safety %}safety-crown-icon{% endif %}">{% if item.employee.position.is_responsible_for_safety %}👑{% else %}{{ tree_settings.icons.employee }}{% endif %}</span>
+                                            {{ item.employee.full_name_nominative }}
+                                        </td>
+                                        <td>{{ item.employee.position.position_name }}</td>
+                                        <td>
+                                            {% if item.has_instructions %}
+                                                <small style="color: #666;">{{ item.instructions }}</small>
+                                            {% else %}
+                                                <span class="no-instruction-warning">⚠️ Нет инструкций</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">
+                                Нет активных сотрудников с должностями.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'admin/js/tree_view.js' %}"></script>
+<script src="{% static 'admin/js/tree_search.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Показ/скрытие поля причины в зависимости от вида инструктажа
+    const instructionTypeSelect = document.getElementById('instruction_type');
+    const reasonField = document.getElementById('reasonField');
+
+    function toggleReasonField() {
+        const selectedType = instructionTypeSelect.value;
+        if (selectedType === 'Внеплановый' || selectedType === 'Целевой') {
+            reasonField.style.display = 'block';
+        } else {
+            reasonField.style.display = 'none';
+        }
+    }
+
+    if (instructionTypeSelect) {
+        instructionTypeSelect.addEventListener('change', toggleReasonField);
+        // Проверяем начальное состояние
+        toggleReasonField();
+    }
+    // Обработка selectAll чекбокса
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
+    const counter = document.getElementById('selectedCount');
+
+    function updateCounter() {
+        const selected = checkboxes.filter(cb => cb.checked).length;
+        counter.textContent = selected;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            checkboxes.forEach(cb => {
+                // Проверяем, что чекбокс видим (не скрыт деревом)
+                const row = cb.closest('tr');
+                if (!row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search')) {
+                    cb.checked = checked;
+                }
+            });
+            updateCounter();
+        });
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateCounter);
+    });
+
+    // Начальное обновление счетчика
+    updateCounter();
+
+    // Обновление счетчика при сворачивании/разворачивании дерева
+    const observer = new MutationObserver(updateCounter);
+    const table = document.getElementById('result_list');
+    if (table) {
+        observer.observe(table, {
+            attributes: true,
+            attributeFilter: ['class'],
+            subtree: true
+        });
+    }
+
+    // Валидация формы
+    const form = document.getElementById('instructionJournalForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const datePovtorny = document.getElementById('date_povtorny').value;
+            if (!datePovtorny) {
+                e.preventDefault();
+                alert('Пожалуйста, укажите дату повторного инструктажа.');
+                return false;
+            }
+
+            const selected = checkboxes.filter(cb => cb.checked).length;
+            if (selected === 0) {
+                e.preventDefault();
+                alert('Пожалуйста, выберите хотя бы одного сотрудника.');
+                return false;
+            }
+        });
+    }
+
+    // Функция для открытия предпросмотра массовой отправки с данными формы
+    window.openMassPreview = function(organizationId) {
+        // Получаем данные из формы
+        const datePovtorny = document.getElementById('date_povtorny').value;
+        const instructionType = document.getElementById('instruction_type').value;
+        const instructionReason = document.getElementById('instruction_reason').value;
+
+        // Валидация
+        if (!datePovtorny) {
+            alert('Пожалуйста, укажите дату инструктажа перед предпросмотром.');
+            return;
+        }
+
+        // Создаем скрытую форму для отправки данных
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "directory:documents:preview_mass_send_instruction_samples" 0 %}'.replace('/0/', '/' + organizationId + '/');
+
+        // Добавляем CSRF токен
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Добавляем дату инструктажа
+        const dateInput = document.createElement('input');
+        dateInput.type = 'hidden';
+        dateInput.name = 'date_povtorny';
+        dateInput.value = datePovtorny;
+        form.appendChild(dateInput);
+
+        // Добавляем вид инструктажа
+        const typeInput = document.createElement('input');
+        typeInput.type = 'hidden';
+        typeInput.name = 'instruction_type';
+        typeInput.value = instructionType;
+        form.appendChild(typeInput);
+
+        // Добавляем причину (если есть)
+        if (instructionReason) {
+            const reasonInput = document.createElement('input');
+            reasonInput.type = 'hidden';
+            reasonInput.name = 'instruction_reason';
+            reasonInput.value = instructionReason;
+            form.appendChild(reasonInput);
+        }
+
+        // Добавляем форму на страницу и отправляем
+        document.body.appendChild(form);
+        form.submit();
+    };
+});
+</script>
+{% endblock %}

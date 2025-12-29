@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
+<style>
+    /* Дополнительные стили для древовидного списка */
+    .periodic-protocol-container {
+        padding: 20px;
+    }
+
+    .page-header {
+        margin-bottom: 20px;
+    }
+
+    .page-description {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 15px;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .selected-info {
+        color: #666;
+        font-size: 14px;
+        margin-left: auto;
+    }
+
+    #result_list {
+        width: 100%;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    #result_list th {
+        background: #f8f9fa;
+        padding: 8px 6px;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        color: #495057;
+    }
+
+    #result_list td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+
+    .tree-row:hover td {
+        background-color: #f8f9fa;
+    }
+
+    /* Колонки */
+    .column-checkbox {
+        width: 40px;
+        text-align: center;
+    }
+
+    .column-name {
+        width: 35%;
+    }
+
+    .column-position {
+        width: 25%;
+    }
+
+    .column-badge {
+        width: 20%;
+    }
+
+    /* Бейджи */
+    .badge-internship {
+        background-color: #17a2b8;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        display: inline-block;
+        margin-right: 4px;
+    }
+
+    .badge-responsible {
+        background-color: #ffc107;
+        color: #000;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        display: inline-block;
+    }
+
+    /* Кнопки управления деревом */
+    .tree-controls {
+        padding: 10px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .tree-btn {
+        padding: 6px 12px;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .tree-btn:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+
+    .tree-search-container {
+        flex: 1;
+        max-width: 300px;
+    }
+
+    .tree-search {
+        width: 100%;
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .tree-search:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+    /* Чекбоксы */
+    .form-check-input {
+        cursor: pointer;
+    }
+
+    /* Выделение выбранных строк */
+    .tree-row.selected {
+        background-color: #e7f3ff;
+    }
+
+    /* Иконки */
+    .tree-icon {
+        margin-right: 4px;
+        font-size: 14px;
+    }
+
+    /* Кнопки разворачивания */
+    .toggle-btn {
+        display: inline-block;
+        margin-right: 4px;
+        padding: 1px 5px;
+        border: 1px solid #dee2e6;
+        background: white;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: monospace;
+        transition: all 0.2s;
+        min-width: 22px;
+        text-align: center;
+    }
+
+    .toggle-btn:hover {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+    }
+
+    /* Отступы для уровней */
+    .tree-row[data-level="0"] .field-name {
+        padding-left: 6px;
+        font-weight: 600;
+    }
+
+    .tree-row[data-level="1"] .field-name {
+        padding-left: 20px;
+        font-weight: 500;
+    }
+
+    .tree-row[data-level="2"] .field-name {
+        padding-left: 34px;
+    }
+
+    .tree-row[data-level="3"] .field-name {
+        padding-left: 48px;
+    }
+
+    /* Скрытые элементы */
+    .tree-row-hidden {
+        display: none !important;
+    }
+
+    .hidden-by-search {
+        display: none !important;
+    }
+
+    .highlight-search td {
+        background-color: #fff3cd !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="periodic-protocol-container">
+    <div class="page-header">
+        <h4 class="mb-2">{{ title }}</h4>
+        <p class="page-description">
+            В таблице собраны сотрудники со стажировкой или флагом «Ответственный за ОТ»,
+            отфильтрованные по вашим правам доступа. Галочки уже стоят — можно снять лишних перед скачиванием протокола.
+        </p>
+    </div>
+
+    <form method="post" id="periodicProtocolForm">
+        {% csrf_token %}
+
+        <div class="action-buttons">
+            <button type="submit" name="action" value="download_single" class="btn btn-primary btn-sm">
+                <i class="fas fa-download"></i> Скачать общий протокол
+            </button>
+            <button type="submit" name="action" value="download_by_subdivision" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-folder"></i> Скачать по подразделениям (zip)
+            </button>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="selectAll" checked>
+                <label class="form-check-label" for="selectAll">Выбрать всех</label>
+            </div>
+            <span class="selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong></span>
+        </div>
+
+        <!-- Контролы дерева -->
+        <div class="tree-controls">
+            <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
+            <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
+            <div class="tree-search-container">
+                <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам...">
+            </div>
+        </div>
+
+        <!-- Древовидная таблица -->
+        <div class="table-responsive">
+            <table id="result_list">
+                <thead>
+                    <tr>
+                        <th class="column-checkbox">
+                            <input type="checkbox" id="select-all" checked>
+                        </th>
+                        <th class="column-name">ФИО / Структура</th>
+                        <th class="column-position">Должность</th>
+                        <th class="column-badge">Признак</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org, org_data in tree.items %}
+                        {# Организация #}
+                        <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
+                            <td class="column-checkbox"></td>
+                            <td class="field-name">
+                                <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
+                                <strong>{{ org_data.name }}</strong>
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+
+                        {# Сотрудники без подразделения #}
+                        {% for employee in org_data.items %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
+                                <td class="column-checkbox">
+                                    <input type="checkbox" class="form-check-input employee-checkbox"
+                                           name="employee_ids" value="{{ employee.id }}" checked>
+                                </td>
+                                <td class="field-name">
+                                    <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                    {{ employee.full_name_nominative }}
+                                </td>
+                                <td>{{ employee.position.position_name }}</td>
+                                <td>
+                                    {% if employee.position.internship_period_days and employee.position.internship_period_days|add:0 > 0 %}
+                                        <span class="badge-internship">Стажировка</span>
+                                    {% endif %}
+                                    {% if employee.position.is_responsible_for_safety %}
+                                        <span class="badge-responsible">Ответственный за ОТ</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+
+                        {# Подразделения #}
+                        {% for sub, sub_data in org_data.subdivisions.items %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
+                                <td class="column-checkbox"></td>
+                                <td class="field-name">
+                                    <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                    <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
+                                    {{ sub_data.name }}
+                                </td>
+                                <td colspan="2"></td>
+                            </tr>
+
+                            {# Сотрудники без отдела #}
+                            {% for employee in sub_data.items %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
+                                    <td class="column-checkbox">
+                                        <input type="checkbox" class="form-check-input employee-checkbox"
+                                               name="employee_ids" value="{{ employee.id }}" checked>
+                                    </td>
+                                    <td class="field-name">
+                                        <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                        {{ employee.full_name_nominative }}
+                                    </td>
+                                    <td>{{ employee.position.position_name }}</td>
+                                    <td>
+                                        {% if employee.position.internship_period_days and employee.position.internship_period_days|add:0 > 0 %}
+                                            <span class="badge-internship">Стажировка</span>
+                                        {% endif %}
+                                        {% if employee.position.is_responsible_for_safety %}
+                                            <span class="badge-responsible">Ответственный за ОТ</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+
+                            {# Отделы #}
+                            {% for dept, dept_data in sub_data.departments.items %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                                    <td class="column-checkbox"></td>
+                                    <td class="field-name">
+                                        <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                        <span class="tree-icon">{{ tree_settings.icons.department }}</span>
+                                        {{ dept_data.name }}
+                                    </td>
+                                    <td colspan="2"></td>
+                                </tr>
+
+                                {# Сотрудники в отделе #}
+                                {% for employee in dept_data.items %}
+                                    <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                        <td class="column-checkbox">
+                                            <input type="checkbox" class="form-check-input employee-checkbox"
+                                                   name="employee_ids" value="{{ employee.id }}" checked>
+                                        </td>
+                                        <td class="field-name">
+                                            <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                            {{ employee.full_name_nominative }}
+                                        </td>
+                                        <td>{{ employee.position.position_name }}</td>
+                                        <td>
+                                            {% if employee.position.internship_period_days and employee.position.internship_period_days|add:0 > 0 %}
+                                                <span class="badge-internship">Стажировка</span>
+                                            {% endif %}
+                                            {% if employee.position.is_responsible_for_safety %}
+                                                <span class="badge-responsible">Ответственный за ОТ</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">
+                                Нет сотрудников, подходящих под критерии.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'admin/js/tree_view.js' %}"></script>
+<script src="{% static 'admin/js/tree_search.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка selectAll чекбокса
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
+    const counter = document.getElementById('selectedCount');
+
+    function updateCounter() {
+        const selected = checkboxes.filter(cb => cb.checked).length;
+        counter.textContent = selected;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            checkboxes.forEach(cb => {
+                // Проверяем, что чекбокс видим (не скрыт деревом)
+                const row = cb.closest('tr');
+                if (!row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search')) {
+                    cb.checked = checked;
+                }
+            });
+            updateCounter();
+        });
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateCounter);
+    });
+
+    // Начальное обновление счетчика
+    updateCounter();
+
+    // Обновление счетчика при сворачивании/разворачивании дерева
+    const observer = new MutationObserver(updateCounter);
+    const table = document.getElementById('result_list');
+    if (table) {
+        observer.observe(table, {
+            attributes: true,
+            attributeFilter: ['class'],
+            subtree: true
+        });
+    }
+
+    // Валидация формы
+    const form = document.getElementById('periodicProtocolForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const selected = checkboxes.filter(cb => cb.checked).length;
+            if (selected === 0) {
+                e.preventDefault();
+                alert('Пожалуйста, выберите хотя бы одного сотрудника.');
+                return false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

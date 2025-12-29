@@ -1,0 +1,146 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Отправка уведомления: {{ category.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='deadline_control' %}">Контроль сроков</a>
+    &rsaquo; <a href="{% url 'admin:deadline_control_keydeadlinecategory_changelist' %}">Категории ключевых сроков</a>
+    &rsaquo; Отправка уведомления: {{ category.name }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>⚙️ Отправка уведомления о ключевых мероприятиях</h1>
+
+    <fieldset class="module aligned">
+        <h2>📋 Информация о категории</h2>
+        <div style="padding: 15px;">
+            <p><strong>Категория:</strong> {{ category.name }}</p>
+            <p><strong>Организация:</strong> {{ category.organization.full_name_ru }}</p>
+            {% if category.description %}
+            <p><strong>Описание:</strong> {{ category.description }}</p>
+            {% endif %}
+        </div>
+    </fieldset>
+
+    <fieldset class="module aligned">
+        <h2>📊 Статистика мероприятий</h2>
+        <div style="padding: 15px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>🚨 Просроченных:</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <span style="color: #f44336; font-weight: bold; font-size: 16px;">{{ overdue_items|length }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>⏰ Предстоящих (30 дней):</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <span style="color: #ff9800; font-weight: bold; font-size: 16px;">{{ upcoming_items_30|length }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>⏰ Предстоящих (60 дней):</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <span style="color: #2196f3; font-weight: bold; font-size: 16px;">{{ upcoming_items_60|length }}</span>
+                    </td>
+                </tr>
+            </table>
+
+            {% if not overdue_items and not upcoming_items_30 %}
+            <div style="background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin-top: 15px;">
+                <strong>✅ Нет просроченных или срочных мероприятий</strong>
+                <p>В данной категории нет мероприятий, требующих срочного внимания.</p>
+            </div>
+            {% endif %}
+        </div>
+    </fieldset>
+
+    {% if overdue_items or upcoming_items_30 or upcoming_items_60 %}
+    <form method="post" style="margin-top: 20px;">
+        {% csrf_token %}
+
+        <fieldset class="module aligned">
+            <h2>⚙️ Параметры отправки</h2>
+
+            <div class="form-row">
+                <div>
+                    <label for="warning_days" class="required">Период предупреждения (дней):</label>
+                    <input type="number" id="warning_days" name="warning_days" value="30" min="1" max="365" required>
+                    <p class="help">
+                        За сколько дней до наступления срока отправлять предупреждение<br>
+                        <strong>Текущие мероприятия:</strong><br>
+                        • 30 дней: {{ upcoming_items_30|length }} мероприятий<br>
+                        • 60 дней: {{ upcoming_items_60|length }} мероприятий
+                    </p>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="test_mode">
+                        <input type="checkbox" id="test_mode" name="test_mode">
+                        Тестовый режим
+                    </label>
+                    <p class="help">Отметьте для отправки на тестовые адреса вместо настроенных получателей</p>
+                </div>
+            </div>
+
+            <div class="form-row" id="test_emails_row" style="display: none;">
+                <div>
+                    <label for="test_emails">Email адреса для теста:</label>
+                    <input type="text" id="test_emails" name="test_emails" size="60"
+                           placeholder="email1@example.com, email2@example.com">
+                    <p class="help">Укажите email адреса через запятую для тестовой отправки</p>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="help" style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0;">
+            <h3>ℹ️ Получатели</h3>
+            <p>Уведомление будет отправлено на email адреса, настроенные в <strong>EmailSettings</strong> для организации <strong>{{ category.organization.short_name_ru }}</strong></p>
+        </div>
+
+        <div class="help" style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <h3>⚠️ Внимание!</h3>
+            <ul>
+                <li>Будет отправлено уведомление только по <strong>этой категории</strong>: "{{ category.name }}"</li>
+                <li>Перед запуском проверьте настройки <strong>EmailSettings</strong></li>
+                <li>Убедитесь, что указаны получатели и SMTP сервер настроен корректно</li>
+            </ul>
+        </div>
+
+        <div class="submit-row">
+            <input type="submit" value="📧 Отправить уведомление" class="default">
+            <a href="{% url 'admin:deadline_control_keydeadlinecategory_changelist' %}" class="button">Отмена</a>
+        </div>
+    </form>
+    {% else %}
+    <div class="submit-row">
+        <a href="{% url 'admin:deadline_control_keydeadlinecategory_changelist' %}" class="button">← Вернуться к списку</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Показываем/скрываем поле для тестовых email в зависимости от чекбокса
+document.getElementById('test_mode').addEventListener('change', function() {
+    var testEmailsRow = document.getElementById('test_emails_row');
+    if (this.checked) {
+        testEmailsRow.style.display = 'block';
+    } else {
+        testEmailsRow.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

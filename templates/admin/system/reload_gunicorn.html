@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Перезагрузка Gunicorn</h1>
+    <p>Кнопка выполняет фиксированный скрипт <code>{{ script_path }}</code> и отправляет сигнал HUP для graceful reload.</p>
+    <p>Доступна только суперпользователям. Результат пишется в сообщения и логи.</p>
+
+    <form method="post" style="margin-top: 20px;">
+        {% csrf_token %}
+        <input type="hidden" name="confirm" value="1">
+        <button type="submit" class="default" onclick="return confirm('Точно перезапустить Gunicorn?');">
+            🔄 Перезагрузить Gunicorn
+        </button>
+    </form>
+
+    <p style="margin-top: 15px; color: #666;">
+        Совет: убедись, что Gunicorn запущен под тем же пользователем, чтобы сигнал сработал корректно.
+    </p>
+</div>
+{% endblock %}

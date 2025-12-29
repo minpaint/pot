@@ -1,0 +1,52 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div id="content-main">
+{{ block.super }}
+
+<div class="app-directory module">
+    <table style="width: 100%;">
+        <caption>
+            <a href="{% url 'admin:global_import' %}" class="section" title="Единый импорт/экспорт справочников">
+                📊 Единый импорт/экспорт справочников
+            </a>
+        </caption>
+        <tbody>
+            <tr class="model-globalimport">
+                <th scope="row" style="width: 300px; white-space: nowrap;">
+                    <a href="{% url 'admin:global_import' %}">📥 Импорт справочников</a>
+                </th>
+                <td style="white-space: normal;">Массовый импорт организационной структуры, сотрудников и оборудования из одного Excel-файла</td>
+            </tr>
+            <tr class="model-globalexport">
+                <th scope="row" style="width: 300px; white-space: nowrap;">
+                    <a href="{% url 'admin:global_export' %}">📤 Экспорт справочников</a>
+                </th>
+                <td style="white-space: normal;">Выгрузка всех справочников в один Excel-файл для редактирования</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+{% if request.user.is_superuser %}
+<div class="app-directory module">
+    <table style="width: 100%;">
+        <caption>
+            <a href="{% url 'admin:reload_gunicorn' %}" class="section" title="Сервисные операции">
+                🛠️ Сервис
+            </a>
+        </caption>
+        <tbody>
+            <tr class="model-reload-gunicorn">
+                <th scope="row" style="width: 300px; white-space: nowrap;">
+                    <a href="{% url 'admin:reload_gunicorn' %}">🔄 Перезагрузить Gunicorn</a>
+                </th>
+                <td style="white-space: normal;">Graceful reload через скрипт reload_gunicorn.sh. Требует подтверждения и пишет результат в лог.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+</div>
+{% endblock %}

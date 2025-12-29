@@ -1,0 +1,95 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Запуск рассылки уведомлений о медосмотрах{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='deadline_control' %}">Контроль сроков</a>
+    &rsaquo; <a href="{% url 'admin:deadline_control_medicalnotificationsendlog_changelist' %}">Логи медицинских уведомлений</a>
+    &rsaquo; Запуск рассылки
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>🏥 Запуск рассылки уведомлений о медосмотрах</h1>
+
+    <div class="help" style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0;">
+        <h3>ℹ️ Информация</h3>
+        <ul>
+            <li>Рассылка отправит план прохождения медицинских осмотров</li>
+            <li>Включает сотрудников <strong>без даты МО</strong>, с <strong>просроченными</strong> и <strong>предстоящими</strong> медосмотрами</li>
+            <li>Получатели берутся из настроек <strong>EmailSettings</strong> для выбранной организации</li>
+            <li>Тестовый режим позволяет проверить рассылку на указанных email адресах</li>
+        </ul>
+    </div>
+
+    <form method="post" style="margin-top: 20px;">
+        {% csrf_token %}
+
+        <fieldset class="module aligned">
+            <h2>📋 Параметры рассылки</h2>
+
+            <div class="form-row">
+                <div>
+                    <label for="organization" class="required">Организация:</label>
+                    <select id="organization" name="organization" required>
+                        <option value="">---------</option>
+                        {% for org in organizations %}
+                        <option value="{{ org.id }}">{{ org.short_name_ru }} - {{ org.full_name_ru }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="help">Выберите организацию для отправки уведомлений</p>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="test_mode">
+                        <input type="checkbox" id="test_mode" name="test_mode">
+                        Тестовый режим
+                    </label>
+                    <p class="help">Отметьте для отправки тестовых уведомлений на указанные адреса вместо настроенных получателей</p>
+                </div>
+            </div>
+
+            <div class="form-row" id="test_emails_row" style="display: none;">
+                <div>
+                    <label for="test_emails">Email адреса для теста:</label>
+                    <input type="text" id="test_emails" name="test_emails" size="60"
+                           placeholder="email1@example.com, email2@example.com">
+                    <p class="help">Укажите email адреса через запятую для тестовой отправки</p>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="help" style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <h3>⚠️ Внимание!</h3>
+            <ul>
+                <li>Перед запуском проверьте настройки <strong>EmailSettings</strong> для выбранной организации</li>
+                <li>Убедитесь, что указаны получатели и SMTP сервер настроен корректно</li>
+                <li>Рекомендуется сначала запустить в тестовом режиме</li>
+            </ul>
+        </div>
+
+        <div class="submit-row">
+            <input type="submit" value="📧 Запустить рассылку" class="default">
+            <a href="{% url 'admin:deadline_control_medicalnotificationsendlog_changelist' %}" class="button">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Показываем/скрываем поле для тестовых email в зависимости от чекбокса
+document.getElementById('test_mode').addEventListener('change', function() {
+    var testEmailsRow = document.getElementById('test_emails_row');
+    if (this.checked) {
+        testEmailsRow.style.display = 'block';
+    } else {
+        testEmailsRow.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

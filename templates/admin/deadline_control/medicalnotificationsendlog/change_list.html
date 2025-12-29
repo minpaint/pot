@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{{ send_notifications_url }}" class="addlink" style="background:#4caf50;">
+            📧 Запустить рассылку о медосмотрах
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}

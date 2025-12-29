@@ -1,0 +1,27 @@
+/* Стили для формы редактирования сотрудника */
+
+/* Уменьшаем расстояние между полями в одной строке */
+.form-row.field-date_of_birth.field-email {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row.field-date_of_birth.field-email > div {
+    flex: 0 1 auto;
+    margin-right: 0 !important;
+}
+
+/* Компактное отображение даты рождения */
+.form-row.field-date_of_birth.field-email .field-date_of_birth {
+    flex: 0 0 200px;
+}
+
+/* Email занимает оставшееся пространство */
+.form-row.field-date_of_birth.field-email .field-email {
+    flex: 1 1 auto;
+}
+
+/* Уменьшаем отступы в блоке личных данных */
+.fieldset-👤-личные-данные .form-row {
+    margin-bottom: 10px;
+}

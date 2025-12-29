@@ -1,0 +1,25 @@
+[Unit]
+Description=Gunicorn service for pot.by (OT_online)
+After=network.target
+
+[Service]
+Type=simple
+User=django
+Group=django
+WorkingDirectory=/home/django/webapps/potby
+EnvironmentFile=/home/django/webapps/potby/.env
+Environment="DJANGO_SETTINGS_MODULE=settings_prod"
+ExecStart=/home/django/webapps/potby/venv/bin/gunicorn \
+    --workers ${GUNICORN_WORKERS:-4} \
+    --bind ${GUNICORN_BIND:-127.0.0.1:8020} \
+    --timeout ${GUNICORN_TIMEOUT:-120} \
+    --log-level ${GUNICORN_LOG_LEVEL:-info} \
+    --access-logfile /home/django/webapps/potby/logs/gunicorn.access.log \
+    --error-logfile /home/django/webapps/potby/logs/gunicorn.error.log \
+    --pid /home/django/webapps/potby/run/gunicorn.pid \
+    wsgi:application
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

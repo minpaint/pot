@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}⚙️ ТО оборудования{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tree-container {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 0.95rem;
+    }
+
+    .tree-node {
+        margin-left: 0;
+        list-style: none;
+        padding-left: 0;
+    }
+
+    .tree-node li {
+        margin: 4px 0;
+        padding-left: 14px;
+        position: relative;
+    }
+
+    .tree-toggle {
+        cursor: pointer;
+        user-select: none;
+        display: inline-block;
+        width: 16px;
+        text-align: center;
+        font-weight: bold;
+        color: #555;
+        margin-right: 6px;
+    }
+
+    .tree-toggle:hover {
+        color: #000;
+    }
+
+    .tree-toggle.tree-toggle--spacer {
+        cursor: default;
+        color: transparent;
+        pointer-events: none;
+    }
+
+    .tree-children {
+        margin-left: 12px;
+        padding-left: 8px;
+        border-left: 1px dashed #d9d9d9;
+    }
+
+    .tree-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: background-color 0.2s, border-color 0.2s;
+        border: 1px solid #e6e6e6;
+        background: #fff;
+    }
+
+    .tree-item:hover {
+        background-color: #f8f9fb;
+        border-color: #cfe0f4;
+    }
+
+    .org-level {
+        font-weight: 600;
+        border-left: 3px solid #2f78d1;
+    }
+
+    .subdivision-level {
+        font-weight: 500;
+        border-left: 3px solid #7a4cc2;
+    }
+
+    .department-level {
+        font-weight: 500;
+        border-left: 3px solid #f39c12;
+    }
+
+    .equipment-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 8px;
+        margin: 4px 0;
+        background-color: #fff;
+        border: 1px solid #ededed;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+
+    .equipment-item:hover {
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        border-color: #cfe0f4;
+    }
+
+    .equipment-name {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .equipment-type-badge {
+        margin-right: 8px;
+    }
+
+    .equipment-info {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        font-size: 0.85em;
+        color: #666;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.85em;
+        text-transform: uppercase;
+    }
+
+    .status-ok {
+        background-color: #4caf50;
+        color: white;
+    }
+
+    .status-warning {
+        background-color: #ff9800;
+        color: white;
+    }
+
+    .status-danger {
+        background-color: #f44336;
+        color: white;
+    }
+
+    .equipment-actions {
+        display: flex;
+        gap: 5px;
+    }
+
+    .collapsed > .tree-children {
+        display: none;
+    }
+
+    .view-switcher {
+        margin-bottom: 20px;
+    }
+
+    .empty-message {
+        color: #999;
+        font-style: italic;
+        padding: 10px;
+    }
+
+    .tree-meta {
+        margin-left: auto;
+        font-size: 0.8em;
+        color: #6b7280;
+        background: #f1f3f5;
+        padding: 2px 8px;
+        border-radius: 10px;
+        border: 1px solid #e2e6ea;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 tree-container">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <h2>⚙️ Техническое обслуживание оборудования</h2>
+        </div>
+        <div class="col-md-6 text-end">
+            <div class="btn-group view-switcher" role="group">
+                <a href="{% url 'deadline_control:equipment:list_table' %}" class="btn btn-outline-primary">
+                    📋 Таблица
+                </a>
+                <button class="btn btn-primary active">
+                    🌳 Дерево
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-primary">
+                ➕ Добавить оборудование
+            </a>
+            <button id="expandAll" class="btn btn-secondary">Развернуть всё</button>
+            <button id="collapseAll" class="btn btn-secondary">Свернуть всё</button>
+        </div>
+    </div>
+
+    {% if tree_data %}
+        <ul class="tree-node">
+        {% for org_id, org_data in tree_data.items %}
+            <li class="org-node">
+                <div class="tree-item org-level">
+                    {% if org_data.equipment or org_data.subdivisions %}
+                        <span class="tree-toggle">▼</span>
+                    {% else %}
+                        <span class="tree-toggle tree-toggle--spacer">▼</span>
+                    {% endif %}
+                    <strong>🏢 {{ org_data.org }}</strong>
+                    <span class="tree-meta">ед.: {{ org_data.equipment|length }}</span>
+                </div>
+                <ul class="tree-children">
+                    {# Оборудование на уровне организации #}
+                    {% for equipment in org_data.equipment %}
+                        {% include 'deadline_control/equipment/_equipment_item.html' %}
+                    {% endfor %}
+
+                    {# Подразделения #}
+                    {% for sub_id, sub_data in org_data.subdivisions.items %}
+                        <li class="subdivision-node">
+                            <div class="tree-item subdivision-level">
+                                {% if sub_data.equipment or sub_data.departments %}
+                                    <span class="tree-toggle">▼</span>
+                                {% else %}
+                                    <span class="tree-toggle tree-toggle--spacer">▼</span>
+                                {% endif %}
+                                <strong>🏭 {{ sub_data.sub.name }}</strong>
+                                <span class="tree-meta">ед.: {{ sub_data.equipment|length }}</span>
+                            </div>
+                            <ul class="tree-children">
+                                {# Оборудование на уровне подразделения #}
+                                {% for equipment in sub_data.equipment %}
+                                    {% include 'deadline_control/equipment/_equipment_item.html' %}
+                                {% endfor %}
+
+                                {# Отделы #}
+                                {% for dept_id, dept_data in sub_data.departments.items %}
+                                    <li class="department-node">
+                                        <div class="tree-item department-level">
+                                            {% if dept_data.equipment %}
+                                                <span class="tree-toggle">▼</span>
+                                            {% else %}
+                                                <span class="tree-toggle tree-toggle--spacer">▼</span>
+                                            {% endif %}
+                                            <strong>📂 {{ dept_data.dept.name }}</strong>
+                                            <span class="tree-meta">ед.: {{ dept_data.equipment|length }}</span>
+                                        </div>
+                                        <ul class="tree-children">
+                                            {# Оборудование на уровне отдела #}
+                                            {% for equipment in dept_data.equipment %}
+                                                {% include 'deadline_control/equipment/_equipment_item.html' %}
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <div class="alert alert-info">
+            Нет оборудования. <a href="{% url 'deadline_control:equipment:create' %}">Добавить</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function toggleNode(li, toggle) {
+        if (!li || !li.querySelector('.tree-children')) {
+            return;
+        }
+        li.classList.toggle('collapsed');
+        if (toggle) {
+            toggle.textContent = li.classList.contains('collapsed') ? '▶' : '▼';
+        }
+    }
+
+    // Обработчики для сворачивания/разворачивания узлов
+    document.querySelectorAll('.tree-toggle').forEach(function(toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const li = this.closest('li');
+            toggleNode(li, this);
+        });
+    });
+
+    document.querySelectorAll('.tree-item').forEach(function(item) {
+        item.addEventListener('click', function(e) {
+            const li = this.closest('li');
+            const toggle = li ? li.querySelector('.tree-toggle') : null;
+            toggleNode(li, toggle);
+        });
+    });
+
+    // Развернуть всё
+    document.getElementById('expandAll').addEventListener('click', function() {
+        document.querySelectorAll('.tree-node li.collapsed').forEach(function(li) {
+            li.classList.remove('collapsed');
+            const toggle = li.querySelector('.tree-toggle');
+            if (toggle) toggle.textContent = '▼';
+        });
+    });
+
+    // Свернуть всё
+    document.getElementById('collapseAll').addEventListener('click', function() {
+        document.querySelectorAll('.tree-node li').forEach(function(li) {
+            if (li.querySelector('.tree-children')) {
+                li.classList.add('collapsed');
+                const toggle = li.querySelector('.tree-toggle');
+                if (toggle) toggle.textContent = '▶';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

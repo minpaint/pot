@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Предпросмотр массовой отправки - Журналы оборудования{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-container {
+        max-width: 1400px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+
+    .briefing-info {
+        background: #f8f9fa;
+        border-left: 4px solid #0d6efd;
+        padding: 20px;
+        margin-bottom: 30px;
+        border-radius: 4px;
+    }
+
+    .briefing-info h3 {
+        margin-top: 0;
+        color: #0d6efd;
+    }
+
+    .briefing-info .info-row {
+        margin: 8px 0;
+        display: flex;
+        gap: 10px;
+    }
+
+    .briefing-info .info-label {
+        font-weight: 600;
+        min-width: 200px;
+    }
+
+    .email-preview {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        padding: 25px;
+        margin-bottom: 30px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .email-preview h3 {
+        margin-top: 0;
+        color: #198754;
+        border-bottom: 2px solid #198754;
+        padding-bottom: 10px;
+    }
+
+    .email-body {
+        margin-top: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .summary-box {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        padding: 20px;
+        border-radius: 4px;
+        margin-bottom: 30px;
+    }
+
+    .summary-box h3 {
+        margin-top: 0;
+        color: #155724;
+    }
+
+    .summary-stats {
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .stat-value {
+        font-size: 1.8em;
+        font-weight: 700;
+        color: #155724;
+    }
+
+    .stat-label {
+        font-size: 0.9em;
+        color: #155724;
+    }
+
+    .tree-container {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        padding: 20px;
+        border-radius: 4px;
+        margin-bottom: 30px;
+    }
+
+    .subdivision-node {
+        margin-bottom: 20px;
+        padding: 15px;
+        border-left: 3px solid #0d6efd;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .subdivision-node.no-recipients {
+        border-left-color: #dc3545;
+        background: #fff5f5;
+    }
+
+    .subdivision-header {
+        font-weight: 600;
+        font-size: 1.1em;
+        margin-bottom: 10px;
+        color: #0d6efd;
+    }
+
+    .subdivision-node.no-recipients .subdivision-header {
+        color: #dc3545;
+    }
+
+    .subdivision-info {
+        margin: 10px 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .info-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 12px;
+        font-size: 0.9em;
+        font-weight: 500;
+    }
+
+    .badge-equipment {
+        background: #e8f5e9;
+        color: #388e3c;
+    }
+
+    .badge-subject {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+
+    .recipients-list {
+        margin-top: 10px;
+        padding: 10px;
+        background: #fff;
+        border-radius: 4px;
+    }
+
+    .recipients-list h4 {
+        margin: 0 0 8px 0;
+        font-size: 0.95em;
+        color: #198754;
+    }
+
+    .recipient-email {
+        display: inline-block;
+        margin: 3px 5px 3px 0;
+        padding: 3px 8px;
+        background: #e7f3ff;
+        border-radius: 3px;
+        font-size: 0.9em;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+    }
+
+    .btn-send {
+        padding: 15px 40px;
+        font-size: 1.1em;
+        font-weight: 600;
+        background: #198754;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    .btn-send:hover {
+        background: #157347;
+    }
+
+    .btn-cancel {
+        padding: 15px 40px;
+        font-size: 1.1em;
+        font-weight: 600;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+
+    .warning-message {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        color: #856404;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <h1>Предпросмотр массовой отправки журналов оборудования</h1>
+
+    <div class="briefing-info">
+        <h3>Параметры журнала</h3>
+        <div class="info-row">
+            <span class="info-label">Организация:</span>
+            <span>{{ organization.full_name_ru }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Тип оборудования:</span>
+            <span>{{ equipment_type.name }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Дата осмотра:</span>
+            <span>{{ inspection_date }}</span>
+        </div>
+    </div>
+
+    <div class="email-preview">
+        <h3>Текст письма (пример)</h3>
+        <p><em>Переменные будут автоматически заменены для каждого подразделения</em></p>
+        <div class="email-body">
+            {{ email_body_preview|safe }}
+        </div>
+    </div>
+
+    {% if not has_any_recipients %}
+    <div class="warning-message">
+        <strong>Внимание!</strong> Ни для одного подразделения не настроены получатели писем.
+        Отправка будет невозможна. Настройте получателей в админке.
+    </div>
+    {% endif %}
+
+    <div class="summary-box">
+        <h3>Общая статистика</h3>
+        <div class="summary-stats">
+            <div class="stat-item">
+                <div>
+                    <div class="stat-value">{{ tree_data|length }}</div>
+                    <div class="stat-label">Подразделений</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div>
+                    <div class="stat-value">{{ total_recipients_count }}</div>
+                    <div class="stat-label">Уникальных получателей</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tree-container">
+        <h3>Структура отправки</h3>
+
+        {% for item in tree_data %}
+        <div class="subdivision-node {% if not item.has_recipients %}no-recipients{% endif %}">
+            <div class="subdivision-header">
+                {{ item.subdivision.name }}
+                {% if not item.has_recipients %}
+                    <span style="color: #dc3545; margin-left: 10px;">НЕТ ПОЛУЧАТЕЛЕЙ</span>
+                {% endif %}
+            </div>
+
+            <div class="subdivision-info">
+                <span class="info-badge badge-equipment">
+                    Оборудования: {{ item.equipment_count }}
+                </span>
+                <span class="info-badge badge-subject">
+                    Тема: {{ item.email_subject }}
+                </span>
+            </div>
+
+            {% if item.has_recipients %}
+            <div class="recipients-list">
+                <h4>Получатели:</h4>
+                {% for email in item.recipients %}
+                    <span class="recipient-email">{{ email }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="recipients-list">
+                Получатели не настроены для этого подразделения
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+            <p style="text-align: center; color: #6c757d; padding: 40px;">
+                Нет подразделений с оборудованием выбранного типа
+            </p>
+        {% endfor %}
+    </div>
+
+    <div class="action-buttons">
+        <form method="post" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="send_emails" value="1">
+            <button type="submit" class="btn-send" {% if not has_any_recipients %}disabled{% endif %}>
+                {% if has_any_recipients %}
+                    Отправить всем ({{ total_recipients_count }} получателей)
+                {% else %}
+                    Отправка невозможна
+                {% endif %}
+            </button>
+        </form>
+        <a href="{% url 'deadline_control:equipment:journal' %}" class="btn-cancel">Отменить</a>
+    </div>
+</div>
+{% endblock %}

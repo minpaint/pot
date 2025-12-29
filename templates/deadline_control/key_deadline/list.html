@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}📅 Ключевые сроки{% endblock %}
+
+{% block extra_css %}
+<style>
+@media (max-width: 767px) {
+    /* Мобильные карточки: оставляем только Мероприятие + Статус */
+    .key-deadline-table thead {
+        display: none;
+    }
+
+    .key-deadline-table tbody tr {
+        display: block;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 0.75rem 0.75rem 0.35rem;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .key-deadline-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.35rem 0 0.2rem;
+        font-size: 0.95rem;
+        line-height: 1.35;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    /* Скрываем все столбцы, кроме Мероприятия (1) и Статуса (5) */
+    .key-deadline-table td:not(:nth-child(1)):not(:nth-child(5)) {
+        display: none;
+    }
+
+    /* Подписи колонок не показываем на мобилках */
+    .key-deadline-table td::before {
+        content: none;
+    }
+
+    .key-deadline-table .name-cell {
+        flex: 1;
+    }
+
+    .key-deadline-table .status-cell {
+        justify-content: flex-end;
+        min-width: 90px;
+        text-align: right;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <h2>📅 Ключевые сроки мероприятий</h2>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <a href="{% url 'deadline_control:key_deadline:category_create' %}" class="btn btn-primary">
+                ➕ Добавить категорию
+            </a>
+            <a href="{% url 'deadline_control:key_deadline:item_create' %}" class="btn btn-success">
+                ➕ Добавить мероприятие
+            </a>
+        </div>
+    </div>
+
+    {% if items_by_organization %}
+        {% for organization, categories_with_items in items_by_organization %}
+        <!-- Блок организации -->
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">🏢 {{ organization.short_name_ru|default:organization.full_name_ru }}</h4>
+            </div>
+            <div class="card-body">
+                {% for category, items in categories_with_items %}
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                        <h5 class="mb-0">📋 {{ category.name }}</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if items %}
+                        <table class="table table-sm key-deadline-table">
+                            <thead>
+                                <tr>
+                                    <th>Мероприятие</th>
+                                    <th>Периодичность</th>
+                                    <th>Текущая дата</th>
+                                    <th>Следующая дата</th>
+                                    <th>Статус</th>
+                                    <th>Ответственный</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr {% if item.is_overdue %}class="table-danger"{% elif item.is_upcoming %}class="table-warning"{% endif %}>
+                                    <td class="name-cell" data-label="Мероприятие">{{ item.name }}</td>
+                                    <td data-label="Периодичность">
+                                        {% if item.periodicity_months %}
+                                            {{ item.periodicity_months }} мес.
+                                        {% else %}
+                                            {{ item.category.periodicity_months }} мес.
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Текущая дата">{{ item.current_date|date:"d.m.Y" }}</td>
+                                    <td data-label="Следующая дата">{{ item.next_date|date:"d.m.Y"|default:"-" }}</td>
+                                    <td class="status-cell" data-label="Статус">
+                                        {% if item.is_overdue %}
+                                            <span class="badge bg-danger">🚨 Просрочено на {{ item.days_overdue }} дн.</span>
+                                        {% elif item.is_upcoming %}
+                                            <span class="badge bg-warning text-dark">⏰ Осталось {{ item.days_until_next }} дн.</span>
+                                        {% else %}
+                                            <span class="badge bg-success">✅ В норме</span>
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Ответственный">{{ item.responsible_person|default:"-" }}</td>
+                                    <td data-label="Действия">
+                                        <a href="{% url 'deadline_control:key_deadline:item_update' item.pk %}" class="btn btn-sm btn-info">✏️</a>
+                                        <a href="{% url 'deadline_control:key_deadline:item_delete' item.pk %}" class="btn btn-sm btn-danger">🗑️</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="text-muted">Нет активных мероприятий в этой категории</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="alert alert-info">
+        Нет активных мероприятий. <a href="{% url 'deadline_control:key_deadline:item_create' %}">Добавить мероприятие</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,31 +1,32 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, FormView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_GET
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from django.db.models import Q
 
-from directory.models import Employee, StructuralSubdivision, Position
+from directory.models import Employee, StructuralSubdivision, Position, Organization
 from directory.forms import EmployeeForm
 from directory.forms.employee_hiring import EmployeeHiringForm
 from directory.utils.declension import decline_full_name
+from directory.mixins import AccessControlMixin, AccessControlObjectMixin
+from directory.utils.permissions import AccessControlHelper
 
 
-class EmployeeListView(LoginRequiredMixin, ListView):
+class EmployeeListView(LoginRequiredMixin, AccessControlMixin, ListView):
     model = Employee
     template_name = 'directory/employees/list.html'
     context_object_name = 'employees'
     paginate_by = 20
 
     def get_queryset(self):
+        # AccessControlMixin автоматически фильтрует по правам доступа
         queryset = super().get_queryset()
-
-        # Фильтрация по организациям профиля пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            allowed_orgs = self.request.user.profile.organizations.all()
-            queryset = queryset.filter(organization__in=allowed_orgs)
 
         # Фильтрация по подразделению
         subdivision = self.request.GET.get('subdivision')
@@ -42,20 +43,154 @@ class EmployeeListView(LoginRequiredMixin, ListView):
         if search:
             queryset = queryset.filter(full_name_nominative__icontains=search)
 
-        return queryset.select_related('position', 'subdivision', 'organization')
+        return queryset.select_related('position', 'subdivision', 'organization', 'department')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Сотрудники'
 
-        # Фильтрация списков подразделений и должностей по организациям профиля
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            allowed_orgs = self.request.user.profile.organizations.all()
-            context['subdivisions'] = StructuralSubdivision.objects.filter(organization__in=allowed_orgs)
-            context['positions'] = Position.objects.filter(organization__in=allowed_orgs)
-        else:
-            context['subdivisions'] = StructuralSubdivision.objects.all()
-            context['positions'] = Position.objects.all()
+        # Используем AccessControlHelper для получения доступных подразделений и должностей
+        context['subdivisions'] = AccessControlHelper.get_accessible_subdivisions(
+            self.request.user, self.request
+        )
+        # Для должностей используем фильтр по доступным организациям
+        accessible_orgs = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
+        context['positions'] = Position.objects.filter(organization__in=accessible_orgs)
+
+        return context
+
+
+class EmployeeTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
+    """
+    🌳 Древовидное представление сотрудников по организационной структуре
+    ОПТИМИЗИРОВАНО для работы с 3000+ сотрудниками
+    """
+    model = Employee
+    template_name = 'directory/employees/tree_view.html'
+    context_object_name = 'employees'
+
+    def get_queryset(self):
+        # AccessControlMixin автоматически фильтрует по правам доступа
+        queryset = super().get_queryset()
+
+        # 🚀 ДЕФОЛТНЫЙ ФИЛЬТР: показываем только активных сотрудников
+        # (исключаем кандидатов и уволенных для ускорения загрузки)
+        if not self.request.GET.get('status'):
+            queryset = queryset.tree_visible()  # Использует метод из EmployeeQuerySet
+
+        # Фильтрация по должности
+        position = self.request.GET.get('position')
+        if position:
+            queryset = queryset.filter(position_id=position)
+
+        # Поиск по имени
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(full_name_nominative__icontains=search)
+
+        # 🚀 ОПТИМИЗАЦИЯ: загружаем все связанные объекты одним запросом
+        return queryset.select_related('position', 'subdivision', 'organization', 'department')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Сотрудники'
+
+        # Используем AccessControlHelper для получения доступных организаций, подразделений и отделов
+        allowed_orgs = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
+        allowed_subdivisions = AccessControlHelper.get_accessible_subdivisions(
+            self.request.user, self.request
+        )
+        allowed_departments = AccessControlHelper.get_accessible_departments(
+            self.request.user, self.request
+        )
+
+        # 🚀 ОПТИМИЗАЦИЯ: получаем всех сотрудников ОДНИМ запросом
+        # Используем уже оптимизированный queryset из get_queryset()
+        all_employees = list(self.get_queryset())
+
+        # 🚀 ОПТИМИЗАЦИЯ: группируем сотрудников по ключам в памяти (быстрее, чем N запросов к БД)
+        from collections import defaultdict
+
+        # Группируем сотрудников по (org_id, sub_id, dept_id)
+        employees_by_org = defaultdict(list)
+        employees_by_sub = defaultdict(list)
+        employees_by_dept = defaultdict(list)
+
+        for emp in all_employees:
+            org_id = emp.organization_id
+            sub_id = emp.subdivision_id
+            dept_id = emp.department_id
+
+            if sub_id is None and dept_id is None:
+                # Сотрудник на уровне организации
+                employees_by_org[org_id].append(emp)
+            elif dept_id is None:
+                # Сотрудник на уровне подразделения (без отдела)
+                employees_by_sub[(org_id, sub_id)].append(emp)
+            else:
+                # Сотрудник в отделе
+                employees_by_dept[(org_id, sub_id, dept_id)].append(emp)
+
+        # Создаем древовидную структуру данных
+        tree_data = []
+
+        for org in allowed_orgs:
+            org_employees = employees_by_org.get(org.id, [])
+
+            org_data = {
+                'id': org.id,
+                'name': org.short_name_ru or org.full_name_ru,
+                'employees': org_employees,
+                'subdivisions': []
+            }
+
+            # Получаем только доступные подразделения этой организации
+            org_subdivisions = org.subdivisions.filter(id__in=allowed_subdivisions)
+
+            for subdivision in org_subdivisions:
+                sub_employees = employees_by_sub.get((org.id, subdivision.id), [])
+
+                sub_data = {
+                    'id': subdivision.id,
+                    'name': subdivision.name,
+                    'employees': sub_employees,
+                    'departments': []
+                }
+
+                # Получаем только доступные отделы этого подразделения
+                sub_departments = subdivision.departments.filter(id__in=allowed_departments)
+
+                for department in sub_departments:
+                    dept_employees = employees_by_dept.get((org.id, subdivision.id, department.id), [])
+
+                    if dept_employees:
+                        dept_data = {
+                            'id': department.id,
+                            'name': department.name,
+                            'employees': dept_employees
+                        }
+                        sub_data['departments'].append(dept_data)
+
+                # Добавляем подразделение только если есть сотрудники или отделы
+                if sub_employees or sub_data['departments']:
+                    org_data['subdivisions'].append(sub_data)
+
+            # Добавляем организацию только если есть сотрудники или подразделения
+            if org_employees or org_data['subdivisions']:
+                tree_data.append(org_data)
+
+        context['tree_data'] = tree_data
+
+        # Фильтры - используем доступные организации
+        context['positions'] = Position.objects.filter(organization__in=allowed_orgs)
+
+        # Параметры фильтрации
+        context['current_position'] = self.request.GET.get('position', '')
+        context['search_query'] = self.request.GET.get('search', '')
 
         return context
 
@@ -72,7 +207,7 @@ class EmployeeCreateView(LoginRequiredMixin, CreateView):
         return context
 
 
-class EmployeeUpdateView(LoginRequiredMixin, UpdateView):
+class EmployeeUpdateView(LoginRequiredMixin, AccessControlObjectMixin, UpdateView):
     model = Employee
     form_class = EmployeeForm
     template_name = 'directory/employees/form.html'
@@ -87,7 +222,7 @@ class EmployeeUpdateView(LoginRequiredMixin, UpdateView):
         return context
 
 
-class EmployeeDeleteView(LoginRequiredMixin, DeleteView):
+class EmployeeDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteView):
     model = Employee
     template_name = 'directory/employees/confirm_delete.html'
     success_url = reverse_lazy('directory:employees:employee_list')
@@ -98,7 +233,7 @@ class EmployeeDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
 
-class EmployeeProfileView(LoginRequiredMixin, DetailView):
+class EmployeeProfileView(LoginRequiredMixin, AccessControlObjectMixin, DetailView):
     """
     👤 Представление для просмотра профиля сотрудника с возможностью
     выполнения дополнительных действий
@@ -154,19 +289,15 @@ class EmployeeHiringView(LoginRequiredMixin, FormView):
         context['title'] = '📝 Прием на работу'
         context['current_date'] = timezone.now().date()
 
-        # Получаем недавно принятых сотрудников, с учетом доступных организаций
-        user = self.request.user
+        # Получаем недавно принятых сотрудников через AccessControlHelper
+        accessible_orgs = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
 
-        # 🔄 Создаем базовый запрос без среза
-        recent_employees_query = Employee.objects.all()
-
-        # Ограничиваем по организациям из профиля пользователя
-        if not user.is_superuser and hasattr(user, 'profile'):
-            allowed_orgs = user.profile.organizations.all()
-            recent_employees_query = recent_employees_query.filter(organization__in=allowed_orgs)
-
-        # Затем сортируем и применяем срез
-        recent_employees_query = recent_employees_query.order_by('-id')[:5]
+        # Фильтруем сотрудников по доступным организациям
+        recent_employees_query = Employee.objects.filter(
+            organization__in=accessible_orgs
+        ).order_by('-id')[:5]
 
         context['recent_employees'] = recent_employees_query
         # Добавляем типы договоров для отображения в шаблоне
@@ -220,3 +351,32 @@ def get_positions(request):
         subdivision_id=subdivision_id
     ).values('id', 'position_name')  # Изменено с name на position_name
     return JsonResponse(list(positions), safe=False)
+
+
+@require_GET
+@login_required
+def employee_info_api(request, employee_id):
+    """
+    🔍 API для получения детальной информации о сотруднике
+    Используется во вкладке "По сотруднику" на странице карточек СИЗ
+    """
+    employee = get_object_or_404(Employee, pk=employee_id)
+
+    # Проверка прав доступа
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        return JsonResponse({'error': 'Нет доступа к этому сотруднику'}, status=403)
+
+    # Формируем ответ
+    data = {
+        'id': employee.id,
+        'full_name_nominative': employee.full_name_nominative,
+        'position_name': employee.position.position_name if employee.position else None,
+        'subdivision_name': employee.position.department.subdivision.name if (
+            employee.position and
+            employee.position.department and
+            employee.position.department.subdivision
+        ) else None,
+        'organization_name': employee.organization.short_name_ru if employee.organization else None,
+    }
+
+    return JsonResponse(data)

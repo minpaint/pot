@@ -246,18 +246,14 @@ class CombinedEmployeeHiringForm(forms.Form):
 
             # Если не найдены переопределения, проверяем эталонные нормы медосмотра
             if not needs_medical:
-                from directory.models.medical_norm import MedicalExaminationNorm
+                from deadline_control.models.medical_norm import MedicalExaminationNorm
                 needs_medical = MedicalExaminationNorm.objects.filter(
                     position_name=position.position_name
                 ).exists()
 
             # Если требуется медосмотр, проверяем заполнение обязательных полей
             if needs_medical:
-                date_of_birth = cleaned_data.get('date_of_birth')
                 place_of_residence = cleaned_data.get('place_of_residence')
-
-                if not date_of_birth:
-                    self.add_error('date_of_birth', _('Необходимо указать дату рождения для медосмотра'))
 
                 if not place_of_residence:
                     self.add_error('place_of_residence', _('Необходимо указать место проживания для медосмотра'))

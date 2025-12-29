@@ -9,7 +9,24 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 
-from directory.models.document_template import DocumentTemplate, GeneratedDocument
+from directory.models.document_template import (
+    DocumentTemplateType,
+    DocumentTemplate,
+    GeneratedDocument,
+    DocumentGenerationLog,
+)
+
+
+@admin.register(DocumentTemplateType)
+class DocumentTemplateTypeAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для видов шаблонов документов
+    """
+    list_display = ('name', 'code', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'code', 'description')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('name',)
 
 
 @admin.register(DocumentTemplate)
@@ -62,8 +79,8 @@ class GeneratedDocumentAdmin(admin.ModelAdmin):
         """
         Возвращает тип документа для отображения в списке
         """
-        if obj.template:
-            return obj.template.get_document_type_display()
+        if obj.template and obj.template.document_type:
+            return obj.template.document_type.name
         return _('Неизвестный тип')
 
     get_document_type.short_description = _('Тип документа')
@@ -72,4 +89,30 @@ class GeneratedDocumentAdmin(admin.ModelAdmin):
         """
         Запрещает добавление документов через админку
         """
+        return False
+
+
+@admin.register(DocumentGenerationLog)
+class DocumentGenerationLogAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для логов генерации документов
+    """
+    list_display = ('employee', 'get_document_types', 'created_at', 'created_by')
+    list_filter = ('created_at', 'created_by')
+    search_fields = ('employee__full_name_nominative',)
+    readonly_fields = ('employee', 'document_types', 'created_at', 'created_by')
+    date_hierarchy = 'created_at'
+
+    def get_document_types(self, obj):
+        """Возвращает читаемые названия типов документов"""
+        return obj.get_document_types_display()
+
+    get_document_types.short_description = _('Типы документов')
+
+    def has_add_permission(self, request):
+        """Запрещает добавление логов через админку"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Запрещает редактирование логов"""
         return False

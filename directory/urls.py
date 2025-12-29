@@ -2,36 +2,47 @@ from django.urls import path, include, reverse_lazy
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 from django.contrib.auth import logout
-from .views import siz
-from .views import siz_issued
-from directory.views import commissions
-from directory.views.documents.siz_integration import generate_siz_card_docx_view
-from directory.views import (
-    HomePageView,
+from .views import (
     EmployeeListView,
     EmployeeCreateView,
     EmployeeUpdateView,
     EmployeeDeleteView,
-    EmployeeProfileView,  # ← добавлено
+    EmployeeProfileView,
     EmployeeHiringView,
     PositionListView,
     PositionCreateView,
     PositionUpdateView,
     PositionDeleteView,
     UserRegistrationView,
-    equipment,  # 🆕 Импортируем модуль с представлениями оборудования
-    hiring,  # 📑 Импортируем модуль с представлениями приемов на работу
-    medical_examination,  # 🏥 Импортируем модуль с представлениями медосмотров
+    hiring,
     employees,
+    siz,
+    siz_issued,
+    commissions,
+    quiz_views,
+    quiz_import_views,
+    debug_permissions,
 )
+from .views.home import HomePageView, IntroductoryBriefingView
+from .views.documents.siz_integration import generate_siz_card_docx_view
+
+from deadline_control.views import medical_examination  # 🏥 Импортируем модуль с представлениями медосмотров
+
+from directory.views.employees import EmployeeTreeView
 
 from directory.views import quiz_views  # 📝 Импортируем модуль с представлениями экзаменов
 from directory.views import quiz_import_views  # 📥 Импорт вопросов
+from directory.views.debug_permissions import debug_permissions_view  # Отладка прав
 
 from directory.views.documents import (
     DocumentSelectionView,
     GeneratedDocumentListView,
     document_download,
+    PeriodicProtocolView,
+    InstructionJournalView,
+    send_instruction_sample,
+    send_instruction_samples_for_organization,
+    preview_mass_send_instruction_samples,
 )
 
 
@@ -78,7 +89,8 @@ autocomplete_patterns = [
 
 # 👥 Сотрудники
 employee_patterns = [
-    path('', EmployeeListView.as_view(), name='employee_list'),
+    path('', EmployeeTreeView.as_view(), name='employee_list'),  # 🌳 Древовидное представление по умолчанию
+    path('table/', EmployeeListView.as_view(), name='employee_list_table'),  # 📋 Табличное представление
     path('create/', EmployeeCreateView.as_view(), name='employee_create'),
     path('hire/', EmployeeHiringView.as_view(), name='employee_hire'),
     path('<int:pk>/', EmployeeProfileView.as_view(), name='employee_profile'),  # ← добавлено
@@ -98,13 +110,17 @@ position_patterns = [
 document_patterns = [
     path('', GeneratedDocumentListView.as_view(), name='document_list'),
     path('selection/<int:employee_id>/', DocumentSelectionView.as_view(), name='document_selection'),
+    path('periodic-protocol/', PeriodicProtocolView.as_view(), name='periodic_protocol'),
+    path('instruction-journal/', InstructionJournalView.as_view(), name='instruction_journal'),
+    path('instruction-journal/send/<int:subdivision_id>/', send_instruction_sample, name='send_instruction_sample'),
+    path('instruction-journal/send-org/<int:organization_id>/', send_instruction_samples_for_organization, name='send_instruction_sample_org'),
+    path('instruction-journal/preview-mass/<int:organization_id>/', preview_mass_send_instruction_samples, name='preview_mass_send_instruction_samples'),
     path('<int:pk>/download/', document_download, name='document_download'),
 ]
 
 # 🛡 Комиссии
 commission_patterns = [
-    path('', commissions.CommissionListView.as_view(), name='commission_list'),
-    path('tree/', commissions.CommissionTreeView.as_view(), name='commission_tree'),
+    path('', commissions.CommissionTreeView.as_view(), name='commission_list'),
     path('create/', commissions.CommissionCreateView.as_view(), name='commission_create'),
     path('<int:pk>/', commissions.CommissionDetailView.as_view(), name='commission_detail'),
     path('<int:pk>/update/', commissions.CommissionUpdateView.as_view(), name='commission_update'),
@@ -113,16 +129,6 @@ commission_patterns = [
          name='commission_member_add'),
     path('member/<int:pk>/update/', commissions.CommissionMemberUpdateView.as_view(), name='commission_member_update'),
     path('member/<int:pk>/delete/', commissions.CommissionMemberDeleteView.as_view(), name='commission_member_delete'),
-]
-
-# ⚙️ Оборудование (🆕 добавлено полностью)
-equipment_patterns = [
-    path('', equipment.EquipmentListView.as_view(), name='equipment_list'),
-    path('create/', equipment.EquipmentCreateView.as_view(), name='equipment_create'),
-    path('<int:pk>/', equipment.EquipmentDetailView.as_view(), name='equipment_detail'),
-    path('<int:pk>/update/', equipment.EquipmentUpdateView.as_view(), name='equipment_update'),
-    path('<int:pk>/delete/', equipment.EquipmentDeleteView.as_view(), name='equipment_delete'),
-    path('<int:pk>/perform-maintenance/', equipment.perform_maintenance, name='perform_maintenance'),
 ]
 
 # 🛡️ СИЗ
@@ -135,7 +141,10 @@ siz_patterns = [
     path('issue/employee/<int:employee_id>/', siz_issued.SIZIssueFormView.as_view(), name='siz_issue_for_employee'),
     path('personal-card/<int:employee_id>/', siz_issued.SIZPersonalCardView.as_view(), name='siz_personal_card'),
     path('return/<int:siz_issued_id>/', siz_issued.SIZIssueReturnView.as_view(), name='siz_return'),
-    path('siz/siz-card/<int:employee_id>/', generate_siz_card_docx_view, name='siz_card'),
+    path('siz-card/<int:employee_id>/', generate_siz_card_docx_view, name='siz_card'),
+    # Карточки СИЗ (массовая генерация)
+    path('mass-generation/', siz.SIZMassGenerationView.as_view(), name='mass_generation'),
+    path('mass-generation/generate/', siz.generate_siz_cards_bulk, name='mass_generation_generate'),
 ]
 
 # 📑 Приемы на работу
@@ -166,6 +175,8 @@ quiz_patterns = [
     path('<int:quiz_id>/start/category/<int:category_id>/', quiz_views.quiz_start, name='quiz_start_category'),
     path('<int:attempt_id>/question/<int:question_number>/', quiz_views.quiz_question, name='quiz_question'),
     path('<int:attempt_id>/answer/<int:question_id>/', quiz_views.quiz_answer, name='quiz_answer'),
+    path('<int:attempt_id>/exit/', quiz_views.quiz_exit, name='quiz_exit'),
+    path('<int:attempt_id>/finish-early/', quiz_views.quiz_finish_early, name='quiz_finish_early'),
     path('<int:attempt_id>/result/', quiz_views.quiz_result, name='quiz_result'),
     path('history/', quiz_views.quiz_history, name='quiz_history'),
     path('category/<int:category_id>/', quiz_views.category_detail, name='category_detail'),
@@ -248,13 +259,14 @@ auth_patterns = [
 
 # 🌐 Основные маршруты
 urlpatterns = [
-    path('', HomePageView.as_view(), name='home'),
+    path('', HomePageView.as_view(), name='employee_home'),
+    path('introductory-briefing/', IntroductoryBriefingView.as_view(), name='introductory_briefing'),
+    path('debug-permissions/', debug_permissions_view, name='debug_permissions'),  # Отладка
     path('auth/', include((auth_patterns, 'auth'))),
     path('autocomplete/', include(autocomplete_patterns)),
     path('employees/', include((employee_patterns, 'employees'))),
     path('positions/', include((position_patterns, 'positions'))),
     path('documents/', include((document_patterns, 'documents'))),
-    path('equipment/', include((equipment_patterns, 'equipment'))),
     path('positions/<int:position_id>/siz-norms/', siz.position_siz_norms, name='position_siz_norms'),
     path('siz/', include((siz_patterns, 'siz'))),
     path('commissions/', include((commission_patterns, 'commissions'))),
@@ -275,4 +287,7 @@ urlpatterns = [
     path('api/medical/position/<int:position_id>/norms/', medical_examination.api_position_medical_norms,
          name='api_position_medical_norms'),
     path('api/subdivisions/', employees.get_subdivisions, name='api-subdivisions'),
+
+    # API для сотрудников
+    path('api/employee/<int:employee_id>/info/', employees.employee_info_api, name='employee_info_api'),
 ]

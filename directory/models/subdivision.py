@@ -25,8 +25,8 @@ class StructuralSubdivision(models.Model):
     )
 
     class Meta:
-        verbose_name = "Структурное подразделение"
-        verbose_name_plural = "Структурные подразделения"
+        verbose_name = "🏭 Структурное подразделение"
+        verbose_name_plural = "🏭 Структурные подразделения"
         ordering = ['name']
         unique_together = ['name', 'organization']
 

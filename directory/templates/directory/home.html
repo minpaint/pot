@@ -283,6 +283,55 @@ display: none;
     {% endif %}
 </div>
 
+<!-- 🏢 Фильтр по организации -->
+{% if org_options|length >= 1 %}
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" action="" class="row g-2 align-items-end">
+            <div class="col-md-8 col-lg-6">
+                <label for="orgSelect" class="form-label fw-bold">
+                    🏢 {% if org_options|length == 1 %}Организация:{% else %}Выберите организацию:{% endif %}
+                </label>
+                <select name="org" id="orgSelect" class="form-select" {% if org_options|length > 1 %}required{% endif %} {% if org_options|length == 1 %}disabled{% endif %}>
+                    {% if org_options|length > 1 %}
+                    <option value="">-- Выберите организацию --</option>
+                    {% endif %}
+                    {% for org in org_options %}
+                    <option value="{{ org.id }}" {% if org.id == selected_org_id %}selected{% endif %}>
+                        {{ org.short_name_ru }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if org_options|length > 1 %}
+            <div class="col-md-4 col-lg-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter"></i> Показать
+                </button>
+            </div>
+            {% else %}
+            <div class="col-md-4 col-lg-6">
+                <p class="text-muted mb-0 small">
+                    <i class="fas fa-info-circle"></i> У вас доступна только эта организация. Дерево загружается автоматически.
+                </p>
+            </div>
+            {% endif %}
+            <!-- Сохранить параметры поиска и фильтров -->
+            {% if search_query %}
+            <input type="hidden" name="search" value="{{ search_query }}">
+            {% endif %}
+            {% if selected_status %}
+            <input type="hidden" name="status" value="{{ selected_status }}">
+            {% endif %}
+            {% if show_fired %}
+            <input type="hidden" name="show_fired" value="true">
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if show_tree %}
  <!-- 🎯 Панель с действиями -->
  <div class="actions-bar">
  <!-- Поиск сотрудников -->
@@ -562,12 +611,12 @@ display: none;
  <ul class="pagination">
  {% if organizations.has_previous %}
 <li class="page-item">
- <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Первая">
+ <a class="page-link" href="?page=1{% if selected_org_id %}&org={{ selected_org_id }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Первая">
  <span aria-hidden="true">&laquo;&laquo;</span>
  </a>
  </li>
  <li class="page-item">
- <a class="page-link" href="?page={{ organizations.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Предыдущая">
+ <a class="page-link" href="?page={{ organizations.previous_page_number }}{% if selected_org_id %}&org={{ selected_org_id }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Предыдущая">
  <span aria-hidden="true">&laquo;</span>
  </a>
  </li>
@@ -587,19 +636,19 @@ display: none;
  </li>
  {% elif num > organizations.number|add:'-3' and num < organizations.number|add:'3' %}
 <li class="page-item">
- <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+ <a class="page-link" href="?page={{ num }}{% if selected_org_id %}&org={{ selected_org_id }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
  </li>
  {% endif %}
 {% endfor %}
 
 {% if organizations.has_next %}
 <li class="page-item">
- <a class="page-link" href="?page={{ organizations.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Следующая">
+ <a class="page-link" href="?page={{ organizations.next_page_number }}{% if selected_org_id %}&org={{ selected_org_id }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Следующая">
  <span aria-hidden="true">&raquo;</span>
  </a>
  </li>
  <li class="page-item">
- <a class="page-link" href="?page={{ paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Последняя">
+ <a class="page-link" href="?page={{ paginator.num_pages }}{% if selected_org_id %}&org={{ selected_org_id }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Последняя">
  <span aria-hidden="true">&raquo;&raquo;</span>
  </a>
  </li>
@@ -614,6 +663,36 @@ display: none;
 </ul>
  </nav>
  {% endif %}
+
+{% else %}
+<!-- 📋 Заглушка при отсутствии выбора организации -->
+<div class="alert alert-info" role="alert">
+    <h5 class="alert-heading">
+        <i class="fas fa-info-circle"></i> Информация
+    </h5>
+    {% if org_options|length == 0 %}
+    <p class="mb-2">У вас нет доступных организаций. Обратитесь к администратору для настройки прав доступа.</p>
+    <p class="mb-0 small text-muted">
+        <strong>Отладка:</strong><br>
+        - Пользователь: {{ user.username }} (superuser: {{ user.is_superuser }}, authenticated: {{ user.is_authenticated }})<br>
+        - org_options.count = {{ org_options|length }}<br>
+        - selected_org_id = "{{ selected_org_id }}"<br>
+        - show_tree = {{ show_tree }}
+    </p>
+    {% elif org_options|length == 1 %}
+    <p class="mb-2">Загрузка данных организации...</p>
+    <p class="mb-0 small text-muted">
+        <strong>Отладка:</strong> org_options.count = {{ org_options|length }}, selected_org_id = {{ selected_org_id }}, show_tree = {{ show_tree }}
+    </p>
+    {% else %}
+    <p class="mb-2">Пожалуйста, выберите организацию из списка выше для отображения сотрудников.</p>
+    <p class="mb-0 small text-muted">
+        <strong>Отладка:</strong> org_options.count = {{ org_options|length }}, selected_org_id = {{ selected_org_id }}, show_tree = {{ show_tree }}
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
 </div>
 
 <!-- Модальное окно выдачи направления на медосмотр -->

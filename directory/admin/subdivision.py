@@ -4,9 +4,36 @@
 Использует универсальный миксин TreeViewMixin.
 """
 from django.contrib import admin
+from django.utils.html import format_html
 from directory.admin.mixins.tree_view import TreeViewMixin
-from directory.models import StructuralSubdivision
+from directory.models import StructuralSubdivision, SubdivisionEmail
 from directory.forms.subdivision import StructuralSubdivisionForm
+
+
+class SubdivisionEmailInline(admin.TabularInline):
+    """
+    📧 Inline для управления email-адресами подразделения.
+
+    Позволяет добавлять несколько email для одного подразделения
+    с указанием роли получателя (Главный инженер, Мастер и т.д.).
+    """
+    model = SubdivisionEmail
+    extra = 1
+    fields = ['email', 'description', 'is_active', 'created_at']
+    readonly_fields = ['created_at']
+
+    verbose_name = "Email для уведомлений"
+    verbose_name_plural = "Email-адреса для уведомлений"
+
+    def get_queryset(self, request):
+        """Оптимизируем запросы"""
+        qs = super().get_queryset(request)
+        return qs.select_related('subdivision')
+
+    class Media:
+        css = {
+            'all': ('admin/css/forms.css',)
+        }
 
 @admin.register(StructuralSubdivision)
 class StructuralSubdivisionAdmin(TreeViewMixin, admin.ModelAdmin):
@@ -15,6 +42,7 @@ class StructuralSubdivisionAdmin(TreeViewMixin, admin.ModelAdmin):
     Отображает древовидное представление: Организация → Подразделение.
     """
     form = StructuralSubdivisionForm
+    inlines = [SubdivisionEmailInline]
 
     # Используем шаблон, специфичный для структурных подразделений
     change_list_template = "admin/directory/subdivision/change_list_tree.html"

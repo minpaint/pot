@@ -48,6 +48,7 @@ class PositionForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             ),
             'contract_work_name': forms.Textarea(attrs={'rows': 3}),
             'safety_instructions_numbers': forms.Textarea(attrs={'rows': 2}),
+            'company_vehicle_instructions': forms.Textarea(attrs={'rows': 2}),
         }
 
     def __init__(self, *args, **kwargs):

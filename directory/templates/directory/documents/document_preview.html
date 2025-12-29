@@ -62,7 +62,7 @@
         <div class="col-12">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'directory:home' %}">Главная</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'directory:employee_home' %}">Главная</a></li>
                     <li class="breadcrumb-item"><a href="{% url 'directory:documents:document_list' %}">Документы</a></li>
                     <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
                 </ol>
@@ -186,7 +186,7 @@
                                         <i class="fas fa-arrow-left"></i> Назад
                                     </a>
                                 {% else %}
-                                    <a href="{% url 'directory:home' %}" class="btn btn-secondary">
+                                    <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary">
                                         <i class="fas fa-home"></i> На главную
                                     </a>
                                 {% endif %}
@@ -204,7 +204,7 @@
                             </div>
                             
                             <div class="d-flex justify-content-center mt-4">
-                                <a href="{% url 'directory:home' %}" class="btn btn-primary">
+                                <a href="{% url 'directory:employee_home' %}" class="btn btn-primary">
                                     <i class="fas fa-home"></i> На главную
                                 </a>
                             </div>

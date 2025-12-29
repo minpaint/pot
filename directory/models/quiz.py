@@ -45,8 +45,8 @@ class QuizCategory(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Раздел")
-        verbose_name_plural = _("Разделы")
+        verbose_name = _("📚 Раздел")
+        verbose_name_plural = _("📚 Разделы")
         ordering = ['order', 'name']
 
     def __str__(self):
@@ -79,8 +79,8 @@ class QuizCategoryOrder(models.Model):
     )
 
     class Meta:
-        verbose_name = _("Раздел в экзамене")
-        verbose_name_plural = _("Разделы в экзамене")
+        verbose_name = _("🔢 Раздел в экзамене")
+        verbose_name_plural = _("🔢 Разделы в экзамене")
         ordering = ['order', 'category__name']
         unique_together = [['quiz', 'category']]
 
@@ -113,13 +113,22 @@ class Quiz(TimeStampedModel):
         default=5,
         validators=[MinValueValidator(1), MaxValueValidator(50)],
         verbose_name=_("Вопросов из каждого раздела"),
-        help_text=_("Сколько случайных вопросов взять из КАЖДОГО раздела для итогового экзамена")
+        help_text=_("[УСТАРЕЛО] Сколько случайных вопросов взять из КАЖДОГО раздела для итогового экзамена"),
+        editable=False  # Скрываем из админки, но не удаляем из БД
     )
     exam_total_questions = models.IntegerField(
         default=10,
         validators=[MinValueValidator(1), MaxValueValidator(200)],
-        verbose_name=_("Максимум вопросов в экзамене"),
-        help_text=_("Общее максимальное количество вопросов (если разделов много, ограничит итоговое количество)")
+        verbose_name=_("Всего вопросов в экзамене"),
+        help_text=_("Общее количество вопросов. Они будут распределены равномерно по всем разделам экзамена.")
+    )
+    use_adaptive_selection = models.BooleanField(
+        default=False,
+        verbose_name=_("Адаптивный подбор вопросов"),
+        help_text=_(
+            "Учитывать прогресс пользователя: приоритет вопросам с ошибками, "
+            "затем новым вопросам, меньше - уже правильно отвеченным"
+        )
     )
     exam_time_limit = models.IntegerField(
         default=30,
@@ -168,8 +177,8 @@ class Quiz(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Экзамен")
-        verbose_name_plural = _("Экзамены")
+        verbose_name = _("📝 Экзамен")
+        verbose_name_plural = _("📝 Экзамены")
         ordering = ['-created']
 
     def __str__(self):
@@ -196,18 +205,65 @@ class Quiz(TimeStampedModel):
 
         return questions
 
-    def get_questions_for_exam(self):
-        """Получить вопросы для итогового экзамена (срез из всех разделов)"""
-        questions = []
-        categories = self.categories.filter(is_active=True).order_by('order', 'name')
+    def get_questions_for_exam(self, user=None):
+        """Получить вопросы для итогового экзамена с РАВНОМЕРНЫМ распределением из всех разделов
+
+        Алгоритм:
+        1. Определяем количество активных категорий
+        2. Распределяем exam_total_questions пропорционально между всеми категориями
+        3. Базовое количество = exam_total_questions // количество_категорий
+        4. Остаток распределяем по первым категориям (+1 вопрос)
+        5. Если use_adaptive_selection=True и передан user:
+           - Внутри каждой категории приоритизируем:
+             * Вопросы с неправильными ответами (вес 3)
+             * Новые вопросы, на которые не отвечал (вес 2)
+             * Вопросы с правильными ответами (вес 1)
+
+        Args:
+            user: Пользователь для адаптивного подбора (опционально)
+
+        Пример:
+        - 15 категорий, exam_total_questions = 20
+        - Базовое количество = 20 // 15 = 1 вопрос на категорию
+        - Остаток = 20 % 15 = 5 вопросов
+        - Первые 5 категорий получат по 2 вопроса (1 базовый + 1 бонусный)
+        - Остальные 10 категорий получат по 1 вопросу
+        - Итого: 5*2 + 10*1 = 20 вопросов из всех 15 категорий
+        """
+        # Получаем активные категории с активными вопросами
+        categories = list(self.categories.filter(
+            is_active=True,
+            questions__is_active=True
+        ).distinct().order_by('quizcategoryorder__order', 'name'))
+
+        total_categories = len(categories)
+        if total_categories == 0:
+            return []
+
         max_questions = self.exam_total_questions
-        selected_count = 0
 
-        for category in categories:
-            if max_questions and selected_count >= max_questions:
-                break
+        # ПРОПОРЦИОНАЛЬНОЕ РАСПРЕДЕЛЕНИЕ
+        # Базовое количество вопросов на категорию
+        base_questions_per_category = max_questions // total_categories
 
-            # Берем N вопросов из каждого раздела
+        # Остаток вопросов, которые нужно распределить
+        remainder = max_questions % total_categories
+
+        questions = []
+
+        for i, category in enumerate(categories):
+            # Все категории получают базовое количество
+            questions_to_take = base_questions_per_category
+
+            # Первые N категорий получают по +1 вопросу (где N = remainder)
+            if i < remainder:
+                questions_to_take += 1
+
+            # Если вдруг получилось 0 вопросов (очень много категорий), берем хотя бы 1
+            if questions_to_take == 0 and i < max_questions:
+                questions_to_take = 1
+
+            # Берем все доступные вопросы из категории
             category_questions = list(Question.objects.filter(
                 category=category,
                 is_active=True
@@ -216,37 +272,147 @@ class Quiz(TimeStampedModel):
             if not category_questions:
                 continue
 
-            # Берем questions_per_category вопросов из текущей категории
-            questions_to_take = min(
-                self.questions_per_category,
-                len(category_questions),
-                max_questions - selected_count
-            )
+            # Не берем больше, чем есть в категории
+            questions_to_take = min(questions_to_take, len(category_questions))
 
-            selected_questions = random.sample(category_questions, questions_to_take)
-            questions.extend(selected_questions)
-            selected_count += len(selected_questions)
+            if questions_to_take > 0:
+                # АДАПТИВНЫЙ ПОДБОР: учитываем прогресс пользователя
+                if self.use_adaptive_selection and user:
+                    selected = self._adaptive_select_questions(
+                        category_questions, questions_to_take, user, category
+                    )
+                else:
+                    # Стандартный случайный выбор
+                    selected = random.sample(category_questions, questions_to_take)
 
+                questions.extend(selected)
+
+        # Перемешиваем финальный список (если включено)
         if self.random_order:
             random.shuffle(questions)
 
         return questions
+
+    def _adaptive_select_questions(self, category_questions, count, user, category):
+        """Адаптивный выбор вопросов на основе прогресса пользователя
+
+        Args:
+            category_questions: Список вопросов из категории
+            count: Сколько вопросов нужно выбрать
+            user: Пользователь
+            category: Категория
+
+        Returns:
+            Список выбранных вопросов
+        """
+        # Импортируем здесь, чтобы избежать циклических импортов
+        from .quiz import UserAnswer, QuizAttempt
+
+        # Получаем все ответы пользователя по этому квизу и категории
+        user_answers = UserAnswer.objects.filter(
+            attempt__user=user,
+            attempt__quiz=self,
+            question__category=category,
+            is_skipped=False
+        ).select_related('question')
+
+        # Группируем по вопросам: какие правильно, какие нет
+        incorrect_question_ids = set()
+        correct_question_ids = set()
+
+        for answer in user_answers:
+            if answer.is_correct:
+                correct_question_ids.add(answer.question_id)
+            else:
+                incorrect_question_ids.add(answer.question_id)
+
+        # Разделяем вопросы на 3 группы с весами
+        questions_with_weights = []
+
+        for question in category_questions:
+            if question.id in incorrect_question_ids:
+                # Вопросы с ошибками - высокий приоритет (вес 3)
+                weight = 3
+            elif question.id in correct_question_ids:
+                # Вопросы с правильными ответами - низкий приоритет (вес 1)
+                weight = 1
+            else:
+                # Новые вопросы - средний приоритет (вес 2)
+                weight = 2
+
+            questions_with_weights.append((question, weight))
+
+        # Взвешенный случайный выбор
+        # Создаем список, где каждый вопрос повторяется weight раз
+        weighted_pool = []
+        for question, weight in questions_with_weights:
+            weighted_pool.extend([question] * weight)
+
+        # Выбираем случайные вопросы из взвешенного пула
+        # Используем set для исключения дубликатов
+        selected = []
+        remaining_pool = weighted_pool.copy()
+
+        while len(selected) < count and remaining_pool:
+            # Выбираем случайный вопрос
+            chosen = random.choice(remaining_pool)
+
+            # Если его ещё нет в выбранных - добавляем
+            if chosen not in selected:
+                selected.append(chosen)
+
+            # Удаляем ВСЕ копии этого вопроса из пула
+            remaining_pool = [q for q in remaining_pool if q.id != chosen.id]
+
+        return selected
 
     def get_total_questions_for_category(self, category):
         """Количество вопросов в конкретном разделе"""
         return Question.objects.filter(category=category, is_active=True).count()
 
     def get_total_questions_for_exam(self):
-        """Общее количество вопросов для итогового экзамена"""
-        categories = self.categories.filter(is_active=True)
+        """Общее количество вопросов для итогового экзамена с учетом равномерного распределения
+
+        Возвращает реальное количество вопросов, которое будет в экзамене,
+        с учетом того, что вопросы распределяются равномерно между всеми категориями.
+        """
+        # Получаем активные категории с активными вопросами
+        categories = list(self.categories.filter(
+            is_active=True,
+            questions__is_active=True
+        ).distinct())
+
+        total_categories = len(categories)
+        if total_categories == 0:
+            return 0
+
+        max_questions = self.exam_total_questions
+
+        # Базовое количество вопросов на категорию
+        base_questions_per_category = max_questions // total_categories
+        remainder = max_questions % total_categories
+
         total = 0
-        for category in categories:
+
+        for i, category in enumerate(categories):
+            # Вычисляем, сколько вопросов должна дать эта категория
+            questions_to_take = base_questions_per_category
+            if i < remainder:
+                questions_to_take += 1
+
+            if questions_to_take == 0 and i < max_questions:
+                questions_to_take = 1
+
+            # Проверяем, сколько реально есть вопросов в категории
             questions_count = Question.objects.filter(
                 category=category,
                 is_active=True
             ).count()
-            total += min(self.questions_per_category, questions_count)
-        return min(total, self.exam_total_questions)
+
+            # Берем минимум из того, что планировали и что есть
+            total += min(questions_to_take, questions_count)
+
+        return total
 
     def get_exam_categories(self):
         """Получить список разделов, которые входят в экзамен с учетом порядка"""
@@ -291,8 +457,8 @@ class Question(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Вопрос")
-        verbose_name_plural = _("Вопросы")
+        verbose_name = _("❓ Вопрос")
+        verbose_name_plural = _("❓ Вопросы")
         ordering = ['category', 'order', 'id']
 
     def __str__(self):
@@ -346,8 +512,8 @@ class Answer(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Ответ")
-        verbose_name_plural = _("Ответы")
+        verbose_name = _("💬 Ответ")
+        verbose_name_plural = _("💬 Ответы")
         ordering = ['question', 'order', 'id']
 
     def __str__(self):
@@ -471,8 +637,8 @@ class QuizAttempt(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Попытка прохождения")
-        verbose_name_plural = _("Попытки прохождения")
+        verbose_name = _("📊 Попытка прохождения")
+        verbose_name_plural = _("📊 Попытки прохождения")
         ordering = ['-started_at']
 
     def __str__(self):
@@ -547,8 +713,8 @@ class UserAnswer(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Ответ пользователя")
-        verbose_name_plural = _("Ответы пользователей")
+        verbose_name = _("✍️ Ответ пользователя")
+        verbose_name_plural = _("✍️ Ответы пользователей")
         ordering = ['answered_at']
         unique_together = ['attempt', 'question']
 
@@ -645,8 +811,8 @@ class QuizAccessToken(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = _("Токен доступа к экзамену")
-        verbose_name_plural = _("Токены доступа к экзаменам")
+        verbose_name = _("🔑 Токен доступа к экзамену")
+        verbose_name_plural = _("🔑 Токены доступа к экзаменам")
         ordering = ['-created']
         unique_together = [['quiz', 'user']]
 
@@ -709,8 +875,8 @@ class QuizQuestionOrder(models.Model):
     )
 
     class Meta:
-        verbose_name = _("Порядок вопроса")
-        verbose_name_plural = _("Порядок вопросов")
+        verbose_name = _("🔢 Порядок вопроса")
+        verbose_name_plural = _("🔢 Порядок вопросов")
         unique_together = [['attempt', 'order'], ['attempt', 'question']]
         ordering = ['attempt', 'order']
         indexes = [

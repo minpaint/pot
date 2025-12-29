@@ -35,14 +35,73 @@ class OrganizationStructureResource(resources.ModelResource):
     а organization/subdivision/department создаем в before_import_row.
     """
 
+    org_short_name_ru = fields.Field(
+        column_name='org_short_name_ru',
+        attribute='organization__short_name_ru',
+        widget=widgets.CharWidget(),
+        readonly=True  # Только для экспорта, не импортируется
+    )
+
+    subdivision_name = fields.Field(
+        column_name='subdivision_name',
+        attribute='subdivision__name',
+        widget=widgets.CharWidget(),
+        readonly=True  # Только для экспорта, не импортируется
+    )
+
+    department_name = fields.Field(
+        column_name='department_name',
+        attribute='department__name',
+        widget=widgets.CharWidget(),
+        readonly=True  # Только для экспорта, не импортируется
+    )
+
+    is_responsible_for_safety = fields.Field(
+        column_name='is_responsible_for_safety',
+        attribute='is_responsible_for_safety',
+        widget=BooleanRussianWidget()
+    )
+
+    can_be_internship_leader = fields.Field(
+        column_name='can_be_internship_leader',
+        attribute='can_be_internship_leader',
+        widget=BooleanRussianWidget()
+    )
+
+    can_sign_orders = fields.Field(
+        column_name='can_sign_orders',
+        attribute='can_sign_orders',
+        widget=BooleanRussianWidget()
+    )
+
+    drives_company_vehicle = fields.Field(
+        column_name='drives_company_vehicle',
+        attribute='drives_company_vehicle',
+        widget=BooleanRussianWidget()
+    )
+
     class Meta:
         model = Position
         fields = (
-            'organization',
-            'subdivision',
-            'department',
+            'org_short_name_ru',
+            'subdivision_name',
+            'department_name',
             'position_name',
             'safety_instructions_numbers',
+            'internship_period_days',
+            'is_responsible_for_safety',
+            'can_be_internship_leader',
+            'can_sign_orders',
+            'drives_company_vehicle',
+            'company_vehicle_instructions',
+        )
+        export_order = (
+            'subdivision_name',
+            'department_name',
+            'position_name',
+            'safety_instructions_numbers',
+            'company_vehicle_instructions',
+            'drives_company_vehicle',
             'internship_period_days',
             'is_responsible_for_safety',
             'can_be_internship_leader',
@@ -50,6 +109,7 @@ class OrganizationStructureResource(resources.ModelResource):
         )
         import_id_fields = []
         skip_unchanged = False
+        skip_diff = True  # Отключаем проверку diff, чтобы не вызывался full_clean() до import_obj
 
     def before_import_row(self, row, **kwargs):
         """Создаем organization/subdivision/department перед импортом каждой строки"""
@@ -61,8 +121,13 @@ class OrganizationStructureResource(resources.ModelResource):
         position_name = row.get('position_name', '').strip() if row.get('position_name') else ''
 
         # 2. Валидация
+        # Примечание: org_short_name_ru необязательно, если организация выбрана в форме импорта
+        # В этом случае _apply_organization_to_dataset() уже подставила её значение
         if not org_short_name:
-            raise ValidationError('Не указано краткое наименование организации')
+            raise ValidationError(
+                'Не указано краткое наименование организации. '
+                'Либо укажите организацию в файле, либо выберите её в форме импорта.'
+            )
         if not position_name:
             raise ValidationError('Не указано название должности')
         if department_name and not subdivision_name:
@@ -98,10 +163,10 @@ class OrganizationStructureResource(resources.ModelResource):
                 defaults={'short_name': department_name}
             )
 
-        # 6. Добавляем ID в row для автоматического связывания
-        row['organization'] = organization.id
-        row['subdivision'] = subdivision.id if subdivision else None
-        row['department'] = department.id if department else None
+        # 6. Добавляем связанные объекты напрямую (не ID)
+        row['_organization'] = organization
+        row['_subdivision'] = subdivision
+        row['_department'] = department
 
         # 7. Устанавливаем значения по умолчанию
         if row.get('internship_period_days') in (None, ''):
@@ -112,20 +177,54 @@ class OrganizationStructureResource(resources.ModelResource):
             row['can_be_internship_leader'] = False
         if row.get('can_sign_orders') in (None, ''):
             row['can_sign_orders'] = False
+        if row.get('drives_company_vehicle') in (None, ''):
+            row['drives_company_vehicle'] = False
+
+    def import_obj(self, obj, data, dry_run, **kwargs):
+        """
+        Переопределяем метод импорта для установки связанных объектов
+        """
+        # Устанавливаем связанные объекты из before_import_row ДО вызова super()
+        # чтобы они были установлены до валидации модели
+        if '_organization' in data:
+            obj.organization = data['_organization']
+        if '_subdivision' in data:
+            obj.subdivision = data['_subdivision']
+        if '_department' in data:
+            obj.department = data['_department']
+
+        # Теперь вызываем родительский метод для обработки остальных полей
+        obj = super().import_obj(obj, data, dry_run, **kwargs)
+
+        return obj
+
+    def before_save_instance(self, instance, row, dry_run, **kwargs):
+        """
+        Дополнительная проверка перед сохранением - гарантируем, что organization установлена
+        """
+        if '_organization' in row and not instance.organization_id:
+            instance.organization = row['_organization']
+        if '_subdivision' in row and not instance.subdivision_id:
+            instance.subdivision = row['_subdivision']
+        if '_department' in row and not instance.department_id:
+            instance.department = row['_department']
 
     def get_instance(self, instance_loader, row):
         """Ищем существующую должность или создаем новую"""
-        org_id = row.get('organization')
-        subdivision_id = row.get('subdivision')
-        department_id = row.get('department')
+        organization = row.get('_organization')
+        subdivision = row.get('_subdivision')
+        department = row.get('_department')
         position_name = row.get('position_name')
+
+        if not organization:
+            return None
 
         try:
             return Position.objects.get(
                 position_name=position_name,
-                organization_id=org_id,
-                subdivision_id=subdivision_id,
-                department_id=department_id
+                organization=organization,
+                subdivision=subdivision,
+                department=department
             )
         except Position.DoesNotExist:
             return None

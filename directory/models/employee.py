@@ -53,8 +53,24 @@ class Employee(models.Model):
         max_length=255,
         verbose_name="ФИО"
     )
-    date_of_birth = models.DateField(verbose_name="Дата рождения")
-    place_of_residence = models.TextField(verbose_name="Место проживания")
+    date_of_birth = models.DateField(
+        verbose_name="Дата рождения",
+        null=True,
+        blank=True,
+        help_text="Дата рождения сотрудника. Может быть пустой при импорте и заполнена позже"
+    )
+    place_of_residence = models.TextField(
+        verbose_name="Место проживания",
+        blank=True,
+        default='',
+        help_text="Адрес места проживания. Может быть пустым при импорте и заполнен позже"
+    )
+    email = models.EmailField(
+        verbose_name="Email",
+        blank=True,
+        default='',
+        help_text="Email сотрудника для получения уведомлений (особенно важно для ответственных за охрану труда)"
+    )
     organization = models.ForeignKey(
         'directory.Organization',
         on_delete=models.PROTECT,
@@ -117,11 +133,15 @@ class Employee(models.Model):
     )
     hire_date = models.DateField(
         verbose_name="Дата приема",
-        default=timezone.now
+        null=True,
+        blank=True,
+        help_text="Дата приема на работу. Может быть пустой при импорте и заполнена позже"
     )
     start_date = models.DateField(
         verbose_name="Дата начала работы",
-        default=timezone.now
+        null=True,
+        blank=True,
+        help_text="Дата фактического начала работы. Может быть пустой при импорте и заполнена позже"
     )
     is_contractor = models.BooleanField(
         default=False,
@@ -132,12 +152,28 @@ class Employee(models.Model):
     objects = EmployeeQuerySet.as_manager()
 
     class Meta:
-        verbose_name = "Сотрудник"
-        verbose_name_plural = "Сотрудники"
+        verbose_name = "👤 Сотрудник"
+        verbose_name_plural = "👤 Сотрудники"
         ordering = ['full_name_nominative']
+        indexes = [
+            # Индексы для древовидной структуры (организация → подразделение → отдел)
+            models.Index(fields=['organization', 'subdivision', 'department'], name='emp_tree_idx'),
+            # Индекс для фильтрации по статусу (активные/уволенные/кандидаты)
+            models.Index(fields=['status'], name='emp_status_idx'),
+            # Индекс для сортировки по ФИО
+            models.Index(fields=['full_name_nominative'], name='emp_name_idx'),
+            # Индекс для фильтрации активных сотрудников в древе
+            models.Index(fields=['status', 'organization'], name='emp_status_org_idx'),
+        ]
 
     def clean(self):
         """Валидация соответствия организации, подразделения, отдела и должности."""
+        # Проверяем, что должность установлена
+        if not self.position_id:
+            raise ValidationError({
+                'position': 'Должность обязательна для заполнения'
+            })
+
         if self.position.organization != self.organization:
             raise ValidationError({
                 'position': 'Должность должна принадлежать выбранной организации'
@@ -198,10 +234,158 @@ class Employee(models.Model):
             return f"{self.full_name_nominative} — {self.position}"
         return self.full_name_nominative
 
+    def get_medical_status(self):
+        """
+        🏥 Возвращает статус медицинских осмотров сотрудника.
+
+        Логика:
+        - Получает вредные факторы с учетом иерархии (PositionMedicalFactor → MedicalExaminationNorm)
+        - Находит минимальную периодичность среди всех вредных факторов
+        - Рассчитывает следующую дату медосмотра на основе минимальной периодичности
+        - Определяет статус (no_date, expired, upcoming, normal)
+
+        Returns:
+            dict или None: Словарь с информацией о статусе медосмотра или None, если медосмотров нет
+            {
+                'has_date': bool,  # Есть ли дата медосмотра
+                'date_completed': date или None,  # Дата последнего медосмотра
+                'next_date': date или None,  # Дата следующего медосмотра
+                'min_periodicity': int или None,  # Минимальная периодичность в месяцах
+                'days_until': int или None,  # Дней до следующего медосмотра (может быть отрицательным)
+                'status': str,  # no_date, expired, upcoming, normal
+                'factors': list,  # Список вредных факторов
+            }
+        """
+        from deadline_control.models import EmployeeMedicalExamination, MedicalExaminationNorm
+        from django.utils import timezone
+
+        # Проверяем наличие должности
+        if not self.position:
+            return None
+
+        # ШАГИ 1-2: Получаем вредные факторы с учетом иерархии
+        # 1. Проверяем переопределения для конкретной должности (PositionMedicalFactor)
+        position_factors = self.position.medical_factors.filter(is_disabled=False).select_related('harmful_factor')
+
+        harmful_factors = []
+        if position_factors.exists():
+            # Используем переопределённые факторы
+            harmful_factors = [pf.harmful_factor for pf in position_factors]
+        else:
+            # 2. Если переопределений нет - берём эталонные нормы по названию должности
+            reference_norms = MedicalExaminationNorm.objects.filter(
+                position_name=self.position.position_name
+            ).select_related('harmful_factor')
+            harmful_factors = [norm.harmful_factor for norm in reference_norms]
+
+        # Если вообще нет факторов - медосмотры не требуются
+        if not harmful_factors:
+            return None
+
+        # ШАГ 3: Получаем записи медосмотров для этих факторов (только активные)
+        harmful_factor_ids = [f.id for f in harmful_factors]
+        examinations = self.medical_examinations.filter(
+            harmful_factor_id__in=harmful_factor_ids,
+            is_disabled=False  # Игнорируем отключенные медосмотры
+        ).select_related('harmful_factor')
+
+        # ШАГ 4: Собираем информацию о факторах и датах
+        factors = []
+        min_periodicity = None
+        has_date = False
+        earliest_date = None
+
+        # Если записей медосмотров нет - используем факторы напрямую
+        if not examinations.exists():
+            for factor in harmful_factors:
+                factors.append({
+                    'name': factor.full_name,
+                    'short_name': factor.short_name,
+                    'periodicity': factor.periodicity,
+                })
+                if min_periodicity is None or factor.periodicity < min_periodicity:
+                    min_periodicity = factor.periodicity
+
+            # Возвращаем статус "нужно внести дату"
+            return {
+                'has_date': False,
+                'date_completed': None,
+                'next_date': None,
+                'min_periodicity': min_periodicity,
+                'days_until': None,
+                'status': 'no_date',
+                'factors': factors,
+            }
+
+        # Если записи есть - анализируем их
+        exams_without_date = []
+        for exam in examinations:
+            factors.append({
+                'name': exam.harmful_factor.full_name,
+                'short_name': exam.harmful_factor.short_name,
+                'periodicity': exam.harmful_factor.periodicity,
+            })
+
+            # Находим минимальную периодичность
+            if min_periodicity is None or exam.harmful_factor.periodicity < min_periodicity:
+                min_periodicity = exam.harmful_factor.periodicity
+
+            # Проверяем, есть ли дата
+            if exam.date_completed:
+                has_date = True
+                if earliest_date is None or exam.date_completed < earliest_date:
+                    earliest_date = exam.date_completed
+            else:
+                exams_without_date.append(exam)
+
+        # Если нет ни одной даты - статус "нужно внести дату"
+        if not has_date:
+            return {
+                'has_date': False,
+                'date_completed': None,
+                'next_date': None,
+                'min_periodicity': min_periodicity,
+                'days_until': None,
+                'status': 'no_date',
+                'factors': factors,
+                'exams_without_date_count': len(exams_without_date),
+            }
+
+        # Рассчитываем следующую дату на основе минимальной периодичности
+        from deadline_control.models.medical_norm import EmployeeMedicalExamination as MedExamModel
+        next_date = MedExamModel._add_months(earliest_date, min_periodicity)
+
+        # Рассчитываем дни до следующего медосмотра
+        today = timezone.now().date()
+        days_until = (next_date - today).days
+
+        # Определяем статус
+        if days_until < 0:
+            status = 'expired'
+        elif days_until <= 30:
+            status = 'upcoming'
+        else:
+            status = 'normal'
+
+        return {
+            'has_date': True,
+            'date_completed': earliest_date,
+            'next_date': next_date,
+            'min_periodicity': min_periodicity,
+            'days_until': days_until,
+            'status': status,
+            'factors': factors,
+            'exams_without_date_count': len(exams_without_date),
+        }
+
     def __str__(self):
-        parts = [self.full_name_nominative, "-", str(self.position)]
+        parts = [self.full_name_nominative]
+        if self.position_id:  # Используем position_id, чтобы избежать запроса к БД
+            parts.extend(["-", str(self.position)])
         return " ".join(parts)
 
     def tree_display_name(self):
         """👤 Отображение имени сотрудника в древовидной структуре."""
-        return f"{self.full_name_nominative} — {self.position.position_name}"
+        if self.position_id:
+            return f"{self.full_name_nominative} — {self.position.position_name}"
+        return self.full_name_nominative

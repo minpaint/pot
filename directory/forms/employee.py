@@ -60,6 +60,12 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
                 attrs={"type": "date"},
                 format="%Y-%m-%d"
             ),
+            "place_of_residence": forms.TextInput(
+                attrs={
+                    "size": "50",
+                    "placeholder": "Населенный пункт"
+                }
+            ),
         }
 
     def __init__(self, *args, **kwargs):

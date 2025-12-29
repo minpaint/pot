@@ -379,7 +379,7 @@
                         </h5>
                         <span class="category-questions-count">
                             <i class="fas fa-chart-line"></i>
-                            Пройдено 0 из {{ category.get_questions_count }}
+                            Пройдено {{ category.answered_unique_count }} из {{ category.total_questions_count }}
                         </span>
                         <a href="{% url 'directory:quiz:quiz_start_category' quiz.id category.id %}"
                            class="btn btn-training">

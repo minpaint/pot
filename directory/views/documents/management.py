@@ -11,7 +11,7 @@ from django.http import FileResponse
 from django.utils.translation import gettext as _
 
 from directory.models import Employee
-from directory.models.document_template import DocumentTemplate, GeneratedDocument
+from directory.models.document_template import DocumentTemplate, DocumentTemplateType, GeneratedDocument
 
 
 class GeneratedDocumentListView(LoginRequiredMixin, ListView):
@@ -51,8 +51,11 @@ class GeneratedDocumentListView(LoginRequiredMixin, ListView):
         # Список сотрудников для фильтрации
         context['employees'] = Employee.objects.all()
 
-        # Список типов документов для фильтрации
-        context['document_types'] = DocumentTemplate.DOCUMENT_TYPES
+        # Список типов документов для фильтрации (из справочника)
+        context['document_types'] = [
+            (template_type.code, template_type.name)
+            for template_type in DocumentTemplateType.objects.filter(is_active=True)
+        ]
 
         # Значения для выбранных фильтров
         context['selected_employee'] = self.request.GET.get('employee', '')

@@ -176,7 +176,7 @@ class EmployeeHiringForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             Div(
                 Submit('submit', '💾 Принять', css_class='btn-primary'),
                 Button('preview', '👁️ Предпросмотр', css_class='btn-info', type='submit'),
-                HTML('<a href="{% url \"directory:home\" %}" class="btn btn-secondary">Отмена</a>'),
+                HTML('<a href="{% url \"directory:employee_home\" %}" class="btn btn-secondary">Отмена</a>'),
                 css_class='d-flex justify-content-between mt-3'
             )
         )

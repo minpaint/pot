@@ -13,10 +13,22 @@ from .management import (
     GeneratedDocumentListView,
     document_download
 )
+from .protocol import PeriodicProtocolView
+from .instruction_journal import (
+    InstructionJournalView,
+    send_instruction_sample,
+    send_instruction_samples_for_organization,
+    preview_mass_send_instruction_samples,
+)
 
 __all__ = [
     'DocumentSelectionView',
     'get_auto_selected_document_types',
     'GeneratedDocumentListView',
     'document_download',
+    'PeriodicProtocolView',
+    'InstructionJournalView',
+    'send_instruction_sample',
+    'send_instruction_samples_for_organization',
+    'preview_mass_send_instruction_samples',
 ]

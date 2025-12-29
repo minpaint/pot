@@ -52,8 +52,8 @@ class Commission(models.Model):
     updated_at = models.DateTimeField('Дата обновления', auto_now=True)
 
     class Meta:
-        verbose_name = 'Комиссия по проверке знаний'
-        verbose_name_plural = 'Комиссии по проверке знаний'
+        verbose_name = '👥 Комиссия по проверке знаний'
+        verbose_name_plural = '👥 Комиссии по проверке знаний'
         ordering = ['-is_active', 'name']
 
     def __str__(self):
@@ -130,8 +130,8 @@ class CommissionMember(models.Model):
     is_active = models.BooleanField('Активен', default=True)
 
     class Meta:
-        verbose_name = 'Участник комиссии'
-        verbose_name_plural = 'Участники комиссии'
+        verbose_name = '👤 Участник комиссии'
+        verbose_name_plural = '👤 Участники комиссии'
         ordering = ['role', 'employee__full_name_nominative']
         unique_together = ['commission', 'employee', 'role']
 

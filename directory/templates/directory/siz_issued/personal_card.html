@@ -238,7 +238,7 @@
                     <div class="col-md-2 col-sm-3">
                         <div class="row">
                             <div class="col-md-4 employee-info-label">Рост</div>
-                            <div class="col-md-8 employee-info-value">{{ employee.height|default:"" }}</div>
+                            <div class="col-md-8 employee-info-value">{{ employee_height|default:"" }}</div>
                         </div>
                     </div>
                 </div>
@@ -252,8 +252,12 @@
                                     {{ employee.department.name }}
                                 {% elif employee.subdivision %}
                                     {{ employee.subdivision.name }}
+                                {% elif employee.position.department %}
+                                    {{ employee.position.department.name }}
+                                {% elif employee.position.subdivision %}
+                                    {{ employee.position.subdivision.name }}
                                 {% else %}
-                                    Непродовольственный отдел
+                                    —
                                 {% endif %}
                             </div>
                         </div>
@@ -261,7 +265,7 @@
                     <div class="col-md-4 col-sm-5">
                         <div class="row">
                             <div class="col-md-6 employee-info-label">Размер одежды</div>
-                            <div class="col-md-6 employee-info-value">{{ employee.clothing_size|default:"" }}</div>
+                            <div class="col-md-6 employee-info-value">{{ employee_clothing_size|default:"" }}</div>
                         </div>
                     </div>
                 </div>
@@ -276,7 +280,7 @@
                     <div class="col-md-4 col-sm-5">
                         <div class="row">
                             <div class="col-md-6 employee-info-label">Размер обуви</div>
-                            <div class="col-md-6 employee-info-value">{{ employee.shoe_size|default:"" }}</div>
+                            <div class="col-md-6 employee-info-value">{{ employee_shoe_size|default:"" }}</div>
                         </div>
                     </div>
                 </div>
@@ -285,7 +289,7 @@
                     <div class="col-md-8 col-sm-7">
                         <div class="row">
                             <div class="col-md-4 employee-info-label">Дата поступления на работу</div>
-                            <div class="col-md-8 employee-info-value">{{ employee.date_of_birth|date:"d.m.Y" }}</div>
+                            <div class="col-md-8 employee-info-value">{{ employee.hire_date|date:"d.m.Y" }}</div>
                         </div>
                     </div>
                     <div class="col-md-4 col-sm-5">

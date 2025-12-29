@@ -1,11 +1,11 @@
 name: Deploy to Production
 
-# Триггер: автоматический запуск при push в main
+# Триггер: только ручной запуск (автодеплой отключен до настройки сервера)
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:  # Возможность запустить вручную
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:  # Запуск вручную через GitHub Actions UI
 
 jobs:
   deploy:

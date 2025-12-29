@@ -19,7 +19,7 @@ from directory.models import (
 )
 from directory.forms.hiring import CombinedEmployeeHiringForm
 from directory.utils.declension import decline_full_name
-from directory.models.medical_norm import MedicalExaminationNorm
+from deadline_control.models.medical_norm import MedicalExaminationNorm
 
 
 class SimpleHiringView(LoginRequiredMixin, FormView):
@@ -94,11 +94,11 @@ class SimpleHiringView(LoginRequiredMixin, FormView):
             # Добавляем сообщение об успехе
             messages.success(
                 self.request,
-                _('Сотрудник {} успешно принят на работу').format(employee.full_name_nominative)
+                _('Сотрудник {} успешно принят на работу. Выберите документы для генерации.').format(employee.full_name_nominative)
             )
 
-            # Изменяем URL редиректа на детали записи о приеме
-            self.success_url = reverse('directory:hiring:hiring_detail', kwargs={'pk': hiring.pk})
+            # Редирект на страницу выбора документов
+            self.success_url = reverse('directory:documents:document_selection', kwargs={'employee_id': employee.id})
 
             return super().form_valid(form)
 

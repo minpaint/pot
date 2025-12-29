@@ -4,6 +4,9 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import Prefetch, Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.utils import timezone
+from datetime import timedelta
+import logging
 
 from directory.models import (
     Organization,
@@ -12,6 +15,9 @@ from directory.models import (
     Employee,
     Position
 )
+from directory.utils.permissions import AccessControlHelper
+
+logger = logging.getLogger(__name__)
 
 
 class HomePageView(LoginRequiredMixin, TemplateView):
@@ -28,30 +34,79 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context['title'] = '🏠 Главная'
 
-        # 🔍 Получаем организации из профиля пользователя или все для суперпользователя
+        # 🔍 Получаем доступные организации пользователя
         user = self.request.user
 
-        # 🆕 Логика для суперпользователя - показываем все организации
+        # Если суперпользователь — показываем все организации; иначе по правам доступа
         if user.is_superuser:
-            allowed_orgs = Organization.objects.all()
-        elif hasattr(user, 'profile'):
-            allowed_orgs = user.profile.organizations.all()
+            accessible_orgs = Organization.objects.all()
         else:
-            allowed_orgs = Organization.objects.none()
+            # ВАЖНО: Очищаем кеш перед получением организаций, чтобы избежать проблем с устаревшими данными
+            if hasattr(self.request, '_user_orgs_cache'):
+                delattr(self.request, '_user_orgs_cache')
+            accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
+
+        # 📋 Определяем выбранную организацию из GET-параметра
+        org_id_param = self.request.GET.get('org', '')
+        selected_org_id = None
+
+        if org_id_param:
+            try:
+                org_id = int(org_id_param)
+                # Проверка доступа к организации
+                if accessible_orgs.filter(id=org_id).exists():
+                    selected_org_id = org_id
+                    logger.info(f"User {user.username} viewing org_id={selected_org_id}")
+            except (ValueError, TypeError):
+                pass  # Игнорируем невалидный параметр
+
+        # 🎯 Автоподстановка при единственной доступной организации
+        if selected_org_id is None and accessible_orgs.count() == 1:
+            selected_org_id = accessible_orgs.first().id
+            logger.info(f"User {user.username} auto-selected org_id={selected_org_id}")
+
+        # 💾 Сохранить выбор в сессии для UX
+        try:
+            if selected_org_id:
+                self.request.session['last_selected_org_id'] = selected_org_id
+            elif hasattr(self.request, 'session') and 'last_selected_org_id' in self.request.session:
+                # Попытка восстановить последний выбор
+                last_org_id = self.request.session.get('last_selected_org_id')
+                if accessible_orgs.filter(id=last_org_id).exists():
+                    selected_org_id = last_org_id
+                    logger.info(f"User {user.username} restored org_id={selected_org_id} from session")
+        except Exception as e:
+            # Если сессия недоступна, просто продолжаем без восстановления
+            logger.warning(f"Session not available: {e}")
+
+        # 📊 Добавляем данные о выборе организации в контекст
+        context['org_options'] = accessible_orgs
+        context['selected_org_id'] = selected_org_id
+        context['show_tree'] = selected_org_id is not None
+
+        # 🚫 Если организация не выбрана, не строим дерево
+        if not context['show_tree']:
+            context['organizations'] = []
+            context['candidate_employees'] = Employee.objects.none()
+            context['statuses'] = Employee.EMPLOYEE_STATUS_CHOICES
+            context['selected_status'] = ''
+            context['show_fired'] = False
+            context['is_paginated'] = False
+            return context
+
+        # ✅ Фильтруем организации по выбранной
+        allowed_orgs = accessible_orgs.filter(id=selected_org_id)
 
         # 🔍 Добавляем поддержку поиска сотрудников
         search_query = self.request.GET.get('search', '')
         selected_status = self.request.GET.get('status', '')
         show_fired = self.request.GET.get('show_fired') == 'true'
 
-        # 👤 Получаем список кандидатов для отдельного блока
-        candidate_employees = Employee.objects.filter(status='candidate').select_related('position')
-
-        # Применяем ограничения пользователя к кандидатам
-        if not user.is_superuser and hasattr(user, 'profile'):
-            candidate_employees = candidate_employees.filter(
-                organization__in=user.profile.organizations.all()
-            )
+        # 👤 Получаем список кандидатов для отдельного блока (только из выбранной организации)
+        candidate_employees = Employee.objects.filter(
+            status='candidate',
+            organization_id=selected_org_id
+        ).select_related('position')
 
         # Если есть поиск, применяем его и к кандидатам
         if search_query:
@@ -226,4 +281,16 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context['paginator'] = paginator
         context['is_paginated'] = paginator.num_pages > 1
 
+        return context
+
+
+class IntroductoryBriefingView(LoginRequiredMixin, TemplateView):
+    """
+    📺 Страница вводного инструктажа с обучающим видео.
+    """
+    template_name = 'directory/introductory_briefing.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Вводный инструктаж'
         return context

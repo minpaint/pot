@@ -15,10 +15,65 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 
 from directory.models.document_template import DocumentTemplate, GeneratedDocument
-from directory.utils.declension import decline_full_name, decline_phrase, get_initials_from_name
+from directory.utils.declension import decline_full_name, decline_phrase, get_initials_from_name, format_days
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+# Маппинг типов документов на человекочитаемые названия файлов
+DOCUMENT_TYPE_NAMES = {
+    'all_orders': 'Распоряжения',
+    'knowledge_protocol': 'Протокол',
+    'periodic_protocol': 'Протокол',
+    'doc_familiarization': 'Лист ознакомления',
+    'siz_card': 'Карточка СИЗ',
+    'personal_ot_card': 'Личная карточка',
+    'journal_example': 'Образец журнала',
+    'instruction_journal': 'Образец журнала инструктажей',
+}
+
+# Организационно-правовые формы для разбора названия
+ORG_LEGAL_FORMS = [
+    'Общество с ограниченной ответственностью',
+    'Общество с дополнительной ответственностью',
+    'Закрытое акционерное общество',
+    'Открытое акционерное общество',
+    'Акционерное общество',
+    'Унитарное предприятие',
+    'Частное унитарное предприятие',
+    'Государственное унитарное предприятие',
+    'Индивидуальный предприниматель',
+]
+
+
+def parse_organization_name(full_name: str) -> tuple:
+    """
+    Разбирает полное название организации на организационно-правовую форму и название.
+
+    Например:
+    'Общество с ограниченной ответственностью "Безопасность Плюс"'
+    -> ('Общество с ограниченной ответственностью', '"Безопасность Плюс"')
+
+    Returns:
+        tuple: (legal_form, company_name)
+    """
+    if not full_name:
+        return ('', '')
+
+    name = full_name.strip()
+
+    # Ищем организационно-правовую форму
+    for legal_form in ORG_LEGAL_FORMS:
+        if name.startswith(legal_form):
+            # Нашли форму, остальное - название
+            company_name = name[len(legal_form):].strip()
+            # Если название не в кавычках - добавляем их
+            if company_name and not company_name.startswith('"'):
+                company_name = f'"{company_name}"'
+            return (legal_form, company_name)
+
+    # Не нашли известную форму - возвращаем всё как название
+    return ('', full_name)
 
 
 def get_document_template(document_type, employee=None) -> Optional[DocumentTemplate]:
@@ -31,15 +86,15 @@ def get_document_template(document_type, employee=None) -> Optional[DocumentTemp
     3. Если ни один из вариантов не найден, возвращается None.
 
     Args:
-        document_type (str): Тип документа.
+        document_type (str): Код типа документа (например: 'siz_card', 'knowledge_protocol').
         employee (Employee, optional): Сотрудник, для которого выбирается шаблон.
 
     Returns:
         DocumentTemplate: Объект шаблона документа или None, если шаблон не найден.
     """
-    # Получаем все активные шаблоны данного типа
+    # Получаем все активные шаблоны данного типа (теперь document_type это ForeignKey)
     templates = DocumentTemplate.objects.filter(
-        document_type=document_type,
+        document_type__code=document_type,
         is_active=True
     )
 
@@ -139,6 +194,22 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
         'organization_full_name_prepositional': decline_phrase(employee.organization.full_name_ru, 'loct') if employee.organization else "",
 
         # Даты и номера документов
+    }
+
+    # Добавляем разбитое название организации (форма + название)
+    if employee.organization:
+        legal_form, company_name = parse_organization_name(employee.organization.full_name_ru)
+        context.update({
+            'organization_legal_form': legal_form,  # "Общество с ограниченной ответственностью"
+            'organization_company_name': company_name,  # '"Безопасность Плюс"'
+        })
+    else:
+        context.update({
+            'organization_legal_form': '',
+            'organization_company_name': '',
+        })
+
+    context.update({
         'current_date': date_str,
         'current_day': day,
         'current_month': month,
@@ -153,7 +224,101 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
         'location': employee.organization.location if employee.organization and hasattr(employee.organization, 'location') and employee.organization.location else "г. Минск",
 
         'employee_name_initials': get_initials_from_name(employee.full_name_nominative),
-    }
+    })
+
+    # Добавляем дату трудоустройства
+    if employee.hire_date:
+        hire_date_str = employee.hire_date.strftime("%d.%m.%Y")
+        context['hire_date'] = hire_date_str
+    else:
+        context['hire_date'] = ""
+
+    # Добавляем год рождения
+    if employee.date_of_birth:
+        context['year_of_birth'] = employee.date_of_birth.strftime('%Y')
+    else:
+        context['year_of_birth'] = ""
+
+    # Добавляем вид работ по договору подряда (для личной карточки)
+    if contract_type == 'contractor' and employee.position:
+        context['GPD'] = getattr(employee.position, 'contract_work_name', '') or ""
+    else:
+        context['GPD'] = ""
+
+    # Добавляем форматированную продолжительность стажировки
+    internship_days = context.get('internship_duration', 2)
+    context['internship_duration_formatted'] = format_days(internship_days)
+
+    # Добавляем период стажировки "с ДД.ММ.ГГГГ по ДД.ММ.ГГГГ"
+    # Отнимаем 1 день, т.к. стажировка включает первый день
+    # Для договора подряда стажировка не нужна
+    if employee.hire_date and internship_days > 0 and contract_type != 'contractor':
+        internship_start = employee.hire_date
+        internship_end = internship_start + datetime.timedelta(days=internship_days - 1)
+        context['internship_period'] = f"с {internship_start.strftime('%d.%m.%Y')} по {internship_end.strftime('%d.%m.%Y')}"
+        context['has_internship'] = True
+    else:
+        context['internship_period'] = ""
+        context['has_internship'] = False
+
+    # Добавляем номера инструкций по охране труда
+    # Для договора подряда - специальные инструкции для вида работ
+    # Для остальных договоров - стандартные инструкции для должности + управление автомобилем
+    if employee.position:
+        if contract_type == 'contractor':
+            # Для подрядчиков сначала берём спец. инструкции, иначе падаем обратно на общие
+            contract_instr = getattr(employee.position, 'contract_safety_instructions', '') or ""
+            if contract_instr:
+                context['instruction_numbers'] = contract_instr
+            else:
+                from directory.utils.vehicle_utils import combine_instructions
+                context['instruction_numbers'] = combine_instructions(employee)
+        else:
+            # Используем функцию объединения инструкций (основные + авто)
+            from directory.utils.vehicle_utils import combine_instructions
+            context['instruction_numbers'] = combine_instructions(employee)
+    else:
+        context['instruction_numbers'] = ""
+
+    # Дублируем ключ для совместимости со старыми шаблонами
+    context['instructions'] = context['instruction_numbers']
+    # Удобный вариант в виде списка
+    context['instruction_numbers_list'] = [
+        instr.strip() for instr in context['instruction_numbers'].split(',')
+        if instr and instr.strip()
+    ]
+
+    # Добавляем переменную driving_auto для отображения в шаблонах
+    # Используется для заголовков и текста "(управление служебным автомобилем)"
+    from directory.utils.vehicle_utils import needs_vehicle_training
+    if needs_vehicle_training(employee):
+        context['driving_auto'] = ' (управление служебным автомобилем)'
+    else:
+        context['driving_auto'] = ''
+
+
+    # Умные переменные - готовые строки без лишних пробелов
+    # Полная строка "должность отдела подразделения" в нужном падеже
+    position_parts_dative = [context['position_dative']]
+    if context['department_genitive']:
+        position_parts_dative.append(context['department_genitive'])
+    if context['subdivision_genitive']:
+        position_parts_dative.append(context['subdivision_genitive'])
+    context['position_full_dative'] = ' '.join(position_parts_dative)
+
+    position_parts_genitive = [context['position_genitive']]
+    if context['department_genitive']:
+        position_parts_genitive.append(context['department_genitive'])
+    if context['subdivision_genitive']:
+        position_parts_genitive.append(context['subdivision_genitive'])
+    context['position_full_genitive'] = ' '.join(position_parts_genitive)
+
+    position_parts_accusative = [context['position_accusative']]
+    if context['department_genitive']:
+        position_parts_accusative.append(context['department_genitive'])
+    if context['subdivision_genitive']:
+        position_parts_accusative.append(context['subdivision_genitive'])
+    context['position_full_accusative'] = ' '.join(position_parts_accusative)
 
     # Подписание
     from directory.views.documents.utils import get_document_signer
@@ -175,10 +340,12 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
     return context
 
 def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, Any],
-                                employee, user=None, post_processor: Optional[Callable] = None) -> Optional[
-    GeneratedDocument]:
+                                employee, user=None, post_processor: Optional[Callable] = None,
+                                raise_on_error: bool = False) -> Optional[Dict[str, Any]]:
     """
     Генерирует документ DOCX на основе шаблона и контекста данных.
+    Не сохраняет в базу данных, возвращает содержимое файла.
+
     Args:
         template (DocumentTemplate): Объект шаблона документа
         context (Dict[str, Any]): Словарь с данными для заполнения шаблона
@@ -186,7 +353,7 @@ def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, A
         user: Пользователь, создающий документ (опционально)
         post_processor: Функция пост-обработки документа (например, для обработки таблиц)
     Returns:
-        Optional[GeneratedDocument]: Объект сгенерированного документа или None при ошибке
+        Optional[Dict]: Словарь с 'content' (байты файла) и 'filename' или None при ошибке
     """
     try:
         template_path = template.template_file.path
@@ -210,14 +377,8 @@ def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, A
             logger.error(f"Ошибка при загрузке шаблона в DocxTemplate: {str(e)}")
             raise ValueError(f"Ошибка при загрузке шаблона в DocxTemplate: {str(e)}")
 
-        # Проверка ключей больше не обязательна здесь, но можно оставить для отладки
-        # common_keys = [...] # Список ключей
-        # missing_keys = [key for key in common_keys if key not in context]
-        # if missing_keys:
-        #     logger.warning(f"В контексте отсутствуют часто используемые ключи: {missing_keys}")
-
         try:
-            # Удаляем объект employee из контекста перед рендерингом, чтобы избежать проблем с сериализацией
+            # Удаляем объект employee из контекста перед рендерингом
             context_to_render = context.copy()
             context_to_render.pop('employee', None)
             doc.render(context_to_render)
@@ -232,15 +393,19 @@ def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, A
                 except Exception as e:
                     logger.error(f"Ошибка при применении пост-обработчика: {str(e)}")
                     logger.error(traceback.format_exc())
-                    # Продолжаем с оригинальным документом
 
         except Exception as e:
             logger.error(f"Ошибка при заполнении шаблона данными: {str(e)}")
-            logger.error(f"Контекст при ошибке: {context_to_render.keys()}")  # Лог ключей контекста
+            logger.error(f"Контекст при ошибке: {context_to_render.keys()}")
             raise ValueError(f"Ошибка при заполнении шаблона данными: {str(e)}")
 
-        filename = f"{template.document_type}_{employee.full_name_nominative.split()[0]}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-        logger.info(f"Имя файла для сохранения: {filename}")
+        # Формируем человекочитаемое имя файла
+        # document_type теперь ForeignKey, получаем код через .code
+        doc_type_code = template.document_type.code if template.document_type else 'document'
+        doc_type_name = DOCUMENT_TYPE_NAMES.get(doc_type_code, doc_type_code)
+        employee_initials = get_initials_from_name(employee.full_name_nominative)
+        filename = f"{doc_type_name}_{employee_initials}.docx"
+        logger.info(f"Имя файла: {filename}")
 
         docx_buffer = io.BytesIO()
         doc.save(docx_buffer)
@@ -250,34 +415,17 @@ def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, A
         if len(file_content) == 0:
             logger.error(f"Создан пустой DOCX файл для {filename}")
             raise ValueError("Создан пустой DOCX файл")
-        else:
-            logger.info(f"Создан DOCX файл {filename}, размер: {len(file_content)} байт")
 
-        generated_doc = GeneratedDocument()
-        generated_doc.template = template
-        generated_doc.employee = employee
-        generated_doc.created_by = user
+        logger.info(f"Создан DOCX файл {filename}, размер: {len(file_content)} байт")
 
-        # Сохраняем контекст без объекта employee
-        generated_doc.document_data = context_to_render
+        return {
+            'content': file_content,
+            'filename': filename,
+        }
 
-        try:
-            generated_doc.document_file.save(filename, ContentFile(file_content))
-            generated_doc.save()
-            logger.info(f"Документ успешно сохранен в базу данных с ID: {generated_doc.id}")
-
-            file_path = os.path.join(settings.MEDIA_ROOT, str(generated_doc.document_file))
-            if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                logger.info(
-                    f"Проверка после сохранения: файл существует по пути {file_path}, размер: {os.path.getsize(file_path)} байт")
-            else:
-                logger.warning(f"Проверка после сохранения: файл не найден или пуст по пути {file_path}")
-
-            return generated_doc
-        except Exception as e:
-            logger.error(f"Ошибка при сохранении документа: {str(e)}")
-            raise ValueError(f"Ошибка при сохранении документа: {str(e)}")
     except Exception as e:
         logger.error(f"Ошибка при генерации документа: {str(e)}")
         logger.error(traceback.format_exc())
+        if raise_on_error:
+            raise
         return None

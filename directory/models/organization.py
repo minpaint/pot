@@ -18,8 +18,8 @@ class Organization(models.Model):
                               help_text="Например: г. Минск, г. Брест и т.д.")
 
     class Meta:
-        verbose_name = "Организация"
-        verbose_name_plural = "Организации"
+        verbose_name = "🏢 Организация"
+        verbose_name_plural = "🏢 Организации"
         ordering = ['full_name_ru']
 
     def __str__(self):

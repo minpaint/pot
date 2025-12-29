@@ -30,7 +30,7 @@
         <div class="col-12">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'directory:home' %}">Главная</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'directory:employee_home' %}">Главная</a></li>
                     <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
                 </ol>
             </nav>
@@ -83,7 +83,7 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{% url 'directory:home' %}" class="btn btn-outline-primary">
+                        <a href="{% url 'directory:employee_home' %}" class="btn btn-outline-primary">
                             <i class="fas fa-users"></i> Выбрать сотрудника
                         </a>
                     </div>
@@ -113,18 +113,18 @@
                                 {% for doc in documents %}
                                 <tr class="document-row">
                                     <td>
-                                        {% if doc.template.document_type == 'internship_order' %}
+                                        {% if doc.template.document_type.code == 'internship_order' %}
                                         <i class="fas fa-file-alt document-icon text-primary"></i>
-                                        {% elif doc.template.document_type == 'admission_order' %}
+                                        {% elif doc.template.document_type.code == 'admission_order' %}
                                         <i class="fas fa-file-alt document-icon text-success"></i>
-                                        {% elif doc.template.document_type == 'knowledge_protocol' %}
+                                        {% elif doc.template.document_type.code == 'knowledge_protocol' %}
                                         <i class="fas fa-file-alt document-icon text-warning"></i>
-                                        {% elif doc.template.document_type == 'doc_familiarization' %}
+                                        {% elif doc.template.document_type.code == 'doc_familiarization' %}
                                         <i class="fas fa-file-alt document-icon text-info"></i>
                                         {% else %}
                                         <i class="fas fa-file document-icon"></i>
                                         {% endif %}
-                                        {{ doc.template.get_document_type_display }}
+                                        {{ doc.template.document_type }}
                                     </td>
                                     <td>{{ doc.employee.full_name_nominative }}</td>
                                     <td>{{ doc.created_at|date:"d.m.Y H:i" }}</td>

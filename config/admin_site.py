@@ -11,41 +11,60 @@ class OTAdminSite(AdminSite):
 
     MENU_ORDER = OrderedDict([
         (_("🔑 Администрирование доступа"), [
-            "User", "Group",
+            "UserProxy", "GroupProxy",
+        ]),
+        (_("📧 Уведомления"), [
+            "EmailSettings",
+            "EmailTemplateType",
+            "EmailTemplate",
+        ]),
+        (_("📨 Исходящие письма"), [
+            "InstructionJournalSendLog",
+            "MedicalNotificationSendLog",
+            "KeyDeadlineSendLog",
+            "EquipmentJournalSendLog",
         ]),
         (_("🏢 Организация"), [
             "Organization", "Subdivision", "Department", "StructuralSubdivision",
         ]),
         (_("👥 Сотрудники и должности"), [
-            "Position", "Employee",
+            "Position", "Employee", "ResponsibilityType",
         ]),
         (_("🏥 Медосмотры"), [
+            "MedicalSettings",
             "MedicalExaminationType",
             "HarmfulFactor",
             "PositionMedicalFactor",
             "EmployeeMedicalExamination",
             "MedicalExaminationNorm",
-            "MedicalSettings",
+            "MedicalReferral",
+        ]),
+        (_("\u23f1️ Контроль сроков"), [
+            "Equipment",
+            "EquipmentType",
+            "KeyDeadlineCategory",
+            "OrganizationKeyDeadline",
+            "EmployeeMedicalExamination",
         ]),
         (_("🛡️ СИЗ"), [
             "SIZ", "SIZNorm",
         ]),
         (_("📄 Документы и шаблоны"), [
-            "DocumentTemplate", "Document", "Equipment",
+            "Document", "DocumentTemplateType", "DocumentTemplate", "GeneratedDocument", "DocumentGenerationLog",
         ]),
         (_("📑 Прием на работу"), [
-            "EmployeeHiring", "Commission", "GeneratedDocument",
+            "EmployeeHiring", "Commission",
         ]),
         (_("📊 Импорт/Экспорт данных"), [
             "ImportExportMenu",
         ]),
     ])
 
-    def get_app_list(self, request):
+    def get_app_list(self, request, app_label=None):
         """
         Возвращает меню, сгруппированное по логическим блокам.
         """
-        app_list = super().get_app_list(request)
+        app_list = super().get_app_list(request, app_label)
 
         # Плоский список всех моделей
         all_models = []
@@ -62,9 +81,9 @@ class OTAdminSite(AdminSite):
                         grouped_apps[section]['models'].append(m)
 
         # Прочее
-        grouped_apps["Прочее"] = {'name': "Прочее", 'models': []}
+        grouped_apps["📦 Прочее"] = {'name': "📦 Прочее", 'models': []}
         for m in all_models:
             if not any(m['object_name'] in models for models in self.MENU_ORDER.values()):
-                grouped_apps["Прочее"]['models'].append(m)
+                grouped_apps["📦 Прочее"]['models'].append(m)
 
         return [section for section in grouped_apps.values() if section['models']]

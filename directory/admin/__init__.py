@@ -4,9 +4,9 @@ from django.contrib import admin  # noqa: F401
 from .department import DepartmentAdmin
 from .document import DocumentAdmin
 from .employee import EmployeeAdmin
-from .equipment import EquipmentAdmin
 from .organization import OrganizationAdmin
 from .position import PositionAdmin
+from .responsibility_type import ResponsibilityTypeAdmin
 # Вместо файла subdivision_nested импортируем оригинальный файл subdivision.py с MPTTModelAdmin
 from .subdivision import StructuralSubdivisionAdmin
 from .user import CustomUserAdmin
@@ -15,20 +15,25 @@ from .siz import SIZAdmin, SIZNormAdmin
 from .commission_admin import CommissionAdmin
 from django.utils.html import format_html
 from directory.models import EmployeeHiring
-from .medical_examination import *
+# medical_examination перемещён в deadline_control
 from .quiz_admin import *  # Импортируем админку экзаменов
+# ProfileAdmin убран - профиль редактируется через inline в User админке
+from .menu_item import MenuItemAdmin  # Управление пунктами меню
+
+# ПРИМЕЧАНИЕ: register_global_import_export и register_registry_import
+# теперь вызываются в urls.py ДО определения urlpatterns
+# для правильной работы monkey-patching
 
 
 __all__ = [
     'DepartmentAdmin',
     'DocumentAdmin',
     'EmployeeAdmin',
-    'EquipmentAdmin',
     'OrganizationAdmin',
     'PositionAdmin',
     'StructuralSubdivisionAdmin',
     'CustomUserAdmin',
-    'EmployeeHiringAdmin',  # Добавляем в список экспорта
+    'EmployeeHiringAdmin',
 ]
 
 

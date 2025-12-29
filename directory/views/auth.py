@@ -17,7 +17,7 @@ class UserRegistrationView(CreateView):
     """🔐 Регистрация нового пользователя"""
     form_class = CustomUserCreationForm
     template_name = 'directory/registration/register.html'
-    success_url = reverse_lazy('directory:home')
+    success_url = reverse_lazy('directory:employee_home')
 
     def get_context_data(self, **kwargs):
         """📋 Контекст для шаблона регистрации"""
@@ -65,5 +65,5 @@ class UserRegistrationView(CreateView):
         """🔍 Проверка статуса аутентификации"""
         if request.user.is_authenticated:
             messages.info(request, _("ℹ️ Вы уже авторизованы в системе."))
-            return redirect('directory:home')
+            return redirect('directory:employee_home')
         return super().dispatch(request, *args, **kwargs)

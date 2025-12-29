@@ -48,7 +48,7 @@
 
     <!-- Кнопки действий -->
     <div class="mb-3">
-        <a href="{% url 'directory:hiring:hiring_create' %}" class="btn btn-success">
+        <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-success">
             <i class="fas fa-plus"></i> Новый прием на работу
         </a>
         <a href="{% url 'directory:hiring:hiring_tree' %}" class="btn btn-info">
@@ -75,7 +75,6 @@
                             <th>Подразделение</th>
                             <th>Отдел</th>
                             <th>Должность</th>
-                            <th>Документы</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -99,32 +98,15 @@
                                     <td>{{ hiring.department.name|default:"-" }}</td>
                                     <td>{{ hiring.position.position_name }}</td>
                                     <td>
-                                        {% if hiring.documents.exists %}
-                                            <span class="badge badge-info">
-                                                <i class="fas fa-file-alt"></i> {{ hiring.documents.count }}
-                                            </span>
-                                        {% else %}
-                                            <span class="badge badge-secondary">Нет</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="btn btn-info" title="Просмотр">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            <a href="{% url 'directory:hiring:hiring_update' hiring.pk %}" class="btn btn-warning" title="Редактировать">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <a href="{% url 'directory:hiring:hiring_delete' hiring.pk %}" class="btn btn-danger" title="Удалить">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
-                                        </div>
+                                        <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-file-alt"></i> Документы приема
+                                        </a>
                                     </td>
                                 </tr>
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="9" class="text-center py-3">
+                                <td colspan="8" class="text-center py-3">
                                     <div class="alert alert-info mb-0">
                                         <i class="fas fa-info-circle"></i> Записи о приеме на работу не найдены.
                                     </div>

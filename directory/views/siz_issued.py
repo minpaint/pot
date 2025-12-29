@@ -18,6 +18,9 @@ from django.contrib.auth.decorators import login_required
 
 from directory.models import Employee, SIZIssued
 from directory.forms.siz_issued import SIZIssueForm, SIZIssueMassForm, SIZIssueReturnForm
+from directory.mixins import AccessControlMixin, AccessControlObjectMixin
+from directory.utils.permissions import AccessControlHelper
+from directory.utils.siz_sizes import get_employee_sizes
 
 
 def determine_gender_from_patronymic(full_name):
@@ -228,7 +231,7 @@ def issue_selected_siz(request, employee_id):
     return redirect('directory:siz:siz_personal_card', employee_id=employee_id)
 
 
-class SIZPersonalCardView(LoginRequiredMixin, DetailView):
+class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailView):
     """
     👤 Представление для отображения личной карточки учета СИЗ сотрудника
     """
@@ -236,11 +239,20 @@ class SIZPersonalCardView(LoginRequiredMixin, DetailView):
     template_name = 'directory/siz_issued/personal_card.html'
     context_object_name = 'employee'
 
-    def get_object(self):
+    def get_object(self, queryset=None):
         """
-        🔍 Получаем объект сотрудника по его ID
+        🔍 Получаем объект сотрудника по его ID с проверкой прав доступа
         """
-        return get_object_or_404(Employee, id=self.kwargs.get('employee_id'))
+        # Получаем объект через стандартный метод
+        obj = Employee.objects.get(id=self.kwargs.get('employee_id'))
+
+        # AccessControlObjectMixin автоматически проверит права доступа
+        # через переопределенный метод get_object в родительском классе
+        if not AccessControlHelper.can_access_object(self.request.user, obj):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("У вас нет доступа к этому сотруднику")
+
+        return obj
 
     def get_context_data(self, **kwargs):
         """
@@ -259,12 +271,50 @@ class SIZPersonalCardView(LoginRequiredMixin, DetailView):
         # Получаем нормы СИЗ для должности сотрудника
         if self.object.position:
             from directory.models.siz import SIZNorm
+            from directory.models.position import Position
+            import logging
+            logger = logging.getLogger(__name__)
+
+            logger.info(f"Получение норм СИЗ для сотрудника ID={self.object.id}: {self.object.full_name_nominative}")
+            logger.info(f"Должность: {self.object.position.position_name} (ID={self.object.position.id})")
+            logger.info(f"Организация: {self.object.position.organization}")
+
+            # Сначала пытаемся получить нормы для конкретной должности
             norms = SIZNorm.objects.filter(
                 position=self.object.position
             ).select_related('siz')
 
+            logger.info(f"Найдено норм СИЗ для должности: {norms.count()}")
+
+            # Если нормы не найдены, ищем эталонную должность с таким же названием
+            if norms.count() == 0:
+                logger.info("Нормы не найдены для конкретной должности, ищем эталонную должность...")
+
+                # Получаем все должности с таким же названием
+                positions_with_same_name = Position.objects.filter(
+                    position_name=self.object.position.position_name
+                ).order_by('organization__full_name_ru')
+
+                # Ищем первую должность с нормами (эталонную)
+                reference_position = None
+                for pos in positions_with_same_name:
+                    if SIZNorm.objects.filter(position=pos).exists():
+                        reference_position = pos
+                        break
+
+                if reference_position:
+                    logger.info(f"Найдена эталонная должность ID={reference_position.id} "
+                              f"в организации {reference_position.organization.short_name_ru}")
+                    norms = SIZNorm.objects.filter(
+                        position=reference_position
+                    ).select_related('siz')
+                    logger.info(f"Загружено норм СИЗ из эталонной должности: {norms.count()}")
+                else:
+                    logger.warning(f"Эталонная должность для '{self.object.position.position_name}' не найдена")
+
             # Базовые нормы (без условий)
             context['base_norms'] = norms.filter(condition='')
+            logger.info(f"Базовых норм (без условий): {context['base_norms'].count()}")
 
             # Нормы по условиям
             conditions = list(set(norm.condition for norm in norms if norm.condition))
@@ -279,6 +329,7 @@ class SIZPersonalCardView(LoginRequiredMixin, DetailView):
                     })
 
             context['condition_groups'] = condition_groups
+            logger.info(f"Групп норм с условиями: {len(condition_groups)}")
 
         # Определяем пол по отчеству и добавляем в контекст
         gender = determine_gender_from_patronymic(self.object.full_name_nominative)
@@ -286,11 +337,15 @@ class SIZPersonalCardView(LoginRequiredMixin, DetailView):
 
         # Генерируем случайные размеры СИЗ и добавляем в контекст
         context['siz_sizes'] = get_random_siz_sizes(gender)
+        employee_sizes = get_employee_sizes(self.object, gender)
+        context['employee_height'] = employee_sizes['height']
+        context['employee_clothing_size'] = employee_sizes['clothing_size']
+        context['employee_shoe_size'] = employee_sizes['shoe_size']
 
         return context
 
 
-class SIZIssueReturnView(LoginRequiredMixin, UpdateView):
+class SIZIssueReturnView(LoginRequiredMixin, AccessControlObjectMixin, UpdateView):
     """
     🔄 Представление для возврата выданного СИЗ
     """

@@ -108,8 +108,8 @@ class EmployeeHiring(models.Model):
     )
 
     class Meta:
-        verbose_name = _("Прием на работу")
-        verbose_name_plural = _("Приемы на работу")
+        verbose_name = _("📋 Прием на работу")
+        verbose_name_plural = _("📋 Приемы на работу")
         ordering = ['-hiring_date', 'employee__full_name_nominative']
 
     def __str__(self):

@@ -23,8 +23,8 @@ class Department(models.Model):
     )
 
     class Meta:
-        verbose_name = "Отдел"
-        verbose_name_plural = "Отделы"
+        verbose_name = "📂 Отдел"
+        verbose_name_plural = "📂 Отделы"
         ordering = ['name']
         unique_together = [
             ['name', 'organization', 'subdivision']

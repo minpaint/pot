@@ -14,6 +14,9 @@
     <a href="{% url 'admin:directory_equipment_export' %}" class="addlink" style="background-position: 0 -96px;">
       📤 Экспорт
     </a>
+    <a href="{% url 'admin:global_import' %}" class="addlink" style="background-position: 0 -96px; background-color: #28a745; color: white;">
+      📊 Единый импорт/экспорт
+    </a>
   </div>
   <form id="changelist-form" method="post"
         {% if cl.formset and cl.formset.is_multipart %}enctype="multipart/form-data"{% endif %}

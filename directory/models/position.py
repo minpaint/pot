@@ -1,7 +1,49 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Count
-from directory.models.medical_examination import HarmfulFactor
+
+
+class ResponsibilityType(models.Model):
+    """
+    📋 Справочник видов ответственных.
+
+    Примеры:
+    - Ответственный за электрохозяйство
+    - Ответственный за пожарную безопасность
+    - Ответственный за газовое хозяйство
+    - Ответственный за лифтовое хозяйство
+    """
+    name = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name="Название вида ответственности"
+    )
+
+    description = models.TextField(
+        blank=True,
+        verbose_name="Описание",
+        help_text="Дополнительная информация о виде ответственности"
+    )
+
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Порядок сортировки",
+        help_text="Используется для упорядочивания в списках"
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Активен",
+        help_text="Неактивные виды ответственности не отображаются в формах"
+    )
+
+    class Meta:
+        verbose_name = "⚖️ Вид ответственного"
+        verbose_name_plural = "⚖️ Виды ответственных"
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return self.name
 
 
 class Position(models.Model):
@@ -15,20 +57,6 @@ class Position(models.Model):
         ("IV", "IV"),
         ("V", "V"),
     ]
-    COMMISSION_ROLE_CHOICES = [
-        ('chairman', '👑 Председатель комиссии'),
-        ('member', '👤 Член комиссии'),
-        ('secretary', '📝 Секретарь комиссии'),
-        ('none', '❌ Не участвует в комиссии'),
-    ]
-
-    commission_role = models.CharField(
-        "Роль в комиссии",
-        max_length=10,
-        choices=COMMISSION_ROLE_CHOICES,
-        default='none',
-        help_text="Укажите роль сотрудника в комиссии"
-    )
 
     contract_work_name = models.TextField(
         "🔨 Наименование работы по договору подряда",
@@ -41,6 +69,13 @@ class Position(models.Model):
         max_length=255,
         blank=True,
         help_text="Укажите номера инструкций по охране труда для данного вида работ"
+    )
+
+    company_vehicle_instructions = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="🚗 Инструкции при управлении служебным автомобилем",
+        help_text="Укажите номера инструкций по охране труда для водителей служебного транспорта"
     )
 
     position_name = models.CharField(
@@ -105,6 +140,12 @@ class Position(models.Model):
         help_text="Указывает, может ли сотрудник с этой должностью подписывать распоряжения"
     )
 
+    drives_company_vehicle = models.BooleanField(
+        default=False,
+        verbose_name="🚗 Управляет служебным автомобилем",
+        help_text="Отметьте, если должность предполагает управление служебным автомобилем"
+    )
+
     documents = models.ManyToManyField(
         'directory.Document',
         blank=True,
@@ -112,22 +153,30 @@ class Position(models.Model):
         verbose_name="Документы"
     )
     equipment = models.ManyToManyField(
-        'directory.Equipment',
+        'deadline_control.Equipment',
         blank=True,
         related_name="positions",
         verbose_name="Оборудование"
     )
     medical_harmful_factors = models.ManyToManyField(
-        HarmfulFactor,
-        through='directory.PositionMedicalFactor',
+        'deadline_control.HarmfulFactor',
+        through='deadline_control.PositionMedicalFactor',
         related_name='positions',
         verbose_name="Вредные факторы медосмотров",
         blank=True
     )
 
+    responsibility_types = models.ManyToManyField(
+        'ResponsibilityType',
+        blank=True,
+        related_name='positions',
+        verbose_name="📋 Виды ответственности",
+        help_text="Выберите виды ответственности для данной должности"
+    )
+
     class Meta:
-        verbose_name = "Профессия/должность"
-        verbose_name_plural = "Профессии/должности"
+        verbose_name = "💼 Профессия/должность"
+        verbose_name_plural = "💼 Профессии/должности"
         ordering = ['position_name']
         unique_together = [
             ['position_name', 'organization', 'subdivision', 'department']
@@ -151,6 +200,12 @@ class Position(models.Model):
         if self.subdivision and self.subdivision.organization != self.organization:
             raise ValidationError({
                 'subdivision': 'Подразделение должно принадлежать выбранной организации'
+            })
+
+        # Валидация полей служебного автомобиля
+        if self.drives_company_vehicle and not self.company_vehicle_instructions:
+            raise ValidationError({
+                'company_vehicle_instructions': 'Необходимо указать инструкции при управлении служебным автомобилем'
             })
 
     def save(self, *args, **kwargs):

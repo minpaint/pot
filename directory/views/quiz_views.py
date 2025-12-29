@@ -31,11 +31,11 @@ def _find_first_skipped_question(attempt: QuizAttempt) -> Optional[int]:
         # Проверяем, есть ли ответ на этот вопрос
         user_answer = UserAnswer.objects.filter(
             attempt=attempt,
-            question_id=qo.question_id,
-            is_skipped=True
+            question_id=qo.question_id
         ).first()
 
-        if user_answer:
+        # Если ответа нет вообще, или он пропущен - это пропущенный вопрос
+        if not user_answer or user_answer.is_skipped:
             # Нашли пропущенный вопрос, возвращаем его номер (order + 1)
             return qo.order + 1
 
@@ -79,9 +79,32 @@ def quiz_list(request):
         # Получаем категории для этого квиза с сортировкой
         quiz_categories = quiz.get_exam_categories()
 
+        # Для каждой категории подсчитываем прогресс пользователя
+        categories_with_progress = []
+        for category in quiz_categories:
+            # Считаем сколько уникальных вопросов из этой категории пользователь ОТВЕТИЛ
+            # (правильно или неправильно, главное - не пропустил)
+            # в завершенных И незавершенных попытках тренировок
+            answered_count = UserAnswer.objects.filter(
+                attempt__user=request.user,
+                attempt__quiz=quiz,
+                attempt__category=category,
+                attempt__status__in=[QuizAttempt.STATUS_COMPLETED, QuizAttempt.STATUS_IN_PROGRESS],
+                question__category=category,
+                is_skipped=False  # Не считаем пропущенные
+            ).values('question_id').distinct().count()
+
+            total_questions = category.get_questions_count()
+
+            categories_with_progress.append({
+                'category': category,
+                'answered_count': answered_count,
+                'total_questions': total_questions,
+            })
+
         quizzes_with_categories.append({
             'quiz': quiz,
-            'categories': quiz_categories,
+            'categories': categories_with_progress,
         })
 
     # Статистика пользователя
@@ -218,7 +241,8 @@ def quiz_start(request, quiz_id, category_id=None):
             # Продолжаем создание новой попытки ниже
 
         # Создаем новую попытку экзамена
-        questions = quiz.get_questions_for_exam()
+        # Передаем пользователя для адаптивного подбора вопросов
+        questions = quiz.get_questions_for_exam(user=request.user)
 
         if not questions:
             messages.error(request, 'В этом экзамене нет вопросов.')
@@ -525,6 +549,49 @@ def quiz_answer(request, attempt_id, question_id):
 
 
 @login_required
+@require_POST
+def quiz_exit(request, attempt_id):
+    """Выход на главную с сохранением прогресса попытки"""
+    attempt = get_object_or_404(
+        QuizAttempt,
+        id=attempt_id,
+        user=request.user,
+        status=QuizAttempt.STATUS_IN_PROGRESS
+    )
+
+    # НЕ завершаем попытку - оставляем её в статусе IN_PROGRESS
+    # чтобы пользователь мог вернуться и продолжить с того же места
+    # Попытка будет завершена только когда пользователь:
+    # 1. Ответит на все вопросы
+    # 2. Истечёт время (для экзаменов)
+    # 3. Превысит лимит ошибок (для экзаменов)
+    # 4. Вручную завершит тренировку через quiz_finish_early
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def quiz_finish_early(request, attempt_id):
+    """Досрочное завершение тренировки с сохранением прогресса"""
+    attempt = get_object_or_404(
+        QuizAttempt,
+        id=attempt_id,
+        user=request.user,
+        status=QuizAttempt.STATUS_IN_PROGRESS
+    )
+
+    # Завершаем попытку досрочно
+    # Все отвеченные правильно вопросы будут засчитаны в прогресс
+    _finalize_attempt(attempt, request)
+
+    return JsonResponse({
+        'success': True,
+        'redirect': reverse('directory:quiz:quiz_result', kwargs={'attempt_id': attempt.id})
+    })
+
+
+@login_required
 def quiz_result(request, attempt_id):
     """Результаты прохождения экзамена"""
     attempt = get_object_or_404(
@@ -652,6 +719,20 @@ def exam_home(request):
             status=QuizAttempt.STATUS_COMPLETED
         ).order_by('-completed_at').first()
 
+        # Считаем ОБЩИЙ прогресс: сколько уникальных вопросов из этой категории
+        # пользователь ОТВЕТИЛ (правильно или неправильно, главное - не пропустил)
+        # во ВСЕХ попытках (завершенных И незавершенных)
+        answered_unique_count = UserAnswer.objects.filter(
+            attempt__user=request.user,
+            attempt__quiz=quiz,
+            attempt__category=category,
+            attempt__status__in=[QuizAttempt.STATUS_COMPLETED, QuizAttempt.STATUS_IN_PROGRESS],
+            question__category=category,
+            is_skipped=False  # Не считаем пропущенные
+        ).values('question_id').distinct().count()
+
+        total_questions = category.get_questions_count()
+
         # Формируем прогресс
         progress = None
         if in_progress_attempt:
@@ -672,6 +753,8 @@ def exam_home(request):
 
         # Добавляем прогресс к объекту категории
         category.progress = progress
+        category.answered_unique_count = answered_unique_count  # Общий прогресс
+        category.total_questions_count = total_questions  # Всего вопросов
 
         # Очищаем описание от "Импортировано из"
         if category.description and category.description.startswith('Импортировано из'):

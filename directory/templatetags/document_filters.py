@@ -1,5 +1,6 @@
 # D:\YandexDisk\OT_online\directory\templatetags\document_filters.py
 from django import template
+from directory.models import DocumentTemplateType
 
 register = template.Library()
 
@@ -36,13 +37,10 @@ def get_document_type_display(document_type):
     Returns:
         Отображаемое название типа документа
     """
-    document_types = {
-        'all_orders': '📝 Распоряжения о стажировке',
-        'knowledge_protocol': '📋 Протокол проверки знаний по охране труда',
-        'doc_familiarization': '📝 Лист ознакомления с документами',
-        'siz_card': '🛡️ Карточка учета СИЗ',
-    }
-    return document_types.get(document_type, document_type)
+    template_type = DocumentTemplateType.objects.filter(code=document_type).first()
+    if template_type:
+        return template_type.name
+    return document_type
 
 
 @register.filter

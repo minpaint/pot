@@ -12,7 +12,7 @@ class SIZForm(CrispyFormMixin, forms.ModelForm):
 
     class Meta:
         model = SIZ
-        fields = ('name', 'classification', 'unit', 'wear_period')
+        fields = ('name', 'classification', 'unit', 'wear_period', 'cost')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,6 +34,8 @@ class SIZNormForm(CrispyFormMixin, forms.ModelForm):
     class Meta:
         model = SIZNorm
         fields = ('siz', 'quantity', 'condition', 'order')
+        # DAL виджет для использования вне админки
+        # В админке Django автоматически заменит его на встроенное автозаполнение
         widgets = {
             'siz': autocomplete.ModelSelect2(url='directory:siz-autocomplete'),
         }

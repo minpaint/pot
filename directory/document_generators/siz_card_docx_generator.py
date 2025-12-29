@@ -23,7 +23,6 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from directory.models.document_template import GeneratedDocument
 from directory.document_generators.base import (
     get_document_template,
     prepare_employee_context,
@@ -31,6 +30,7 @@ from directory.document_generators.base import (
 )
 from directory.models.siz import SIZNorm
 from directory.models.siz_issued import SIZIssued
+from directory.utils.siz_sizes import get_employee_sizes
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,8 @@ def generate_siz_card_docx(
         employee,
         user=None,
         custom_context: Optional[Dict[str, Any]] = None,
-) -> Optional[GeneratedDocument]:
+        raise_on_error: bool = False,
+) -> Optional[Dict[str, Any]]:
     """Генерирует карточку учёта СИЗ для сотрудника."""
 
     try:
@@ -76,11 +77,35 @@ def generate_siz_card_docx(
         # 6. Получаем ВСЕ нормы СИЗ для лицевой стороны (независимо от выбора)
         all_norms_data = []
         if employee.position:
+            # Сначала пытаемся получить нормы для конкретной должности
             all_norms_query = SIZNorm.objects.filter(
                 position=employee.position
             ).select_related('siz')
 
+            # Если нормы не найдены, ищем эталонную должность
+            if not all_norms_query.exists():
+                logger.info("Нормы не найдены для конкретной должности, ищем эталонную...")
+                from directory.models import Position
+
+                positions_with_same_name = Position.objects.filter(
+                    position_name=employee.position.position_name
+                ).order_by('organization__full_name_ru')
+
+                reference_position = None
+                for pos in positions_with_same_name:
+                    if SIZNorm.objects.filter(position=pos).exists():
+                        reference_position = pos
+                        break
+
+                if reference_position:
+                    logger.info(f"Найдена эталонная должность ID={reference_position.id}")
+                    all_norms_query = SIZNorm.objects.filter(
+                        position=reference_position
+                    ).select_related('siz')
+
             for norm in all_norms_query:
+                cost = norm.siz.cost
+                cost_display = f"{cost:.2f}" if cost is not None else ""
                 all_norms_data.append({
                     "name": norm.siz.name,
                     "classification": norm.siz.classification,
@@ -88,6 +113,7 @@ def generate_siz_card_docx(
                     "quantity": norm.quantity,
                     "wear_period": "До износа" if norm.siz.wear_period == 0 else str(norm.siz.wear_period),
                     "condition": norm.condition,
+                    "cost": cost_display,
                     "id": norm.id  # Добавляем ID для дальнейшего использования
                 })
 
@@ -110,6 +136,7 @@ def generate_siz_card_docx(
             # Оставляем только название до скобки
             subdivision_name = subdivision_name.split("(")[0].strip()
 
+        employee_sizes = get_employee_sizes(employee, gender)
         context.update({
             "card_number": f"SIZ-{employee.id}",
             "employee_full_name": full_name,
@@ -117,9 +144,10 @@ def generate_siz_card_docx(
             "first_name": first_name,
             "patronymic": patronymic,
             "employee_gender": gender,
-            "employee_height": getattr(employee, "height", "") or "",
-            "employee_clothing_size": getattr(employee, "clothing_size", "") or "",
-            "employee_shoe_size": getattr(employee, "shoe_size", "") or "",
+            "employee_height": employee_sizes["height"],
+            "employee_clothing_size": employee_sizes["clothing_size"],
+            "employee_shoe_size": employee_sizes["shoe_size"],
+            "siz_issue_date": "",
             "department_name": department_name,
             "subdivision_name": subdivision_name,  # Добавляем подразделение в контекст
             "organization_name": organization_name,  # Добавляем организацию в контекст
@@ -153,11 +181,14 @@ def generate_siz_card_docx(
             employee,
             user,
             post_processor=process_siz_card_tables,
+            raise_on_error=raise_on_error,
         )
 
     except Exception as exc:
         logger.error("Ошибка при генерации карточки СИЗ: %s", exc)
         logger.error(traceback.format_exc())
+        if raise_on_error:
+            raise
         return None
 
 
@@ -227,15 +258,23 @@ def _gender_from_patronymic(patronymic: str) -> str:
 def process_siz_card_tables(doc, context):
     """Обрабатывает таблицы в сгенерированном документе."""
     try:
+        logger.info("=== НАЧАЛО ПОСТ-ОБРАБОТКИ ТАБЛИЦ СИЗ ===")
         docx_document = doc.docx
+
+        logger.info(f"Количество таблиц в документе: {len(docx_document.tables)}")
+        logger.info(f"Ключи контекста: {list(context.keys())}")
 
         # Обрабатываем лицевую сторону с ПОЛНЫМ списком норм
         norms_data = context.get("siz_norms", [])
+        logger.info(f"Получено норм для лицевой стороны: {len(norms_data)}")
+
         if norms_data:
             processed_front = False
-            for table in docx_document.tables:
+            for i, table in enumerate(docx_document.tables):
+                logger.info(f"Проверка таблицы #{i} на наличие NORMS_TABLE_MARKER")
                 row_idx, cell_idx = _find_marker_in_table(table, "NORMS_TABLE_MARKER")
                 if row_idx is not None:
+                    logger.info(f"Маркер NORMS_TABLE_MARKER найден в таблице #{i}, строка {row_idx}, ячейка {cell_idx}")
                     # Обработка таблицы лицевой стороны
                     process_front_table(table, row_idx, cell_idx, norms_data)
                     processed_front = True
@@ -243,22 +282,34 @@ def process_siz_card_tables(doc, context):
 
             if not processed_front:
                 logger.warning("Маркер NORMS_TABLE_MARKER не найден в таблицах")
+                # Дополнительная диагностика
+                for i, table in enumerate(docx_document.tables):
+                    logger.warning(f"Таблица #{i}, количество строк: {len(table.rows)}")
+                    for r_idx, row in enumerate(table.rows[:3]):  # Первые 3 строки
+                        for c_idx, cell in enumerate(row.cells):
+                            logger.warning(f"  Строка {r_idx}, ячейка {c_idx}: '{cell.text[:50]}'")
 
         # Обрабатываем оборотную сторону только с ВЫБРАННЫМИ нормами
         issued_data = context.get("issued_siz", [])
+        issue_date = context.get("siz_issue_date", "") or ""
+        logger.info(f"Получено выбранных норм для оборотной стороны: {len(issued_data)}")
+
         if issued_data:
             processed_back = False
-            for table in docx_document.tables:
+            for i, table in enumerate(docx_document.tables):
+                logger.info(f"Проверка таблицы #{i} на наличие ISSUED_TABLE_MARKER")
                 row_idx, cell_idx = _find_marker_in_table(table, "ISSUED_TABLE_MARKER")
                 if row_idx is not None:
+                    logger.info(f"Маркер ISSUED_TABLE_MARKER найден в таблице #{i}, строка {row_idx}, ячейка {cell_idx}")
                     # Обработка таблицы оборотной стороны
-                    process_back_table(table, row_idx, cell_idx, issued_data)
+                    process_back_table(table, row_idx, cell_idx, issued_data, issue_date)
                     processed_back = True
                     break
 
             if not processed_back:
                 logger.warning("Маркер ISSUED_TABLE_MARKER не найден в таблицах")
 
+        logger.info("=== КОНЕЦ ПОСТ-ОБРАБОТКИ ТАБЛИЦ СИЗ ===")
         return doc
 
     except Exception as exc:
@@ -367,7 +418,7 @@ def process_front_table(table, row_idx, cell_idx, norms_data):
         logger.error(traceback.format_exc())
 
 
-def process_back_table(table, row_idx, cell_idx, norms_data):
+def process_back_table(table, row_idx, cell_idx, norms_data, issue_date=""):
     """Обрабатывает таблицу на оборотной стороне, заполняя только нужные колонки."""
     try:
         # Удаляем маркер из ячейки
@@ -384,8 +435,8 @@ def process_back_table(table, row_idx, cell_idx, norms_data):
                 subheader_row = table.rows[row_idx - 2]
                 _format_header_row(subheader_row)
 
-        # Определяем колонки для заполнения (0-based): 0, 1, 3, 6
-        cols_to_fill = [0, 1, 3, 6]
+        # Определяем колонки для заполнения (0-based): 0, 1, 2, 3, 6
+        cols_to_fill = [0, 1, 2, 3, 5, 6]
 
         # Создаем образец строки с правильным форматированием
         template_row = None
@@ -428,9 +479,31 @@ def process_back_table(table, row_idx, cell_idx, norms_data):
                         run.font.name = "Times New Roman"
                         run.font.size = Pt(12)
 
+            if 2 < len(new_row.cells):
+                new_row.cells[2].text = issue_date
+                for paragraph in new_row.cells[2].paragraphs:
+                    paragraph.paragraph_format.line_spacing = 1.0
+                    paragraph.paragraph_format.space_before = Pt(0)
+                    paragraph.paragraph_format.space_after = Pt(0)
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+
             if 3 < len(new_row.cells):
                 new_row.cells[3].text = str(norm.get("quantity", ""))
                 for paragraph in new_row.cells[3].paragraphs:
+                    paragraph.paragraph_format.line_spacing = 1.0
+                    paragraph.paragraph_format.space_before = Pt(0)
+                    paragraph.paragraph_format.space_after = Pt(0)
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+
+            if 5 < len(new_row.cells):
+                new_row.cells[5].text = norm.get("cost", "")
+                for paragraph in new_row.cells[5].paragraphs:
                     paragraph.paragraph_format.line_spacing = 1.0
                     paragraph.paragraph_format.space_before = Pt(0)
                     paragraph.paragraph_format.space_after = Pt(0)
@@ -529,12 +602,32 @@ def _format_header_row(header_row):
 
 
 def _find_marker_in_table(table, marker):
-    """Находит маркер в таблице и возвращает координаты ячейки."""
+    """Находит маркер в таблице и возвращает координаты ячейки.
+
+    Проверяет как полный текст параграфа (paragraph.text), так и текст каждого run,
+    чтобы найти маркер даже если он разбит на несколько run'ов в XML.
+    """
     for r_idx, row in enumerate(table.rows):
         for c_idx, cell in enumerate(row.cells):
+            # Проверяем весь текст ячейки
+            cell_full_text = cell.text
+            if marker in cell_full_text:
+                logger.debug(f"Маркер '{marker}' найден в cell.text: '{cell_full_text[:100]}'")
+                return r_idx, c_idx
+
+            # Дополнительная проверка по параграфам
             for paragraph in cell.paragraphs:
                 if marker in paragraph.text:
+                    logger.debug(f"Маркер '{marker}' найден в paragraph.text: '{paragraph.text[:100]}'")
                     return r_idx, c_idx
+
+                # Проверяем каждый run отдельно (на случай если маркер разбит)
+                full_run_text = ''.join(run.text for run in paragraph.runs)
+                if marker in full_run_text:
+                    logger.debug(f"Маркер '{marker}' найден в объединённых runs: '{full_run_text[:100]}'")
+                    return r_idx, c_idx
+
+    logger.debug(f"Маркер '{marker}' не найден ни в одной ячейке таблицы")
     return None, None
 
 

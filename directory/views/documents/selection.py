@@ -5,14 +5,16 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.http import HttpResponse, HttpRequest
 import os
+import io
 import tempfile
 import zipfile
 import logging
 import datetime
 
 from directory.models import Employee
-from directory.models.document_template import DocumentTemplate, GeneratedDocument
+from directory.models.document_template import DocumentTemplate, DocumentGenerationLog
 from directory.forms.document_forms import DocumentSelectionForm
+from directory.utils.declension import get_initials_from_name
 # --- Обновленные импорты ---
 from directory.document_generators.base import get_document_template  # Базовая функция для получения шаблона
 from directory.utils.docx_generator import analyze_template  # Для проверки шаблона
@@ -40,6 +42,9 @@ def get_auto_selected_document_types(employee):
     3. Если у должности есть связанные документы: Лист ознакомления
     4. Если у должности есть нормы СИЗ: Карточка учета СИЗ
     5. Для всех подрядчиков добавляем Личную карточку по ОТ
+    6. Если управляет служебным автомобилем: ВСЕГДА Распоряжения + Протокол проверки знаний
+    7. Если у должности есть виды ответственности: ВСЕГДА Протокол проверки знаний
+    8. Для ВСЕХ сотрудников: ВСЕГДА Образец заполнения журнала
 
     Args:
         employee (Employee): Объект сотрудника
@@ -55,18 +60,38 @@ def get_auto_selected_document_types(employee):
         return document_types
 
     # Получаем флаг договора подряда
-    is_contractor = getattr(employee, 'is_contractor', False)
+    is_contractor = getattr(employee, 'contract_type', 'standard') == 'contractor'
 
     # Проверяем срок стажировки и договор подряда
     internship_period = getattr(employee.position, 'internship_period_days', 0)
+
+    # Проверяем ответственность за ОТ
+    is_responsible_for_safety = getattr(employee.position, 'is_responsible_for_safety', False)
+
+    # Проверяем управление служебным автомобилем
+    drives_company_vehicle = getattr(employee.position, 'drives_company_vehicle', False)
+
+    # Проверяем наличие типов ответственности
+    has_responsibility_types = (
+        employee.position and
+        employee.position.responsibility_types.filter(is_active=True).exists()
+    )
 
     if internship_period > 0:
         # Если это не договор подряда, добавляем распоряжение о стажировке
         if not is_contractor:
             document_types.append('all_orders')
 
-        # В любом случае добавляем протокол проверки знаний
+    # Протокол проверки знаний - если есть стажировка ИЛИ ответственный за ОТ ИЛИ типы ответственности
+    if internship_period > 0 or is_responsible_for_safety or has_responsibility_types:
         document_types.append('knowledge_protocol')
+
+    # ВОДИТЕЛЬ СЛУЖЕБНОГО АВТОМОБИЛЯ: всегда нужны распоряжения и протокол
+    if drives_company_vehicle:
+        if 'all_orders' not in document_types:
+            document_types.append('all_orders')
+        if 'knowledge_protocol' not in document_types:
+            document_types.append('knowledge_protocol')
 
     # Проверяем связанные документы для должности
     has_documents = False
@@ -88,6 +113,10 @@ def get_auto_selected_document_types(employee):
     # Если есть договор подряда, добавляем Личную карточку по ОТ
     if is_contractor:
         document_types.append('personal_ot_card')
+
+    # ОБРАЗЕЦ ЗАПОЛНЕНИЯ ЖУРНАЛА - для ВСЕХ сотрудников
+    if 'journal_example' not in document_types:
+        document_types.append('journal_example')
 
     logger.info(f"Автоматически выбранные типы документов для {employee.full_name_nominative}: {document_types}")
     # Убираем дубликаты на всякий случай
@@ -169,50 +198,34 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
             return self.form_invalid(form)
 
         # Генерируем все выбранные документы и собираем их для архива
-        generated_documents = []
-        files_to_archive = []
+        files_to_archive = []  # Список кортежей (content, filename)
 
         logger.info(f"Начинается генерация документов для {employee.full_name_nominative}, типы: {document_types}")
 
-        # Функция проверки шаблонов (оставлена для примера, можно убрать если не нужна)
-        def check_template_file(doc_type_check, employee_check):
-            template = get_document_template(doc_type_check, employee_check)
-            if not template:
-                logger.error(f"Шаблон для типа {doc_type_check} не найден!")
-                return False
-            logger.info(f"Найден шаблон для {doc_type_check}: {template.name}, ID: {template.id}")
-            # analyze_template(template.id) # Можно раскомментировать для отладки переменных
-            return True
-
         for doc_type in document_types:
-            # Проверяем шаблон перед генерацией (опционально)
-            # if not check_template_file(doc_type, employee):
-            #     messages.warning(self.request, f"Пропущен документ типа {doc_type}: шаблон не найден.")
-            #     continue
-
             # Генерируем документ с помощью соответствующего генератора
             try:
-                generated_doc = self._generate_document(doc_type, employee)
-                if generated_doc and isinstance(generated_doc, GeneratedDocument) and hasattr(generated_doc,
-                                                                                              'document_file'):
-                    generated_documents.append(generated_doc)
-                    # Добавляем файл в список для архивирования
-                    file_path = generated_doc.document_file.path  # Используем path для прямого пути
-                    if os.path.exists(file_path):
-                        file_name = os.path.basename(generated_doc.document_file.name)
-                        files_to_archive.append((file_path, file_name))
-                        logger.info(f"Добавлен файл в архив: {file_path}")
+                result = self._generate_document(doc_type, employee)
+
+                # Обрабатываем результат: обычно это словарь, но обрабатываем и список на всякий случай
+                if result:
+                    # Если результат - список словарей
+                    if isinstance(result, list):
+                        for doc in result:
+                            if isinstance(doc, dict) and 'content' in doc and 'filename' in doc:
+                                files_to_archive.append((doc['content'], doc['filename']))
+                                logger.info(f"Сгенерирован документ: {doc['filename']}")
+                    # Если результат - один словарь
+                    elif isinstance(result, dict) and 'content' in result and 'filename' in result:
+                        files_to_archive.append((result['content'], result['filename']))
+                        logger.info(f"Сгенерирован документ: {result['filename']}")
                     else:
-                        logger.warning(f"Файл не найден по пути: {file_path}")
-                elif generated_doc:
-                    logger.warning(f"Генератор для {doc_type} вернул неожиданный тип: {type(generated_doc)}")
-                # Если generated_doc is None, значит была ошибка внутри генератора
-                # (он должен залогировать и вернуть None)
+                        logger.warning(f"Генератор для {doc_type} вернул неожиданный формат: {type(result)}")
 
             except Exception as e:
                 logger.error(f"Критическая ошибка при вызове генератора для типа {doc_type}: {str(e)}", exc_info=True)
                 messages.warning(self.request, f"Ошибка при генерации документа типа {doc_type}: {str(e)}")
-                continue  # Переходим к следующему документу
+                continue
 
         # --- Создание и отправка архива ---
         if not files_to_archive:
@@ -220,45 +233,40 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
             return self.form_invalid(form)
 
         try:
-            # Создаем директорию для временных файлов
-            tmp_dir = os.path.join(settings.MEDIA_ROOT, 'tmp_archives')
-            os.makedirs(tmp_dir, exist_ok=True)
+            # Создаем архив в памяти
+            zip_buffer = io.BytesIO()
 
-            # Создаем имя файла для архива
-            zip_filename = f'documents_{employee.full_name_nominative.split()[0]}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
-            zip_path = os.path.join(tmp_dir, zip_filename)
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for content, filename in files_to_archive:
+                    zipf.writestr(filename, content)
+                    logger.info(f"Файл {filename} добавлен в архив")
 
-            # Создаем архив
-            added_files_count = 0
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for file_path, file_name in files_to_archive:
-                    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                        zipf.write(file_path, file_name)
-                        added_files_count += 1
-                        logger.info(f"Файл {file_path} добавлен в архив как {file_name}")
-                    else:
-                        logger.warning(f"Файл {file_path} не существует или пуст, пропускаем")
+            zip_buffer.seek(0)
 
-            # Проверяем, добавился ли хотя бы один файл в архив
-            if added_files_count == 0:
-                raise ValueError("Ни один файл не был добавлен в архив.")
-
-            # Проверяем архив на наличие и размер
-            if not os.path.exists(zip_path) or os.path.getsize(zip_path) == 0:
-                raise ValueError("Созданный архив пуст или отсутствует, хотя файлы для добавления были.")
+            # Формируем имя архива
+            employee_initials = get_initials_from_name(employee.full_name_nominative)
+            zip_filename = f"Документы_{employee_initials}.zip"
 
             # Отправляем архив пользователю
-            with open(zip_path, 'rb') as f:
-                zip_content = f.read()
+            response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+            # Кодируем имя файла для поддержки кириллицы
+            from urllib.parse import quote
+            encoded_filename = quote(zip_filename)
+            response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
 
-            response = HttpResponse(zip_content, content_type='application/zip')
-            response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+            # Записываем в лог факт генерации документов
+            try:
+                DocumentGenerationLog.objects.create(
+                    employee=employee,
+                    document_types=document_types,
+                    created_by=self.request.user if self.request.user.is_authenticated else None
+                )
+                logger.info(f"Записан лог генерации документов для {employee.full_name_nominative}")
+            except Exception as log_error:
+                logger.warning(f"Не удалось записать лог генерации: {str(log_error)}")
 
             # Сообщение об успехе
-            messages.success(self.request, f"Успешно сгенерировано и добавлено в архив документов: {added_files_count}")
-
-            # Удаляем архив после отправки
-            os.unlink(zip_path)
+            messages.success(self.request, f"Успешно сгенерировано документов: {len(files_to_archive)}")
 
             return response
 
@@ -267,26 +275,32 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
             messages.error(self.request, f"Ошибка при создании архива: {str(e)}")
             return self.form_invalid(form)
 
-    def _generate_document(self, doc_type, employee) -> Optional[GeneratedDocument]:
-        """Вызывает соответствующий генератор для документа типа doc_type"""
+    def _generate_document(self, doc_type, employee):
+        """Вызывает соответствующий генератор для документа типа doc_type.
+
+        Args:
+            doc_type: Тип документа для генерации
+            employee: Объект сотрудника
+
+        Returns:
+            - Для 'all_orders' и 'knowledge_protocol': список словарей с 'content' и 'filename'
+            - Для остальных типов: словарь с 'content' и 'filename'
+            - None при ошибке
+        """
         generator_map = {
             'all_orders': generate_all_orders,
             'knowledge_protocol': generate_knowledge_protocol,
             'doc_familiarization': generate_familiarization_document,
             'personal_ot_card': generate_personal_ot_card,
             'journal_example': generate_journal_example,
-            'siz_card': generate_siz_card_docx,  # Добавили генератор DOCX для СИЗ
+            'siz_card': generate_siz_card_docx,
         }
 
         generator_func = generator_map.get(doc_type)
 
         if generator_func:
             logger.info(f"Вызов генератора {generator_func.__name__} для типа {doc_type}")
-            # Передаем пользователя из self.request
-            # Для generate_familiarization_document может потребоваться document_list, но здесь его нет
-            # Если он нужен, логику нужно усложнить
             if doc_type == 'doc_familiarization':
-                # document_list=None - будет получен внутри генератора
                 return generator_func(employee=employee, user=self.request.user, document_list=None)
             else:
                 return generator_func(employee=employee, user=self.request.user)

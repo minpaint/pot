@@ -14,8 +14,8 @@ from directory.models import Position
 from directory.forms.position import PositionForm
 from directory.admin.mixins.tree_view import TreeViewMixin
 from directory.models.siz import SIZNorm, SIZ
-from directory.models.medical_norm import PositionMedicalFactor, MedicalExaminationNorm
-from directory.models.medical_examination import HarmfulFactor
+from deadline_control.models.medical_norm import PositionMedicalFactor, MedicalExaminationNorm
+from deadline_control.models.medical_examination import HarmfulFactor
 from directory.models.commission import CommissionMember
 from directory.utils.profession_icons import get_profession_icon
 from directory.resources.organization_structure import OrganizationStructureResource
@@ -25,7 +25,7 @@ from directory.resources.organization_structure import OrganizationStructureReso
 class SIZNormInlineForPosition(admin.TabularInline):
     """📋 Встроенные нормы СИЗ для должности с отображением всех полей"""
     model = SIZNorm
-    extra = 0  # Изменено с 1 на 0, чтобы не добавлять пустую строку автоматически
+    extra = 3  # Показываем 3 пустые строки для быстрого добавления нескольких СИЗ
     fields = ('siz', 'classification', 'unit', 'quantity', 'wear_period', 'condition', 'order')
     readonly_fields = ('classification', 'unit', 'wear_period')
     verbose_name = "Норма СИЗ"
@@ -34,10 +34,10 @@ class SIZNormInlineForPosition(admin.TabularInline):
     # Восстанавливаем autocomplete_fields с добавлением формы
     autocomplete_fields = ['siz']
 
-    # Предотвращаем отображение пустых форм
+    # Предотвращаем отображение слишком много пустых форм
     def get_extra(self, request, obj=None, **kwargs):
-        """Возвращает 0 для существующих объектов, 1 для новых"""
-        return 0 if obj else 1
+        """Возвращает 3 пустые строки для добавления новых СИЗ"""
+        return 3
 
     # Улучшаем фильтрацию запросов
     def get_queryset(self, request):
@@ -137,6 +137,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
     - Прочих атрибутов должности (ответственный за ОТ, ЭБ и др.)
     """
     form = PositionForm
+    actions = ['copy_instructions_from_template']
     # Путь к шаблону для древовидного отображения
     change_list_template = "admin/directory/position/change_list_tree.html"
     # Шаблон формы для добавления кнопки подтягивания норм
@@ -150,11 +151,12 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                 'organization',
                 'subdivision',
                 'department',
-                'commission_role',  # Оставляем поле, если оно используется где-то еще
+                'responsibility_types',
                 'is_responsible_for_safety',
                 'can_be_internship_leader',
                 'can_sign_orders',
                 'is_electrical_personnel',
+                'drives_company_vehicle',
             )
         }),
         ('Документация', {
@@ -162,6 +164,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                 'contract_work_name',
                 'safety_instructions_numbers',
                 'contract_safety_instructions',
+                'company_vehicle_instructions',
                 'electrical_safety_group',
                 'internship_period_days',
             )
@@ -210,6 +213,9 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         SIZNormInlineForPosition,
         PositionMedicalFactorInline,  # Инлайн для вредных факторов
     ]
+
+    # Удобный виджет выбора для ManyToMany полей
+    filter_horizontal = ('documents', 'equipment', 'responsibility_types')
 
     class Media:
         css = {
@@ -421,9 +427,23 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         1. Индикаторы СИЗ и медосмотров (сначала переопределения, затем эталонные)
         2. Роли в комиссиях (из таблицы CommissionMember)
         3. Прочие атрибуты должности
+        4. Инструкции по охране труда
         """
         # Базовая информация
         profession_icon = get_profession_icon(obj.position_name)
+
+        # Проверяем наличие хотя бы одной инструкции
+        instruction_parts = []
+        if obj.safety_instructions_numbers and obj.safety_instructions_numbers.strip():
+            instruction_parts.append(obj.safety_instructions_numbers.strip())
+        if obj.contract_safety_instructions and obj.contract_safety_instructions.strip():
+            instruction_parts.append(obj.contract_safety_instructions.strip())
+        if obj.drives_company_vehicle and obj.company_vehicle_instructions and obj.company_vehicle_instructions.strip():
+            instruction_parts.append(obj.company_vehicle_instructions.strip())
+
+        has_any_instruction = bool(instruction_parts)
+        instruction_numbers = ", ".join(instruction_parts)
+
         additional_data = {
             # Иконка профессии
             'profession_icon': profession_icon,
@@ -434,6 +454,11 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             'can_sign_orders': obj.can_sign_orders,
             'is_electrical_personnel': obj.is_electrical_personnel,
             'electrical_group': obj.electrical_safety_group,
+            'drives_company_vehicle': obj.drives_company_vehicle,
+
+            # Инструкции по охране труда
+            'instruction_numbers': instruction_numbers,
+            'has_instructions': has_any_instruction,
         }
 
         # ===== СИЗ =====
@@ -623,3 +648,113 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         )
         response['Content-Disposition'] = 'attachment; filename="organization_structure.xlsx"'
         return response
+
+    def copy_instructions_from_template(self, request, queryset):
+        """
+        🔄 Массовое действие для тиражирования инструкций по ОТ между должностями.
+
+        Логика:
+        1. Пользователь выбирает ОДНУ должность-эталон с инструкциями
+        2. Система находит все должности с таким же названием в той же организации
+        3. Копирует инструкции в должности, где:
+           - Пустое основное поле safety_instructions_numbers, ИЛИ
+           - drives_company_vehicle=True И пустое поле company_vehicle_instructions
+
+        Копируются 2 поля:
+        - safety_instructions_numbers (основные инструкции по ОТ)
+        - company_vehicle_instructions (для водителей)
+        """
+        # Проверка: выбрана ровно 1 должность
+        if queryset.count() != 1:
+            self.message_user(
+                request,
+                'Выберите ровно одну должность-эталон с инструкциями для тиражирования.',
+                level=messages.ERROR
+            )
+            return
+
+        template_position = queryset.first()
+
+        # Проверка: у эталона есть хотя бы одно поле инструкций
+        has_safety_instructions = bool(
+            template_position.safety_instructions_numbers and
+            template_position.safety_instructions_numbers.strip()
+        )
+        has_vehicle_instructions = bool(
+            template_position.company_vehicle_instructions and
+            template_position.company_vehicle_instructions.strip()
+        )
+
+        if not has_safety_instructions and not has_vehicle_instructions:
+            self.message_user(
+                request,
+                f'У выбранной должности "{template_position.position_name}" нет инструкций для тиражирования.',
+                level=messages.WARNING
+            )
+            return
+
+        # Находим все должности с таким же названием в той же организации
+        candidates = Position.objects.filter(
+            position_name=template_position.position_name,
+            organization=template_position.organization,
+        ).exclude(
+            id=template_position.id
+        ).select_related('subdivision')
+
+        if not candidates.exists():
+            self.message_user(
+                request,
+                f'Не найдено других должностей "{template_position.position_name}" '
+                f'в организации "{template_position.organization.short_name_ru}".',
+                level=messages.WARNING
+            )
+            return
+
+        # Копируем инструкции
+        updated_count = 0
+        updated_safety_count = 0
+        updated_vehicle_count = 0
+
+        for position in candidates:
+            updated = False
+
+            # Условие 1: Основное поле пустое
+            if has_safety_instructions:
+                if not position.safety_instructions_numbers or not position.safety_instructions_numbers.strip():
+                    position.safety_instructions_numbers = template_position.safety_instructions_numbers
+                    updated = True
+                    updated_safety_count += 1
+
+            # Условие 2: Водитель без инструкций
+            if has_vehicle_instructions and position.drives_company_vehicle:
+                if not position.company_vehicle_instructions or not position.company_vehicle_instructions.strip():
+                    position.company_vehicle_instructions = template_position.company_vehicle_instructions
+                    updated = True
+                    updated_vehicle_count += 1
+
+            if updated:
+                position.save()
+                updated_count += 1
+
+        # Формируем сообщение о результате
+        if updated_count > 0:
+            details = []
+            if updated_safety_count > 0:
+                details.append(f'основные инструкции для {updated_safety_count} должн.')
+            if updated_vehicle_count > 0:
+                details.append(f'инструкции водителей для {updated_vehicle_count} должн.')
+
+            message = (
+                f'✅ Заполнено инструкций для {updated_count} должностей '
+                f'"{template_position.position_name}": {", ".join(details)}'
+            )
+            self.message_user(request, message, level=messages.SUCCESS)
+        else:
+            self.message_user(
+                request,
+                f'Все должности "{template_position.position_name}" уже имеют инструкции. '
+                f'Тиражирование не требуется.',
+                level=messages.INFO
+            )
+
+    copy_instructions_from_template.short_description = '🔄 Заполнить инструкции из эталона'

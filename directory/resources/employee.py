@@ -33,6 +33,42 @@ class RussianDateWidget(widgets.DateWidget):
         return None
 
 
+class SafeRelatedField(fields.Field):
+    """
+    Безопасное поле для связей, которое не падает при None значениях.
+    Используется для экспорта связанных объектов через __ нотацию.
+    При импорте значение не устанавливается (используется before_import_row).
+    """
+    def __init__(self, attribute_path=None, *args, **kwargs):
+        self.attribute_path = attribute_path
+        # Отключаем автоматическое сохранение атрибута при импорте
+        kwargs['attribute'] = None
+        kwargs['column_name'] = kwargs.get('column_name', attribute_path)
+        super().__init__(*args, **kwargs)
+
+    def export(self, obj):
+        """Безопасный экспорт значения через цепочку атрибутов"""
+        if not self.attribute_path:
+            return ''
+
+        try:
+            value = obj
+            for attr in self.attribute_path.split('__'):
+                if value is None:
+                    return ''
+                value = getattr(value, attr, None)
+            return value if value is not None else ''
+        except (AttributeError, TypeError):
+            return ''
+
+    def clean(self, data, **kwargs):
+        """
+        При импорте просто возвращаем значение без обработки.
+        Реальная установка связи происходит в before_import_row.
+        """
+        return data.get(self.column_name, '')
+
+
 class EmployeeResource(resources.ModelResource):
     """
     👥 Ресурс для импорта/экспорта сотрудников.
@@ -46,6 +82,26 @@ class EmployeeResource(resources.ModelResource):
         widget=RussianDateWidget(format='%d.%m.%Y')
     )
 
+    org_short_name_ru = SafeRelatedField(
+        column_name='org_short_name_ru',
+        attribute_path='organization__short_name_ru'
+    )
+
+    subdivision_name = SafeRelatedField(
+        column_name='subdivision_name',
+        attribute_path='subdivision__name'
+    )
+
+    department_name = SafeRelatedField(
+        column_name='department_name',
+        attribute_path='department__name'
+    )
+
+    position_name = SafeRelatedField(
+        column_name='position_name',
+        attribute_path='position__position_name'
+    )
+
     full_name_nominative = fields.Field(
         column_name='full_name_nominative',
         attribute='full_name_nominative',
@@ -55,14 +111,19 @@ class EmployeeResource(resources.ModelResource):
     class Meta:
         model = Employee
         fields = (
-            'organization',
-            'subdivision',
-            'department',
-            'position',
+            'hire_date',
+            'org_short_name_ru',
+            'subdivision_name',
+            'department_name',
+            'position_name',
+            'full_name_nominative',
+        )
+        export_order = (
             'hire_date',
             'full_name_nominative',
-            'date_of_birth',
-            'place_of_residence',
+            'position_name',
+            'subdivision_name',
+            'department_name',
         )
         import_id_fields = []
         skip_unchanged = False
@@ -84,8 +145,6 @@ class EmployeeResource(resources.ModelResource):
             raise ValidationError('Не указана должность')
         if not full_name:
             raise ValidationError('Не указано ФИО сотрудника')
-        if not row.get('hire_date'):
-            raise ValidationError('Не указана дата приема')
         if department_name and not subdivision_name:
             raise ValidationError('Нельзя указать отдел без структурного подразделения')
 
@@ -128,37 +187,34 @@ class EmployeeResource(resources.ModelResource):
             defaults={'position_name': position_name}
         )
 
-        # 7. Добавляем ID в row для автоматического связывания
-        row['organization'] = organization.id
-        row['subdivision'] = subdivision.id if subdivision else None
-        row['department'] = department.id if department else None
-        row['position'] = position.id
+        # 7. Сохраняем связанные объекты в специальных полях row
+        # Эти поля будут доступны в after_init_instance
+        row['__organization'] = organization
+        row['__subdivision'] = subdivision
+        row['__department'] = department
+        row['__position'] = position
 
-        # 8. Устанавливаем значения по умолчанию для обязательных полей
-        if not row.get('date_of_birth'):
-            from datetime import date
-            row['date_of_birth'] = date(1900, 1, 1)
-
-        if not row.get('place_of_residence'):
-            row['place_of_residence'] = 'Не указано'
-
-    def after_import_row(self, row, row_result, **kwargs):
+    def after_init_instance(self, instance, new, row, **kwargs):
         """
-        После импорта строки устанавливаем значения по умолчанию
+        Устанавливаем связанные объекты после инициализации instance
         """
-        if row_result.object_id:
-            employee = Employee.objects.get(pk=row_result.object_id)
+        # Устанавливаем связанные объекты из before_import_row
+        if '__organization' in row:
+            instance.organization = row['__organization']
+        if '__subdivision' in row:
+            instance.subdivision = row['__subdivision']
+        if '__department' in row:
+            instance.department = row['__department']
+        if '__position' in row:
+            instance.position = row['__position']
 
-            # Автозаполнение полей по умолчанию
-            # start_date должна быть равна hire_date
-            if employee.hire_date:
-                employee.start_date = employee.hire_date
-            if not employee.contract_type:
-                employee.contract_type = 'standard'
-            if not employee.status:
-                employee.status = 'active'
-
-            employee.save()
+        # Автозаполнение полей по умолчанию
+        if instance.hire_date and not instance.start_date:
+            instance.start_date = instance.hire_date
+        if not instance.contract_type:
+            instance.contract_type = 'standard'
+        if not instance.status:
+            instance.status = 'active'
 
     def get_instance(self, instance_loader, row):
         """Ищем существующего сотрудника по ФИО"""

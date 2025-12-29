@@ -32,5 +32,5 @@ class Document(models.Model):
         return self.name
 
     class Meta:
-        verbose_name = "Документ"
-        verbose_name_plural = "Документы"
+        verbose_name = "📄 Документ для ознакомления"
+        verbose_name_plural = "📄 Документы для ознакомления"

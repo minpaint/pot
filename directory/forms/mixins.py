@@ -26,19 +26,42 @@ class OrganizationRestrictionFormMixin:
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        if self.user and hasattr(self.user, 'profile'):
-            allowed_orgs = self.user.profile.organizations.all()
-            if 'organization' in self.fields:
-                # 🔒 Важное исправление: Строго ограничиваем список организаций теми,
-                # что есть в профиле пользователя
-                self.fields['organization'].queryset = allowed_orgs
-                self.fields['organization'].help_text = "🏢 Выберите организацию из разрешённых"
+        # Суперпользователям ничего не ограничиваем
+        # Всегда включаем организацию текущего инстанса, чтобы не терять выбранное значение при редактировании
+        instance_org = getattr(getattr(self, 'instance', None), 'organization', None)
 
-            for field_name in ['subdivision', 'department', 'position', 'document', 'equipment']:
-                if field_name in self.fields:
-                    qs = self.fields[field_name].queryset
-                    self.fields[field_name].queryset = qs.filter(organization__in=allowed_orgs)
-                    self.fields[field_name].help_text = "🔍 Фильтрация по разрешённым организациям"
+        from directory.models import Organization  # локальный импорт, чтобы избежать циклов
+
+        if self.user and (getattr(self.user, 'is_superuser', False) or getattr(self.user, 'is_staff', False)):
+            allowed_orgs = Organization.objects.all()
+        elif self.user and hasattr(self.user, 'profile'):
+            allowed_orgs = self.user.profile.organizations.all()
+        else:
+            allowed_orgs = Organization.objects.none()
+
+        # Подмешиваем текущую организацию, если она не входит в allowed_orgs
+        if instance_org and instance_org.pk and instance_org not in allowed_orgs:
+            allowed_orgs = allowed_orgs | Organization.objects.filter(pk=instance_org.pk)
+
+        if 'organization' in self.fields:
+            # 🔒 Строго ограничиваем список организаций теми, что есть в профиле пользователя (с учётом текущей)
+            self.fields['organization'].queryset = allowed_orgs
+            self.fields['organization'].initial = self.fields['organization'].initial or getattr(instance_org, 'pk', None)
+            self.fields['organization'].help_text = "🏢 Выберите организацию из разрешённых"
+
+        for field_name in ['subdivision', 'department', 'position', 'document', 'equipment']:
+            if field_name in self.fields:
+                qs = self.fields[field_name].queryset
+                # Если редактируем, включаем текущее значение даже если оно вне allowed_orgs
+                current_obj = getattr(self.instance, field_name, None)
+                current_value = getattr(current_obj, 'pk', None)
+                filtered_qs = qs.filter(organization__in=allowed_orgs)
+                if current_value:
+                    filtered_qs = filtered_qs | qs.filter(pk=current_value)
+                self.fields[field_name].queryset = filtered_qs
+                if current_value and not self.fields[field_name].initial:
+                    self.fields[field_name].initial = current_value
+                self.fields[field_name].help_text = "🔍 Фильтрация по разрешённым организациям"
 
 
 class CrispyFormMixin:

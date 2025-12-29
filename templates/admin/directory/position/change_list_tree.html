@@ -117,6 +117,13 @@
                       {% else %}👥{% endif %}
                     </span>
                   {% endfor %}
+
+                  {# Инструкции по ОТ #}
+                  {% if item.additional_data.instruction_numbers %}
+                    <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
+                  {% else %}
+                    <span class="instruction-missing" title="Инструкции по охране труда не заполнены">⚠️ нет инструкций</span>
+                  {% endif %}
                 </td>
                 <td class="field-actions">
                   <a href="{% url 'admin:directory_position_change' item.object.pk %}" class="edit-link">✏️</a>
@@ -196,6 +203,13 @@
                         {% else %}👥{% endif %}
                       </span>
                     {% endfor %}
+
+                    {# Инструкции по ОТ #}
+                    {% if item.additional_data.instruction_numbers %}
+                      <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
+                    {% else %}
+                      <span class="instruction-missing" title="Инструкции по охране труда не заполнены">⚠️ нет инструкций</span>
+                    {% endif %}
                   </td>
                   <td class="field-actions">
                     <a href="{% url 'admin:directory_position_change' item.object.pk %}" class="edit-link">✏️</a>
@@ -274,6 +288,13 @@
                           {% else %}👥{% endif %}
                         </span>
                       {% endfor %}
+
+                      {# Инструкции по ОТ #}
+                      {% if item.additional_data.instruction_numbers %}
+                        <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
+                      {% else %}
+                        <span class="instruction-missing" title="Инструкции по охране труда не заполнены">⚠️ нет инструкций</span>
+                      {% endif %}
                     </td>
                     <td class="field-actions">
                       <a href="{% url 'admin:directory_position_change' item.object.pk %}" class="edit-link">✏️</a>
@@ -290,6 +311,34 @@
     </div>
   </form>
 </div>
+
+{# Плавающая кнопка для запуска действия "Заполнить инструкции из эталона" #}
+<button type="button" id="floating-copy-instructions" title="Заполнить инструкции из эталона">
+  🔄 Заполнить инструкции из эталона
+</button>
+
+<script>
+  (function() {
+    const btn = document.getElementById('floating-copy-instructions');
+    const form = document.getElementById('changelist-form');
+    if (!btn || !form) return;
+
+    // Находим селект действий; он есть только если админ отрисовал блок действий
+    const actionSelect = form.querySelector('select[name="action"]');
+    if (!actionSelect) return;
+
+    btn.addEventListener('click', function() {
+      const checked = Array.from(form.querySelectorAll('input.action-select:checked'));
+      if (checked.length !== 1) {
+        alert('Выберите ровно одну должность-эталон для копирования инструкций.');
+        return;
+      }
+
+      actionSelect.value = 'copy_instructions_from_template';
+      form.submit();
+    });
+  })();
+</script>
 {% endblock %}
 
 {% block extrahead %}
@@ -333,6 +382,49 @@
       display: inline-block;
       margin-right: 8px;
       font-size: 18px;
+    }
+
+    .instruction-tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      background: #eef7ff;
+      border: 1px solid #c6defa;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #0b5394;
+      white-space: nowrap;
+    }
+
+    .instruction-missing {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      background: #fff4e5;
+      border: 1px solid #f5c78a;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #9c5700;
+      white-space: nowrap;
+    }
+
+    #floating-copy-instructions {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 1000;
+      background: #0b5394;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+    }
+
+    #floating-copy-instructions:hover {
+      background: #0d63b5;
     }
   </style>
 {% endblock %}

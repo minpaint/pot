@@ -9,7 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 from django.db import transaction
 from django.utils import timezone
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.db.models import Q, Prefetch
 from django import forms
 from crispy_forms.helper import FormHelper
@@ -21,13 +21,20 @@ from directory.models import (
     Position,
     GeneratedDocument
 )
-from directory.models.medical_norm import MedicalExaminationNorm
+from deadline_control.models.medical_norm import MedicalExaminationNorm
 from directory.forms.hiring import CombinedEmployeeHiringForm, DocumentAttachmentForm
+from directory.forms.document_forms import DocumentSelectionForm
 from directory.utils.hiring_utils import create_hiring_from_employee, attach_document_to_hiring
-from directory.utils.declension import decline_full_name
+from directory.utils.declension import decline_full_name, get_initials_from_name
 from directory.forms.mixins import OrganizationRestrictionFormMixin
+from directory.mixins import AccessControlMixin, AccessControlObjectMixin
+from directory.utils.permissions import AccessControlHelper
+from directory.views.documents.selection import get_auto_selected_document_types
 
 import logging
+import io
+import zipfile
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +58,10 @@ class SimpleHiringView(LoginRequiredMixin, FormView):
         context = super().get_context_data(**kwargs)
         context['title'] = _('Прием на работу: Новый сотрудник')
 
-        # Добавляем список доступных организаций
-        if self.request.user and hasattr(self.request.user, 'profile'):
-            context['organizations'] = self.request.user.profile.organizations.all()
-        else:
-            context['organizations'] = Organization.objects.all()
+        # Используем AccessControlHelper для получения доступных организаций
+        context['organizations'] = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
 
         return context
 
@@ -68,11 +74,22 @@ class SimpleHiringView(LoginRequiredMixin, FormView):
             # Получаем данные формы
             data = form.cleaned_data
 
+            # Определяем contract_type на основе hiring_type
+            hiring_type = data['hiring_type']
+            if hiring_type == 'new':
+                contract_type = 'standard'
+            elif hiring_type in ('contractor', 'part_time', 'transfer', 'return'):
+                contract_type = hiring_type
+            else:
+                contract_type = 'standard'
+
+            # Получаем дату начала работы из формы
+            hire_date = data.get('hire_date') or timezone.now().date()
+
             # Создаем сотрудника
             employee = Employee(
                 full_name_nominative=data['full_name_nominative'],
                 date_of_birth=data.get('date_of_birth'),
-                place_of_residence=data.get('place_of_residence'),
                 organization=data['organization'],
                 subdivision=data.get('subdivision'),
                 department=data.get('department'),
@@ -80,18 +97,31 @@ class SimpleHiringView(LoginRequiredMixin, FormView):
                 height=data.get('height'),
                 clothing_size=data.get('clothing_size'),
                 shoe_size=data.get('shoe_size'),
-                hire_date=timezone.now().date(),
-                start_date=timezone.now().date(),
-                contract_type=data.get('contract_type', 'standard'),
+                hire_date=hire_date,
+                start_date=hire_date,
+                contract_type=contract_type,
                 status='active'
             )
             employee.save()
 
+            # Если указана дата первичного медосмотра, применяем ее ко всем медосмотрам сотрудника
+            initial_medical_date = data.get('initial_medical_examination_date')
+            if initial_medical_date:
+                # Импортируем модель медосмотров
+                from deadline_control.models import EmployeeMedicalExamination
+
+                # Получаем все медосмотры сотрудника (созданные через Signal)
+                medical_examinations = EmployeeMedicalExamination.objects.filter(employee=employee)
+
+                # Применяем дату ко всем медосмотрам
+                for exam in medical_examinations:
+                    exam.perform_examination(initial_medical_date)
+
             # Создаем запись о приеме
             hiring = EmployeeHiring(
                 employee=employee,
-                hiring_date=timezone.now().date(),
-                start_date=timezone.now().date(),
+                hiring_date=hire_date,
+                start_date=hire_date,
                 hiring_type=data['hiring_type'],
                 organization=data['organization'],
                 subdivision=data.get('subdivision'),
@@ -161,13 +191,29 @@ def position_requirements_api(request, position_id):
         if not has_custom_siz:
             has_reference_siz = Position.find_reference_norms(position.position_name).exists()
 
+        # Логируем информацию для отладки
+        logger.info(
+            f"Position '{position.position_name}' (ID={position.id}): "
+            f"has_custom_medical={has_custom_medical}, "
+            f"has_reference_medical={has_reference_medical}, "
+            f"has_custom_siz={has_custom_siz}, "
+            f"has_reference_siz={has_reference_siz}"
+        )
+
         # Формируем ответ
         response_data = {
             'position_id': position.id,
             'position_name': position.position_name,
             'needs_medical': has_custom_medical or has_reference_medical,
             'needs_siz': has_custom_siz or has_reference_siz,
-            'status': 'success'
+            'status': 'success',
+            # Отладочная информация
+            'debug': {
+                'has_custom_medical': has_custom_medical,
+                'has_reference_medical': has_reference_medical,
+                'has_custom_siz': has_custom_siz,
+                'has_reference_siz': has_reference_siz,
+            }
         }
 
         return JsonResponse(response_data)
@@ -183,7 +229,7 @@ def position_requirements_api(request, position_id):
 
 
 # Оставляем существующие классы представлений
-class HiringTreeView(LoginRequiredMixin, ListView):
+class HiringTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
     """
     Древовидное представление записей о приеме на работу
     по организационной структуре
@@ -193,10 +239,11 @@ class HiringTreeView(LoginRequiredMixin, ListView):
     context_object_name = 'hiring_records'
 
     def get_queryset(self):
+        # AccessControlMixin автоматически фильтрует по правам доступа
+        queryset = super().get_queryset()
+
         # Фильтрация по активности
         is_active = self.request.GET.get('is_active')
-        queryset = EmployeeHiring.objects.all()
-
         if is_active == 'true':
             queryset = queryset.filter(is_active=True)
         elif is_active == 'false':
@@ -215,11 +262,6 @@ class HiringTreeView(LoginRequiredMixin, ListView):
                 Q(position__position_name__icontains=search)
             )
 
-        # Ограничение по организациям пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            allowed_orgs = self.request.user.profile.organizations.all()
-            queryset = queryset.filter(organization__in=allowed_orgs)
-
         return queryset.select_related(
             'employee', 'organization', 'subdivision', 'department', 'position'
         ).prefetch_related('documents')
@@ -228,11 +270,10 @@ class HiringTreeView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['title'] = _('Приемы на работу')
 
-        # Получаем доступные организации
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            allowed_orgs = self.request.user.profile.organizations.all()
-        else:
-            allowed_orgs = Organization.objects.all()
+        # Получаем доступные организации через AccessControlHelper
+        allowed_orgs = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
 
         # Создаем древовидную структуру данных
         tree_data = []
@@ -306,7 +347,7 @@ class HiringTreeView(LoginRequiredMixin, ListView):
         return context
 
 
-class HiringListView(LoginRequiredMixin, ListView):
+class HiringListView(LoginRequiredMixin, AccessControlMixin, ListView):
     """
     Представление для отображения списка записей о приеме на работу
     """
@@ -316,6 +357,7 @@ class HiringListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
+        # AccessControlMixin автоматически фильтрует по правам доступа
         queryset = super().get_queryset()
 
         # Применяем те же фильтры, что и в TreeView
@@ -336,10 +378,6 @@ class HiringListView(LoginRequiredMixin, ListView):
                 Q(position__position_name__icontains=search)
             )
 
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            allowed_orgs = self.request.user.profile.organizations.all()
-            queryset = queryset.filter(organization__in=allowed_orgs)
-
         return queryset.select_related(
             'employee', 'organization', 'subdivision', 'department', 'position'
         ).prefetch_related('documents')
@@ -357,7 +395,7 @@ class HiringListView(LoginRequiredMixin, ListView):
         return context
 
 
-class HiringDetailView(LoginRequiredMixin, DetailView):
+class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView):
     """
     Представление для просмотра детальной информации о приеме на работу
     """
@@ -374,6 +412,18 @@ class HiringDetailView(LoginRequiredMixin, DetailView):
             employee_id=self.object.employee.id,
             initial={'documents': self.object.documents.all()}
         )
+
+        # Добавляем форму для генерации документов
+        employee = self.object.employee
+        auto_selected = get_auto_selected_document_types(employee)
+
+        context['document_selection_form'] = DocumentSelectionForm(
+            initial={
+                'employee_id': employee.id,
+                'document_types': auto_selected
+            }
+        )
+        context['employee'] = employee
 
         return context
 
@@ -395,7 +445,101 @@ class HiringDetailView(LoginRequiredMixin, DetailView):
                 messages.success(request, _(f'Прикреплено документов: {len(selected_docs)}'))
                 return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
 
+        # Обработка формы генерации документов
+        if 'generate_documents' in request.POST:
+            return self._handle_document_generation(request)
+
         return self.get(request, *args, **kwargs)
+
+    def _handle_document_generation(self, request):
+        """Обработка генерации документов"""
+        form = DocumentSelectionForm(request.POST)
+
+        if not form.is_valid():
+            messages.error(request, "Ошибка в форме выбора документов")
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        document_types = form.cleaned_data.get('document_types', [])
+
+        if not document_types:
+            messages.error(request, "Не выбран ни один тип документа")
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        employee = self.object.employee
+
+        # Импортируем генераторы
+        from directory.document_generators.order_generator import generate_all_orders
+        from directory.document_generators.protocol_generator import generate_knowledge_protocol
+        from directory.document_generators.familiarization_generator import generate_familiarization_document
+        from directory.document_generators.ot_card_generator import generate_personal_ot_card
+        from directory.document_generators.journal_example_generator import generate_journal_example
+        from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
+
+        generator_map = {
+            'all_orders': generate_all_orders,
+            'knowledge_protocol': generate_knowledge_protocol,
+            'doc_familiarization': generate_familiarization_document,
+            'personal_ot_card': generate_personal_ot_card,
+            'journal_example': generate_journal_example,
+            'siz_card': generate_siz_card_docx,
+        }
+
+        # Генерируем документы
+        files_to_archive = []
+
+        for doc_type in document_types:
+            try:
+                generator_func = generator_map.get(doc_type)
+                if generator_func:
+                    if doc_type == 'doc_familiarization':
+                        result = generator_func(employee=employee, user=request.user, document_list=None)
+                    else:
+                        result = generator_func(employee=employee, user=request.user)
+
+                    # Обрабатываем как список (для generate_all_orders) так и одиночный документ
+                    if result:
+                        # Если результат - список (например, от generate_all_orders)
+                        if isinstance(result, list):
+                            for doc in result:
+                                if isinstance(doc, dict) and 'content' in doc and 'filename' in doc:
+                                    files_to_archive.append((doc['content'], doc['filename']))
+                                    logger.info(f"Сгенерирован документ: {doc['filename']}")
+                        # Если результат - одиночный словарь
+                        elif isinstance(result, dict) and 'content' in result and 'filename' in result:
+                            files_to_archive.append((result['content'], result['filename']))
+                            logger.info(f"Сгенерирован документ: {result['filename']}")
+            except Exception as e:
+                logger.error(f"Ошибка при генерации {doc_type}: {str(e)}", exc_info=True)
+                messages.warning(request, f"Ошибка при генерации документа типа {doc_type}: {str(e)}")
+                continue
+
+        if not files_to_archive:
+            messages.error(request, "Не удалось сгенерировать ни один документ")
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        # Создаем архив
+        try:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for content, filename in files_to_archive:
+                    zipf.writestr(filename, content)
+
+            zip_buffer.seek(0)
+
+            employee_initials = get_initials_from_name(employee.full_name_nominative)
+            zip_filename = f"Документы_{employee_initials}.zip"
+
+            response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+            encoded_filename = quote(zip_filename)
+            response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
+
+            messages.success(request, f"Успешно сгенерировано документов: {len(files_to_archive)}")
+            return response
+
+        except Exception as e:
+            logger.error(f"Ошибка при создании архива: {str(e)}", exc_info=True)
+            messages.error(request, f"Ошибка при создании архива: {str(e)}")
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
 
 
 class HiringCreateView(LoginRequiredMixin, CreateView):
@@ -421,9 +565,10 @@ class HiringCreateView(LoginRequiredMixin, CreateView):
         form.fields['hiring_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
         form.fields['start_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
 
-        # Ограничиваем организации по профилю пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            form.fields['organization'].queryset = self.request.user.profile.organizations.all()
+        # Ограничиваем организации через AccessControlHelper
+        form.fields['organization'].queryset = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
 
         return form
 
@@ -441,7 +586,7 @@ class HiringCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy('directory:hiring:hiring_detail', kwargs={'pk': self.object.pk})
 
 
-class HiringUpdateView(LoginRequiredMixin, UpdateView):
+class HiringUpdateView(LoginRequiredMixin, AccessControlObjectMixin, UpdateView):
     """
     Представление для редактирования записи о приеме на работу
     """
@@ -464,9 +609,10 @@ class HiringUpdateView(LoginRequiredMixin, UpdateView):
         form.fields['hiring_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
         form.fields['start_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
 
-        # Ограничиваем организации по профилю пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
-            form.fields['organization'].queryset = self.request.user.profile.organizations.all()
+        # Ограничиваем организации через AccessControlHelper
+        form.fields['organization'].queryset = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
 
         return form
 
@@ -483,7 +629,7 @@ class HiringUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy('directory:hiring:hiring_detail', kwargs={'pk': self.object.pk})
 
 
-class HiringDeleteView(LoginRequiredMixin, DeleteView):
+class HiringDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteView):
     """
     Представление для удаления записи о приеме на работу
     """

@@ -3,10 +3,10 @@ from django.contrib import admin
 from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import path
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from tablib import Dataset
 
-from directory.models import Employee
+from directory.models import Employee, Organization
 from directory.models.commission import CommissionMember
 from directory.forms.employee import EmployeeForm
 from directory.admin.mixins.tree_view import TreeViewMixin
@@ -84,6 +84,42 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         'shoe_size',
         'is_contractor',
     ]
+
+    def changelist_view(self, request, extra_context=None):
+        """
+        Используем стандартный list_filter (organization__id__exact).
+        Если фильтр не задан, автоподставляем первую доступную организацию для ограничения дерева.
+        """
+        extra_context = extra_context or {}
+
+        # Доступные организации по правам
+        if request.user.is_superuser:
+            accessible_orgs = Organization.objects.all()
+        elif hasattr(request.user, 'profile'):
+            accessible_orgs = request.user.profile.organizations.all()
+        else:
+            accessible_orgs = Organization.objects.none()
+
+        org_param = request.GET.get('organization__id__exact')
+        selected_org_id = None
+        if org_param and org_param.isdigit():
+            org_id = int(org_param)
+            if accessible_orgs.filter(id=org_id).exists():
+                selected_org_id = org_id
+
+        # Если фильтр не задан — автоподставляем первую доступную и редиректим
+        if selected_org_id is None and accessible_orgs.exists():
+            first_id = accessible_orgs.first().id
+            params = request.GET.copy()
+            params['organization__id__exact'] = str(first_id)
+            url = f"{request.path}?{params.urlencode()}"
+            return HttpResponseRedirect(url)
+
+        extra_context['org_options'] = []
+        extra_context['selected_org_id'] = selected_org_id
+        extra_context['show_tree'] = True
+
+        return super().changelist_view(request, extra_context)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

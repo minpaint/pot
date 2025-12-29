@@ -51,104 +51,19 @@ from .siz_issued import (
     employee_siz_issued_list,
 )
 
-# Импорт представлений для медосмотров
-from directory.views import medical_examination
+# Представления для медосмотров перемещены в deadline_control
 
+# Импортируем представление вводного инструктажа и главной страницы
+from .home import IntroductoryBriefingView, HomePageView
 
-class HomePageView(LoginRequiredMixin, TemplateView):
-    """
-    🏠 Главная страница с древовидным списком сотрудников
-
-    Отображает иерархическую структуру организаций, подразделений,
-    отделов и сотрудников с возможностью выбора через чекбоксы.
-    """
-    template_name = 'directory/home.html'
-
-    def get_context_data(self, **kwargs):
-        """📊 Получение данных для шаблона"""
-        context = super().get_context_data(**kwargs)
-        context['title'] = '🏠 Главная'
-
-        # 🔍 Получаем организации из профиля пользователя
-        user = self.request.user
-        if hasattr(user, 'profile'):
-            allowed_orgs = user.profile.organizations.all()
-        else:
-            allowed_orgs = Organization.objects.none()
-
-        # 📝 Подготавливаем данные для древовидной структуры
-        organizations = []
-
-        # 📊 Для каждой организации получаем древовидную структуру
-        for org in allowed_orgs:
-            # 📋 Получаем подразделения организации
-            subdivisions = StructuralSubdivision.objects.filter(
-                organization=org
-            ).prefetch_related(
-                Prefetch(
-                    'departments',
-                    queryset=Department.objects.all()
-                )
-            )
-
-            # 👥 Получаем сотрудников без подразделения (напрямую в организации)
-            org_employees = Employee.objects.filter(
-                organization=org,
-                subdivision__isnull=True
-            ).select_related('position')
-
-            # 🏢 Формируем структуру организации
-            org_data = {
-                'id': org.id,
-                'name': org.full_name_ru,
-                'short_name': org.short_name_ru,
-                'employees': list(org_employees),
-                'subdivisions': []
-            }
-
-            # 🏭 Для каждого подразделения получаем отделы и сотрудников
-            for subdivision in subdivisions:
-                # 👥 Сотрудники подразделения без отдела
-                sub_employees = Employee.objects.filter(
-                    subdivision=subdivision,
-                    department__isnull=True
-                ).select_related('position')
-
-                # 🏭 Формируем структуру подразделения
-                sub_data = {
-                    'id': subdivision.id,
-                    'name': subdivision.name,
-                    'employees': list(sub_employees),
-                    'departments': []
-                }
-
-                # 📂 Для каждого отдела получаем сотрудников
-                for department in subdivision.departments.all():
-                    # 👥 Сотрудники отдела
-                    dept_employees = Employee.objects.filter(
-                        department=department
-                    ).select_related('position')
-
-                    # 📂 Формируем структуру отдела
-                    dept_data = {
-                        'id': department.id,
-                        'name': department.name,
-                        'employees': list(dept_employees)
-                    }
-
-                    sub_data['departments'].append(dept_data)
-
-                org_data['subdivisions'].append(sub_data)
-
-            organizations.append(org_data)
-
-        context['organizations'] = organizations
-        return context
+# ВАЖНО: HomePageView теперь импортируется из home.py (с фильтрацией по организациям)
+# Старая реализация удалена - используется только версия из home.py
 
 
 # Экспортируем все представления
 __all__ = [
     'HomePageView',
+    'IntroductoryBriefingView',
     'EmployeeListView',
     'EmployeeCreateView',
     'EmployeeUpdateView',
@@ -170,5 +85,4 @@ __all__ = [
     'SIZPersonalCardView',
     'SIZIssueReturnView',
     'employee_siz_issued_list',
-    'medical_examination',  # Добавляем medical_examination в экспорт
 ]

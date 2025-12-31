@@ -174,6 +174,13 @@
         cursor: pointer;
     }
 
+    /* Стиль для indeterminate чекбоксов */
+    .form-check-input:indeterminate {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e");
+    }
+
     /* Выделение выбранных строк */
     .tree-row.selected {
         background-color: #e7f3ff;
@@ -349,7 +356,9 @@
                     {% for org, org_data in tree.items %}
                         {# Организация #}
                         <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
-                            <td class="column-checkbox"></td>
+                            <td class="column-checkbox">
+                                <input type="checkbox" class="form-check-input node-checkbox" data-node-id="org_{{ org.id }}" checked>
+                            </td>
                             <td class="field-name">
                                 <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
                                 <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
@@ -392,7 +401,9 @@
                         {# Подразделения #}
                         {% for sub, sub_data in org_data.subdivisions.items %}
                             <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
-                                <td class="column-checkbox"></td>
+                                <td class="column-checkbox">
+                                    <input type="checkbox" class="form-check-input node-checkbox" data-node-id="sub_{{ sub.id }}" data-parent-id="org_{{ org.id }}" checked>
+                                </td>
                                 <td class="field-name">
                                     <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
                                     <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
@@ -434,7 +445,9 @@
                             {# Отделы #}
                             {% for dept, dept_data in sub_data.departments.items %}
                                 <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
-                                    <td class="column-checkbox"></td>
+                                    <td class="column-checkbox">
+                                        <input type="checkbox" class="form-check-input node-checkbox" data-node-id="dept_{{ dept.id }}" data-parent-id="sub_{{ sub.id }}" checked>
+                                    </td>
                                     <td class="field-name">
                                         <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
                                         <span class="tree-icon">{{ tree_settings.icons.department }}</span>
@@ -503,36 +516,177 @@ document.addEventListener('DOMContentLoaded', function() {
         // Проверяем начальное состояние
         toggleReasonField();
     }
+    // ========== КАСКАДНЫЙ ВЫБОР ДЕРЕВА ==========
+
+    // Функция для получения всех дочерних чекбоксов (узлов и сотрудников)
+    function getChildCheckboxes(nodeId) {
+        const children = [];
+        const rows = Array.from(document.querySelectorAll('.tree-row'));
+
+        // Рекурсивно ищем всех потомков
+        function findChildren(parentId) {
+            rows.forEach(row => {
+                const rowParentId = row.getAttribute('data-parent-id');
+                if (rowParentId === parentId) {
+                    // Находим чекбокс в этой строке (узел или сотрудник)
+                    const checkbox = row.querySelector('.node-checkbox, .employee-checkbox');
+                    if (checkbox) {
+                        children.push(checkbox);
+                    }
+
+                    // Если у строки есть собственный node-id, ищем его детей
+                    const rowNodeId = row.getAttribute('data-node-id');
+                    if (rowNodeId) {
+                        findChildren(rowNodeId);
+                    }
+                }
+            });
+        }
+
+        findChildren(nodeId);
+        return children;
+    }
+
+    // Функция для обновления состояния родительского чекбокса
+    function updateParentCheckbox(parentId) {
+        if (!parentId) return;
+
+        const parentCheckbox = document.querySelector(`.node-checkbox[data-node-id="${parentId}"]`);
+        if (!parentCheckbox) return;
+
+        // Получаем всех детей этого родителя
+        const children = getChildCheckboxes(parentId);
+        if (children.length === 0) return;
+
+        // Подсчитываем выбранные и видимые чекбоксы
+        const visibleChildren = children.filter(cb => {
+            const row = cb.closest('tr');
+            return !row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search');
+        });
+
+        if (visibleChildren.length === 0) return;
+
+        const checkedCount = visibleChildren.filter(cb => cb.checked).length;
+
+        // Устанавливаем состояние родительского чекбокса
+        if (checkedCount === 0) {
+            parentCheckbox.checked = false;
+            parentCheckbox.indeterminate = false;
+        } else if (checkedCount === visibleChildren.length) {
+            parentCheckbox.checked = true;
+            parentCheckbox.indeterminate = false;
+        } else {
+            parentCheckbox.checked = false;
+            parentCheckbox.indeterminate = true;
+        }
+
+        // Рекурсивно обновляем родителя этого родителя
+        const grandParentId = parentCheckbox.getAttribute('data-parent-id');
+        if (grandParentId) {
+            updateParentCheckbox(grandParentId);
+        }
+    }
+
+    // Обработчики для узлов дерева (организации, подразделения, отделы)
+    const nodeCheckboxes = document.querySelectorAll('.node-checkbox');
+    nodeCheckboxes.forEach(nodeCheckbox => {
+        nodeCheckbox.addEventListener('change', function() {
+            const nodeId = this.getAttribute('data-node-id');
+            const checked = this.checked;
+
+            // Убираем indeterminate состояние при клике
+            this.indeterminate = false;
+
+            // Выбираем/снимаем всех детей
+            const children = getChildCheckboxes(nodeId);
+            children.forEach(childCheckbox => {
+                const row = childCheckbox.closest('tr');
+                // Меняем только видимые чекбоксы
+                if (!row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search')) {
+                    childCheckbox.checked = checked;
+                    // Если это тоже узел, убираем его indeterminate
+                    if (childCheckbox.classList.contains('node-checkbox')) {
+                        childCheckbox.indeterminate = false;
+                    }
+                }
+            });
+
+            // Обновляем родительский чекбокс
+            const parentId = this.getAttribute('data-parent-id');
+            if (parentId) {
+                updateParentCheckbox(parentId);
+            }
+
+            updateCounter();
+        });
+    });
+
     // Обработка selectAll чекбокса
     const selectAll = document.getElementById('selectAll');
-    const checkboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
+    const employeeCheckboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
     const counter = document.getElementById('selectedCount');
 
     function updateCounter() {
-        const selected = checkboxes.filter(cb => cb.checked).length;
+        const selected = employeeCheckboxes.filter(cb => cb.checked).length;
         counter.textContent = selected;
     }
 
     if (selectAll) {
         selectAll.addEventListener('change', function() {
             const checked = this.checked;
-            checkboxes.forEach(cb => {
-                // Проверяем, что чекбокс видим (не скрыт деревом)
-                const row = cb.closest('tr');
+
+            // Выбираем все узлы верхнего уровня (организации)
+            const topLevelNodes = document.querySelectorAll('.node-checkbox[data-node-id^="org_"]');
+            topLevelNodes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
                 if (!row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search')) {
-                    cb.checked = checked;
+                    checkbox.checked = checked;
+                    checkbox.indeterminate = false;
+                    // Триггерим change event чтобы каскадно выбрать детей
+                    checkbox.dispatchEvent(new Event('change', { bubbles: false }));
                 }
             });
+
             updateCounter();
         });
     }
 
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', updateCounter);
+    // Обработчики для чекбоксов сотрудников
+    employeeCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            // Обновляем родительский узел
+            const row = this.closest('tr');
+            const parentId = row.getAttribute('data-parent-id');
+            if (parentId) {
+                updateParentCheckbox(parentId);
+            }
+            updateCounter();
+        });
     });
 
     // Начальное обновление счетчика
     updateCounter();
+
+    // Инициализация состояния всех родительских чекбоксов при загрузке
+    function initializeParentCheckboxes() {
+        // Получаем все уникальные parent-id из чекбоксов сотрудников
+        const parentIds = new Set();
+        employeeCheckboxes.forEach(cb => {
+            const row = cb.closest('tr');
+            const parentId = row.getAttribute('data-parent-id');
+            if (parentId) {
+                parentIds.add(parentId);
+            }
+        });
+
+        // Обновляем состояние каждого родительского узла
+        parentIds.forEach(parentId => {
+            updateParentCheckbox(parentId);
+        });
+    }
+
+    // Вызываем инициализацию после небольшой задержки, чтобы DOM успел обновиться
+    setTimeout(initializeParentCheckboxes, 50);
 
     // Обновление счетчика при сворачивании/разворачивании дерева
     const observer = new MutationObserver(updateCounter);

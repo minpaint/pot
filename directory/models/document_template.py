@@ -42,6 +42,11 @@ class DocumentTemplateType(models.Model):
         default=True,
         verbose_name="Активен"
     )
+    show_in_hiring = models.BooleanField(
+        default=True,
+        verbose_name="Показывать при приеме",
+        help_text="Определяет, отображается ли этот тип документа в списке для скачивания при приеме на работу"
+    )
 
     created_at = models.DateTimeField(
         auto_now_add=True,

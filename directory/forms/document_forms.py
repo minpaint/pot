@@ -36,7 +36,7 @@ class DocumentSelectionForm(forms.Form):
         # Получаем choices из справочника DocumentTemplateType
         choices = [
             (template_type.code, template_type.name)
-            for template_type in DocumentTemplateType.objects.filter(is_active=True)
+            for template_type in DocumentTemplateType.objects.filter(is_active=True, show_in_hiring=True)
             if template_type.code != 'periodic_protocol'  # Исключаем периодический протокол
         ]
         self.fields['document_types'].choices = choices
@@ -52,7 +52,7 @@ class DocumentSelectionForm(forms.Form):
             ),
             ButtonHolder(
                 Submit('submit', _('Сгенерировать документы'), css_class='btn-primary'),
-                Button('cancel', _('Отмена'), css_class='btn-secondary',
-                       onclick="window.history.back();")
+            Button('cancel', _('Отмена'), css_class='btn-secondary',
+                   onclick="window.history.back();")
             )
         )

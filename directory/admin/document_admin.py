@@ -22,8 +22,8 @@ class DocumentTemplateTypeAdmin(admin.ModelAdmin):
     """
     Административный интерфейс для видов шаблонов документов
     """
-    list_display = ('name', 'code', 'is_active', 'updated_at')
-    list_filter = ('is_active',)
+    list_display = ('name', 'code', 'is_active', 'show_in_hiring', 'updated_at')
+    list_filter = ('is_active', 'show_in_hiring')
     search_fields = ('name', 'code', 'description')
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('name',)

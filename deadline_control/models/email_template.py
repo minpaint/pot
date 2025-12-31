@@ -38,6 +38,7 @@ class EmailTemplateType(models.Model):
 
     available_variables = models.JSONField(
         default=dict,
+        blank=True,
         verbose_name="Доступные переменные",
         help_text="JSON с доступными переменными и их описанием"
     )

@@ -33,16 +33,16 @@
 <div class="app-directory module">
     <table style="width: 100%;">
         <caption>
-            <a href="{% url 'admin:reload_gunicorn' %}" class="section" title="Сервисные операции">
+            <a href="{% url 'admin:reload_gunicorn' %}" class="section" title="Сервис">
                 🛠️ Сервис
             </a>
         </caption>
         <tbody>
             <tr class="model-reload-gunicorn">
                 <th scope="row" style="width: 300px; white-space: nowrap;">
-                    <a href="{% url 'admin:reload_gunicorn' %}">🔄 Перезагрузить Gunicorn</a>
+                    <a href="{% url 'admin:reload_gunicorn' %}">🔧 Сервисные действия</a>
                 </th>
-                <td style="white-space: normal;">Graceful reload через скрипт reload_gunicorn.sh. Требует подтверждения и пишет результат в лог.</td>
+                <td style="white-space: normal;">Перезагрузка Gunicorn и ручной запуск бэкапов (БД и файлы) со страницы сервиса.</td>
             </tr>
         </tbody>
     </table>

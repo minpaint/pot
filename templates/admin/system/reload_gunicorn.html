@@ -3,20 +3,38 @@
 
 {% block content %}
 <div id="content-main">
-    <h1>Перезагрузка Gunicorn</h1>
-    <p>Кнопка выполняет фиксированный скрипт <code>{{ script_path }}</code> и отправляет сигнал HUP для graceful reload.</p>
-    <p>Доступна только суперпользователям. Результат пишется в сообщения и логи.</p>
+    <h1>Сервис</h1>
+    <p>Сервисные действия доступны только суперпользователям. Каждое действие запускает соответствующий Bash-скрипт и пишет результат в сообщения и логи.</p>
 
     <form method="post" style="margin-top: 20px;">
         {% csrf_token %}
-        <input type="hidden" name="confirm" value="1">
+        <input type="hidden" name="action" value="reload_gunicorn">
         <button type="submit" class="default" onclick="return confirm('Точно перезапустить Gunicorn?');">
             🔄 Перезагрузить Gunicorn
         </button>
+        <p style="margin-top: 6px; color: #666;">Скрипт: <code>{{ script_paths.reload_gunicorn }}</code>. Graceful reload через сигнал HUP.</p>
+    </form>
+
+    <form method="post" style="margin-top: 24px;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="backup_db">
+        <button type="submit" class="default" onclick="return confirm('Сделать бэкап базы?');">
+            🗄️ Бэкап базы данных
+        </button>
+        <p style="margin-top: 6px; color: #666;">Скрипт: <code>{{ script_paths.backup_db }}</code>. Создает gzip дамп Postgres с ротацией.</p>
+    </form>
+
+    <form method="post" style="margin-top: 24px;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="backup_files">
+        <button type="submit" class="default" onclick="return confirm('Сделать бэкап файлов проекта?');">
+            🗂️ Бэкап файлов проекта
+        </button>
+        <p style="margin-top: 6px; color: #666;">Скрипт: <code>{{ script_paths.backup_files }}</code>. Архивирует проект и данные с ротацией.</p>
     </form>
 
     <p style="margin-top: 15px; color: #666;">
-        Совет: убедись, что Gunicorn запущен под тем же пользователем, чтобы сигнал сработал корректно.
+        Совет: убедись, что сервисные скрипты доступны пользователю приложения и имеют права на запись в каталоги бэкапов.
     </p>
 </div>
 {% endblock %}

@@ -61,7 +61,8 @@ from directory.autocomplete_views import (
 
 from directory.views.hiring import (
     HiringTreeView, HiringListView, HiringDetailView, HiringCreateView, HiringUpdateView,
-    HiringDeleteView, CreateHiringFromEmployeeView, SimpleHiringView, position_requirements_api
+    HiringDeleteView, CreateHiringFromEmployeeView, SimpleHiringView, position_requirements_api,
+    send_hiring_documents
 )
 
 app_name = 'directory'
@@ -155,6 +156,10 @@ hiring_patterns = [
     path('create/', hiring.HiringCreateView.as_view(), name='hiring_create'),
     path('<int:pk>/update/', hiring.HiringUpdateView.as_view(), name='hiring_update'),
     path('<int:pk>/delete/', hiring.HiringDeleteView.as_view(), name='hiring_delete'),
+
+    # ✉️ Отправка документов приема
+    path('send-documents/<int:hiring_id>/', hiring.send_hiring_documents, name='send_hiring_documents'),
+
     path('create-from-employee/<int:employee_id>/', hiring.CreateHiringFromEmployeeView.as_view(),
          name='create_from_employee'),
 

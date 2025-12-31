@@ -62,16 +62,15 @@
                         </div>
 
                         <div class="submit-btn-container">
-                            <button type="submit" class="btn btn-success">
+                            <button type="submit" name="generate_documents" value="1" class="btn btn-success">
                                 <i class="fas fa-download"></i> Скачать документы
                             </button>
 
-                            <!-- ✉️ Кнопка отправки документов (генерирует документы при отправке) -->
-                            <a href="{% url 'directory:hiring:send_hiring_documents' hiring.id %}"
-                               class="btn btn-primary ml-2"
-                               onclick="return confirm('Отправить документы приема на email получателей?\n\nПолучатели:\n- Email подразделения\n- Ответственные за охрану труда\n- Общие получатели организации\n\nДокументы будут сгенерированы и отправлены.');">
+                            <!-- ✉️ Кнопка отправки документов (генерирует и отправляет выбранные документы) -->
+                            <button type="submit" name="send_documents" value="1" class="btn btn-primary ml-2"
+                                    onclick="return confirm('Отправить выбранные документы приема на email получателей?\n\nПолучатели:\n- Email подразделения\n- Ответственные за охрану труда\n- Общие получатели организации\n\nБудут отправлены только отмеченные документы.');">
                                 <i class="fas fa-envelope"></i> Отправить документы
-                            </a>
+                            </button>
 
                             <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-secondary ml-2">
                                 Назад к списку

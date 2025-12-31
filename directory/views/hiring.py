@@ -454,6 +454,10 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         if 'generate_documents' in request.POST:
             return self._handle_document_generation(request)
 
+        # Обработка формы отправки документов по email
+        if 'send_documents' in request.POST:
+            return self._handle_send_documents(request)
+
         return self.get(request, *args, **kwargs)
 
     def _handle_document_generation(self, request):
@@ -545,6 +549,231 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
             logger.error(f"Ошибка при создании архива: {str(e)}", exc_info=True)
             messages.error(request, f"Ошибка при создании архива: {str(e)}")
             return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+    def _handle_send_documents(self, request):
+        """Обработка отправки выбранных документов по email"""
+        # ШАГ 1: Получить выбранные типы документов
+        document_types = request.POST.getlist('document_types')
+
+        if not document_types:
+            messages.error(request, "Не выбран ни один тип документа для отправки")
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        employee = self.object.employee
+        organization = self.object.organization
+        subdivision = self.object.subdivision
+
+        logger.info(
+            f"Начало отправки документов приема для сотрудника '{employee.full_name_nominative}' "
+            f"(hiring_id={self.object.pk}). Выбрано типов: {len(document_types)}"
+        )
+
+        # ШАГ 2: Получить настройки email
+        try:
+            email_settings = EmailSettings.get_settings(organization)
+        except Exception as e:
+            messages.error(request, f"Не удалось получить настройки email: {str(e)}")
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        # ШАГ 2.1: Проверить, активны ли настройки
+        if not email_settings.is_active:
+            messages.error(
+                request,
+                f"Email уведомления отключены для {organization.short_name_ru}. "
+                f"Настройте email в админке: Email Settings."
+            )
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        # ШАГ 2.2: Проверить, настроен ли SMTP
+        if not email_settings.email_host:
+            messages.error(
+                request,
+                f"SMTP сервер не настроен для {organization.short_name_ru}. "
+                f"Укажите настройки в админке: Email Settings."
+            )
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        # ШАГ 3: Сгенерировать выбранные документы
+        from directory.document_generators.order_generator import generate_all_orders
+        from directory.document_generators.protocol_generator import generate_knowledge_protocol
+        from directory.document_generators.familiarization_generator import generate_familiarization_document
+        from directory.document_generators.ot_card_generator import generate_personal_ot_card
+        from directory.document_generators.journal_example_generator import generate_journal_example
+        from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
+
+        generator_map = {
+            'all_orders': generate_all_orders,
+            'knowledge_protocol': generate_knowledge_protocol,
+            'doc_familiarization': generate_familiarization_document,
+            'personal_ot_card': generate_personal_ot_card,
+            'journal_example': generate_journal_example,
+            'siz_card': generate_siz_card_docx,
+        }
+
+        # Генерируем только выбранные типы документов
+        generated_files = []
+
+        for doc_type in document_types:
+            try:
+                generator_func = generator_map.get(doc_type)
+                if generator_func:
+                    if doc_type == 'doc_familiarization':
+                        result = generator_func(employee=employee, user=request.user, document_list=None)
+                    else:
+                        result = generator_func(employee=employee, user=request.user)
+
+                    # Обрабатываем как список (для generate_all_orders) так и одиночный документ
+                    if result:
+                        if isinstance(result, list):
+                            for doc in result:
+                                if isinstance(doc, dict) and 'content' in doc and 'filename' in doc:
+                                    generated_files.append((doc['content'], doc['filename']))
+                                    logger.info(f"Сгенерирован документ: {doc['filename']}")
+                        elif isinstance(result, dict) and 'content' in result and 'filename' in result:
+                            generated_files.append((result['content'], result['filename']))
+                            logger.info(f"Сгенерирован документ: {result['filename']}")
+            except Exception as e:
+                logger.error(f"Ошибка при генерации {doc_type}: {str(e)}", exc_info=True)
+                messages.warning(request, f"Ошибка при генерации документа типа {doc_type}: {str(e)}")
+                continue
+
+        if not generated_files:
+            messages.error(
+                request,
+                "Не удалось сгенерировать ни одного документа. "
+                "Проверьте настройки шаблонов документов."
+            )
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        logger.info(f"Сгенерировано {len(generated_files)} документов")
+
+        # ШАГ 4: Собрать получателей
+        if subdivision:
+            recipients = collect_recipients_for_subdivision(
+                subdivision=subdivision,
+                organization=organization,
+                notification_type='general'
+            )
+        else:
+            recipients = email_settings.get_recipient_list()
+
+        if not recipients:
+            messages.error(
+                request,
+                mark_safe(
+                    "Нет получателей для отправки. Настройте email получателей:<br>"
+                    "1. Email подразделения (SubdivisionEmail)<br>"
+                    "2. Email ответственных за ОТ (в карточке сотрудника)<br>"
+                    "3. Общие получатели в Email Settings"
+                )
+            )
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        logger.info(f"Собрано {len(recipients)} получателей: {', '.join(recipients)}")
+
+        # ШАГ 5: Получить шаблон письма
+        template_data = email_settings.get_email_template('documents_priem')
+
+        if not template_data:
+            messages.error(
+                request,
+                "Шаблон письма 'documents_priem' не настроен для этой организации. "
+                "Создайте шаблон в админке: Email Templates."
+            )
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        subject_template, body_template = template_data
+
+        # ШАГ 6: Подготовить переменные для шаблона
+        template_vars = {
+            'organization_name': organization.short_name_ru or organization.full_name_ru,
+            'employee_name': employee.full_name_nominative,
+            'position_name': self.object.position.position_name,
+            'subdivision_name': subdivision.name if subdivision else "Без подразделения",
+            'department_name': self.object.department.name if self.object.department else "Без отдела",
+            'hiring_date': self.object.hiring_date.strftime('%d.%m.%Y'),
+            'start_date': self.object.start_date.strftime('%d.%m.%Y'),
+            'hiring_type': self.object.get_hiring_type_display(),
+            'document_count': len(generated_files),
+            'date': timezone.now().strftime('%d.%m.%Y'),
+        }
+
+        # ШАГ 7: Форматировать тему и тело письма
+        try:
+            subject = subject_template.format(**template_vars)
+            html_message = body_template.format(**template_vars)
+        except KeyError as e:
+            messages.error(
+                request,
+                mark_safe(
+                    f"Ошибка в шаблоне письма: переменная {e} не найдена.<br>"
+                    f"Доступные переменные: {', '.join(template_vars.keys())}"
+                )
+            )
+            return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
+
+        # ШАГ 8: Создать email с вложениями
+        try:
+            connection = email_settings.get_connection()
+            from_email = email_settings.default_from_email or email_settings.email_host_user
+
+            text_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_message,
+                from_email=from_email,
+                to=recipients,
+                connection=connection
+            )
+
+            email.attach_alternative(html_message, "text/html")
+
+            # ШАГ 9: Прикрепить сгенерированные документы
+            for file_content, filename in generated_files:
+                try:
+                    email.attach(
+                        filename,
+                        file_content,
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    )
+                    logger.info(f"Прикреплен документ: {filename}")
+                except Exception as e:
+                    logger.error(f"Ошибка прикрепления документа {filename}: {str(e)}", exc_info=True)
+                    continue
+
+            # ШАГ 10: Отправить email
+            email.send(fail_silently=False)
+
+            logger.info(
+                f"Документы приема отправлены для '{employee.full_name_nominative}'. "
+                f"Получатели: {', '.join(recipients)}. Документов: {len(generated_files)}"
+            )
+
+            messages.success(
+                request,
+                mark_safe(
+                    f"✅ Документы приема успешно отправлены на {len(recipients)} адрес(ов):<br>"
+                    f"<strong>{', '.join(recipients)}</strong><br>"
+                    f"Отправлено документов: {len(generated_files)}"
+                )
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Ошибка отправки email для hiring_id={self.object.pk}: {str(e)}",
+                exc_info=True
+            )
+            messages.error(
+                request,
+                mark_safe(
+                    f"❌ Ошибка при отправке email:<br>"
+                    f"<code>{str(e)}</code><br>"
+                    f"Проверьте настройки SMTP в Email Settings."
+                )
+            )
+
+        return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
 
 
 class HiringCreateView(LoginRequiredMixin, CreateView):

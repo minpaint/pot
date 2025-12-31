@@ -450,13 +450,14 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
                 messages.success(request, _(f'Прикреплено документов: {len(selected_docs)}'))
                 return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
 
+        # ВАЖНО: Проверка отправки email ПЕРЕД генерацией,
+        # т.к. при form.submit() могут передаться оба параметра
+        if 'send_documents' in request.POST:
+            return self._handle_send_documents(request)
+
         # Обработка формы генерации документов
         if 'generate_documents' in request.POST:
             return self._handle_document_generation(request)
-
-        # Обработка формы отправки документов по email
-        if 'send_documents' in request.POST:
-            return self._handle_send_documents(request)
 
         return self.get(request, *args, **kwargs)
 

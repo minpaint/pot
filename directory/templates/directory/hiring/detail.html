@@ -62,7 +62,7 @@
                         </div>
 
                         <div class="submit-btn-container">
-                            <button type="submit" name="generate_documents" value="1" class="btn btn-success">
+                            <button type="button" id="downloadDocsBtn" class="btn btn-success">
                                 <i class="fas fa-download"></i> Скачать документы
                             </button>
 
@@ -261,26 +261,33 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Проверка на наличие хотя бы одного выбранного типа документа
         const form = document.getElementById('document-generation-form');
-        if (form) {
-            form.addEventListener('submit', function(e) {
+
+        // Обработчик кнопки скачивания документов
+        const downloadDocsBtn = document.getElementById('downloadDocsBtn');
+        if (downloadDocsBtn && form) {
+            downloadDocsBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
                 const checkboxes = document.querySelectorAll('input[name="document_types"]:checked');
                 if (checkboxes.length === 0) {
-                    e.preventDefault();
                     alert('Пожалуйста, выберите хотя бы один тип документа.');
-                } else {
-                    // Добавляем индикатор загрузки
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Генерация документов...';
-                    submitBtn.disabled = true;
-
-                    // Добавляем сообщение об ожидании
-                    const loadingDiv = document.createElement('div');
-                    loadingDiv.className = 'alert alert-info mt-3';
-                    loadingDiv.innerHTML = '<i class="fas fa-info-circle"></i> Пожалуйста, подождите. Генерация документов может занять некоторое время.';
-                    form.appendChild(loadingDiv);
+                    return;
                 }
+
+                // Добавить скрытое поле для скачивания
+                const downloadInput = document.createElement('input');
+                downloadInput.type = 'hidden';
+                downloadInput.name = 'generate_documents';
+                downloadInput.value = '1';
+                form.appendChild(downloadInput);
+
+                // Показать индикатор загрузки
+                downloadDocsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Генерация документов...';
+                downloadDocsBtn.disabled = true;
+
+                // Отправить форму
+                form.submit();
             });
         }
 

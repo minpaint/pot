@@ -55,6 +55,7 @@ backups/
 *.sqlite3
 *.db
 *.sql
+*.sql.gz
 *.dump
 
 # Secrets

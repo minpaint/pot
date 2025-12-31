@@ -1,0 +1,1 @@
+/home/django/backups/pg_backup.sh

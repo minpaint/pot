@@ -109,12 +109,35 @@ echo
 
 # 8. Миграции базы данных
 echo -e "${GREEN}🗄️  Проверка миграций...${NC}"
-if python manage.py migrate --settings=settings_prod --no-input; then
-    echo -e "${GREEN}✓ Миграции применены${NC}"
+
+# Проверить есть ли неприменённые миграции
+if python manage.py showmigrations --settings=settings_prod | grep -q '\[ \]'; then
+    echo -e "${YELLOW}⚠️  Обнаружены неприменённые миграции${NC}"
+    echo -e "${YELLOW}💾 Создание бэкапа БД...${NC}"
+
+    # Создать бэкап
+    if [ -f "./backup_db.sh" ]; then
+        BACKUP_OUTPUT=$(./backup_db.sh 2>&1)
+        BACKUP_FILE=$(echo "$BACKUP_OUTPUT" | tail -1)
+        echo -e "${GREEN}✓ Бэкап создан: $BACKUP_FILE${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Скрипт backup_db.sh не найден, пропускаем бэкап${NC}"
+        BACKUP_FILE=""
+    fi
+
+    # Применить миграции
+    if python manage.py migrate --settings=settings_prod --no-input; then
+        echo -e "${GREEN}✓ Миграции применены${NC}"
+    else
+        echo -e "${RED}✗ Ошибка применения миграций!${NC}"
+        if [ -n "$BACKUP_FILE" ]; then
+            echo -e "${YELLOW}Для отката используйте: ./restore_db.sh \"$BACKUP_FILE\"${NC}"
+        fi
+        echo "Проверьте логи и исправьте вручную"
+        exit 1
+    fi
 else
-    echo -e "${RED}✗ Ошибка применения миграций!${NC}"
-    echo "Проверьте логи и исправьте вручную"
-    exit 1
+    echo -e "${GREEN}✓ Нет неприменённых миграций${NC}"
 fi
 echo
 

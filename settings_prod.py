@@ -6,6 +6,14 @@ from settings import *
 
 DEBUG = False
 
+# Zero-downtime migrations для PostgreSQL
+# Заменяем стандартный PostgreSQL backend на версию с минимизацией блокировок
+if 'default' in DATABASES and 'ENGINE' in DATABASES['default']:
+    engine = DATABASES['default']['ENGINE']
+    # Заменяем только если используется PostgreSQL
+    if 'postgres' in engine or 'psycopg' in engine:
+        DATABASES['default']['ENGINE'] = 'django_zero_downtime_migrations.backends.postgres'
+
 # Отключаем debug toolbar в production
 if 'debug_toolbar' in INSTALLED_APPS:
     INSTALLED_APPS.remove('debug_toolbar')

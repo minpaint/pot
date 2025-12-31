@@ -413,7 +413,124 @@ When writing tests:
 
 ## Database Migrations
 
-**Migration naming convention:** Use descriptive names with `--name` flag:
+### Zero-Downtime Migrations (Production)
+
+**ВАЖНО:** Проект использует `django-pg-zero-downtime-migrations` для минимизации блокировок при миграциях на production.
+
+**Установлено:**
+- `django-pg-zero-downtime-migrations>=0.11` - автоматическая минимизация блокировок
+- `django-migration-linter>=5.0` - проверка опасных операций (опционально)
+- Backend: `django_zero_downtime_migrations.backends.postgres` (в `settings_prod.py`)
+
+### Workflow создания миграций на Production
+
+**ВСЕГДА следуй этому workflow при создании миграций:**
+
+1. **Изменить модели:**
+   ```bash
+   nano directory/models/employee.py  # или другая модель
+   ```
+
+2. **Создать миграцию:**
+   ```bash
+   python manage.py makemigrations directory --name описание_изменения --settings=settings_prod
+   ```
+
+3. **Проверить SQL (обязательно!):**
+   ```bash
+   python manage.py sqlmigrate directory 0056 --settings=settings_prod
+   ```
+
+4. **Создать бэкап БД:**
+   ```bash
+   ./backup_db.sh
+   ```
+   - Бэкапы хранятся в `/home/django/backups/pg-ot_online-YYYYMMDD_HHMMSS.sql.gz`
+   - Автоматическая ротация: удаление файлов старше 30 дней
+
+5. **Применить миграцию:**
+   ```bash
+   python manage.py migrate --settings=settings_prod
+   ```
+
+6. **Перезапустить Gunicorn:**
+   ```bash
+   ./reload_gunicorn.sh  # graceful reload без даунтайма
+   ```
+
+7. **Проверить работу сайта:**
+   - Открыть https://pot.by
+   - Проверить что изменения работают
+
+8. **Закоммитить в Git:**
+   ```bash
+   git add directory/migrations/0056_*
+   git commit -m "Добавлена миграция: описание_изменения"
+   git push origin develop
+   ```
+
+### Автоматический workflow через deploy_from_git.sh
+
+При использовании `./deploy_from_git.sh`:
+- Автоматически проверяет наличие неприменённых миграций
+- Создаёт бэкап БД перед применением миграций
+- Применяет миграции
+- При ошибке показывает команду для отката
+
+### Откат миграций при проблемах
+
+**Быстрый откат к предыдущей миграции:**
+```bash
+python manage.py migrate directory 0055 --settings=settings_prod
+./reload_gunicorn.sh
+```
+
+**Полный откат через бэкап (если что-то сломалось):**
+```bash
+# Посмотреть доступные бэкапы
+ls -lth /home/django/backups/
+
+# Восстановить БД
+./restore_db.sh /home/django/backups/pg-ot_online-20251231_150000.sql.gz
+# restore_db.sh автоматически:
+# 1. Остановит Gunicorn
+# 2. Завершит активные соединения с БД
+# 3. Восстановит БД из дампа
+# 4. Запустит Gunicorn
+```
+
+**Удалить миграцию полностью:**
+```bash
+# 1. Откатить миграцию в БД
+python manage.py migrate directory 0055 --settings=settings_prod
+
+# 2. Удалить файл миграции
+rm directory/migrations/0056_unwanted.py
+
+# 3. Перезапустить
+./reload_gunicorn.sh
+```
+
+### Zero-Downtime стратегии
+
+**Что безопасно делать напрямую:**
+- ✅ Добавление nullable полей
+- ✅ Добавление таблиц
+- ✅ Создание индексов (автоматически с CONCURRENTLY)
+
+**Что требует осторожности:**
+- ❌ **Добавление NOT NULL полей** - делать в 2-3 шага:
+  1. Добавить как nullable
+  2. Заполнить данные через RunPython
+  3. Сделать NOT NULL
+
+- ❌ **Удаление полей** - сначала удалить из кода, потом создать миграцию
+- ❌ **Переименование полей** - добавить новое → обновить код → удалить старое
+- ❌ **Изменение типа поля** - добавить новое → мигрировать данные → удалить старое
+
+### Migration naming convention
+
+**Используй описательные имена с `--name` flag:**
 ```bash
 py manage.py makemigrations directory --name add_quiz_access_tokens
 ```
@@ -422,6 +539,13 @@ py manage.py makemigrations directory --name add_quiz_access_tokens
 - `0025_add_quiz_models` - Added entire quiz system
 - `0029_*_quizaccesstoken` - Added token-based access
 - `0034_remove_quiz_type` - Removed deprecated quiz_type field
+
+### Важные заметки
+
+- **Бэкапы не коммитятся в Git:** `.gitignore` содержит `backups/` и `*.sql.gz`
+- **Автоаутентификация PostgreSQL:** `~/.pgpass` уже настроен
+- **Ротация бэкапов:** Автоматическое удаление файлов старше 30 дней
+- **Backend для zero-downtime:** `django_zero_downtime_migrations.backends.postgres` в `settings_prod.py`
 
 ## Common Patterns
 

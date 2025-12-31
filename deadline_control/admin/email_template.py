@@ -2,7 +2,9 @@
 
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.db import models
+from urllib.parse import quote
 from deadline_control.models import EmailTemplateType, EmailTemplate
 
 
@@ -64,7 +66,8 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     )
     list_filter = ('is_active', 'is_default', 'template_type', 'organization', 'updated_at')
     search_fields = ('name', 'subject', 'organization__short_name_ru', 'organization__full_name_ru')
-    readonly_fields = ('created_at', 'updated_at', 'created_by')
+    readonly_fields = ('available_variables_hint', 'created_at', 'updated_at', 'created_by')
+    actions = ['copy_templates']
 
     fieldsets = (
         ('Основная информация', {
@@ -73,7 +76,7 @@ class EmailTemplateAdmin(admin.ModelAdmin):
                           'чтобы создать эталонный шаблон для всех организаций.'
         }),
         ('📧 Содержимое письма', {
-            'fields': ('subject', 'body'),
+            'fields': ('subject', 'body', 'available_variables_hint'),
             'description': '<strong>💡 Используйте переменные в фигурных скобках:</strong> '
                           '{organization_name}, {subdivision_name}, {date} и т.д.<br>'
                           'Доступные переменные зависят от типа шаблона.'
@@ -119,16 +122,12 @@ class EmailTemplateAdmin(admin.ModelAdmin):
         if obj.is_default:
             # Проверяем, эталонный ли это шаблон
             if obj.organization is None:
-                return format_html(
-                    '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">⭐ Эталонный</span>'
-                )
+                badge = '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:6px;font-weight:600;display:inline-block;min-width:90px;text-align:center;">⭐ Эталонный</span>'
             else:
-                return format_html(
-                    '<span style="background:#4caf50;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">✓ По умолчанию</span>'
-                )
-        return format_html(
-            '<span style="background:#9e9e9e;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">—</span>'
-        )
+                badge = '<span style="background:#4caf50;color:white;padding:4px 12px;border-radius:6px;font-weight:600;display:inline-block;min-width:90px;text-align:center;">✓ По умолчанию</span>'
+        else:
+            badge = '<span style="background:#9e9e9e;color:white;padding:4px 12px;border-radius:6px;font-weight:600;display:inline-block;min-width:90px;text-align:center;">—</span>'
+        return format_html('<div style="text-align:center;">{}</div>', mark_safe(badge))
 
     is_default_badge.short_description = "Статус"
 
@@ -143,12 +142,55 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     organization_display.short_description = "Организация"
     organization_display.admin_order_field = "organization"
 
+    def available_variables_hint(self, obj):
+        """Подсказка по доступным переменным типа шаблона"""
+        if not obj or not obj.template_type or not obj.template_type.available_variables:
+            return "—"
+
+        items = obj.template_type.available_variables.items()
+        html_items = [
+            f"<code>{{{{{key}}}}}</code> — {value}"
+            for key, value in items
+        ]
+        return format_html("<br>".join(html_items))
+
+    available_variables_hint.short_description = "Доступные переменные"
+
     def preview_button(self, obj):
         """Кнопка предпросмотра"""
-        return format_html(
-            '<a class="button" href="#" onclick="alert(\'Предпросмотр: {}\\n\\n{}\'); return false;" style="padding:4px 12px;">👁 Просмотр</a>',
-            obj.subject[:50],
-            obj.body[:100].replace('\n', ' ').replace('<', '&lt;').replace('>', '&gt;')
+        # Показываем HTML во всплывающем окне (modals/alert не рендерят HTML, поэтому используем небольшое окно)
+        btn = format_html(
+            '<a class="button" href="#" onclick="(function(){{var w=window.open(\'\',\'preview\',\'width=900,height=700,scrollbars=yes\');'
+            'if(!w){{alert(\'Разрешите всплывающие окна для предпросмотра.\');return false;}}'
+            'w.document.open();'
+            'w.document.write(\'<html><head><meta charset=&quot;utf-8&quot;><title>{title}</title></head><body>{body}</body></html>\');'
+            'w.document.close();}})(); return false;" '
+            'style="padding:4px 10px; display:inline-block; min-width:90px; text-align:center;">👁 Просмотр</a>',
+            title=quote(obj.subject or '') if obj else '',
+            body=obj.body or ''
         )
+        return format_html('<div style="text-align:center;">{}</div>', btn)
 
     preview_button.short_description = "Действия"
+
+    def copy_templates(self, request, queryset):
+        """
+        Создаёт копии выделенных шаблонов.
+        Флаг is_default сбрасываем, чтобы не нарушать уникальность эталонных шаблонов.
+        """
+        copied = 0
+        for template in queryset:
+            template.pk = None
+            template.id = None
+            template.is_default = False
+            template.name = f"{template.name} (копия)"
+            template.created_by = request.user
+            template.save()
+            copied += 1
+
+        if copied:
+            self.message_user(request, f"Скопировано шаблонов: {copied}")
+        else:
+            self.message_user(request, "Шаблоны не выбраны для копирования.")
+
+    copy_templates.short_description = "Скопировать выделенные шаблоны"

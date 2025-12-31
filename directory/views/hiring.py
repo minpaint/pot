@@ -914,6 +914,109 @@ class CreateHiringFromEmployeeView(LoginRequiredMixin, FormView):
 
 
 @login_required
+def preview_hiring_email(request, hiring_id):
+    """
+    AJAX endpoint для предпросмотра письма с документами приема.
+
+    Возвращает JSON с информацией о письме:
+    - recipients: список адресатов
+    - subject: тема письма
+    - body: тело письма (HTML)
+    - document_names: список названий документов
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Требуется POST запрос'}, status=400)
+
+    # Получить hiring и проверить права доступа
+    hiring = get_object_or_404(EmployeeHiring, pk=hiring_id)
+
+    if not AccessControlHelper.can_access_object(request.user, hiring):
+        return JsonResponse({'error': 'Нет прав доступа'}, status=403)
+
+    # Получить выбранные типы документов
+    document_types = request.POST.getlist('document_types')
+
+    if not document_types:
+        return JsonResponse({'error': 'Не выбран ни один документ'}, status=400)
+
+    employee = hiring.employee
+    organization = hiring.organization
+    subdivision = hiring.subdivision
+
+    # Получить настройки email
+    try:
+        email_settings = EmailSettings.get_settings(organization)
+    except Exception as e:
+        return JsonResponse({'error': f'Ошибка настроек email: {str(e)}'}, status=500)
+
+    if not email_settings.is_active:
+        return JsonResponse({'error': 'Email уведомления отключены'}, status=400)
+
+    # Собрать получателей
+    if subdivision:
+        recipients = collect_recipients_for_subdivision(
+            subdivision=subdivision,
+            organization=organization,
+            notification_type='general'
+        )
+    else:
+        recipients = email_settings.get_recipient_list()
+
+    if not recipients:
+        return JsonResponse({'error': 'Нет получателей для отправки'}, status=400)
+
+    # Получить шаблон письма
+    template_data = email_settings.get_email_template('documents_priem')
+
+    if not template_data:
+        return JsonResponse({'error': 'Шаблон письма не настроен'}, status=400)
+
+    subject_template, body_template = template_data
+
+    # Подготовить переменные для шаблона
+    template_vars = {
+        'organization_name': organization.short_name_ru or organization.full_name_ru,
+        'employee_name': employee.full_name_nominative,
+        'position_name': hiring.position.position_name,
+        'subdivision_name': subdivision.name if subdivision else "Без подразделения",
+        'department_name': hiring.department.name if hiring.department else "Без отдела",
+        'hiring_date': hiring.hiring_date.strftime('%d.%m.%Y'),
+        'start_date': hiring.start_date.strftime('%d.%m.%Y'),
+        'hiring_type': hiring.get_hiring_type_display(),
+        'document_count': len(document_types),  # Примерное количество
+        'date': timezone.now().strftime('%d.%m.%Y'),
+    }
+
+    # Форматировать тему и тело
+    try:
+        subject = subject_template.format(**template_vars)
+        html_body = body_template.format(**template_vars)
+    except KeyError as e:
+        return JsonResponse({'error': f'Ошибка в шаблоне: переменная {e} не найдена'}, status=500)
+
+    # Получить названия документов
+    document_names_map = {
+        'all_orders': '📄 Все распоряжения',
+        'knowledge_protocol': '📋 Протокол проверки знаний',
+        'doc_familiarization': '✍️ Лист ознакомления с документами',
+        'personal_ot_card': '🗂️ Личная карточка по охране труда',
+        'journal_example': '📓 Пример заполнения журналов',
+        'siz_card': '🧥 Карточка учета СИЗ',
+    }
+
+    document_names = [document_names_map.get(dt, dt) for dt in document_types]
+
+    return JsonResponse({
+        'success': True,
+        'recipients': recipients,
+        'subject': subject,
+        'body': html_body,
+        'document_names': document_names,
+        'document_count': len(document_types)
+    })
+
+
+@login_required
 def send_hiring_documents(request, hiring_id):
     """
     Отправляет документы приема на работу на email получателей подразделения.

@@ -66,9 +66,8 @@
                                 <i class="fas fa-download"></i> Скачать документы
                             </button>
 
-                            <!-- ✉️ Кнопка отправки документов (генерирует и отправляет выбранные документы) -->
-                            <button type="submit" name="send_documents" value="1" class="btn btn-primary ml-2"
-                                    onclick="return confirm('Отправить выбранные документы приема на email получателей?\n\nПолучатели:\n- Email подразделения\n- Ответственные за охрану труда\n- Общие получатели организации\n\nБудут отправлены только отмеченные документы.');">
+                            <!-- ✉️ Кнопка отправки документов (показывает предпросмотр) -->
+                            <button type="button" id="previewEmailBtn" class="btn btn-primary ml-2">
                                 <i class="fas fa-envelope"></i> Отправить документы
                             </button>
 
@@ -78,6 +77,64 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно предпросмотра письма -->
+<div class="modal fade" id="emailPreviewModal" tabindex="-1" role="dialog" aria-labelledby="emailPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="emailPreviewModalLabel">
+                    <i class="fas fa-envelope-open-text"></i> Предпросмотр письма
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="previewLoading" class="text-center" style="display: none;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Загрузка предпросмотра...</p>
+                </div>
+
+                <div id="previewError" class="alert alert-danger" style="display: none;"></div>
+
+                <div id="previewContent" style="display: none;">
+                    <!-- Получатели -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-users"></i> Получатели:</h6>
+                        <div id="previewRecipients" class="alert alert-info"></div>
+                    </div>
+
+                    <!-- Тема письма -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-heading"></i> Тема письма:</h6>
+                        <div id="previewSubject" class="alert alert-secondary"></div>
+                    </div>
+
+                    <!-- Документы -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-file-alt"></i> Документы для отправки:</h6>
+                        <div id="previewDocuments" class="alert alert-success"></div>
+                    </div>
+
+                    <!-- Тело письма -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-envelope"></i> Текст письма:</h6>
+                        <div id="previewBody" class="border p-3" style="background: #f8f9fa; max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmSendBtn">
+                    <i class="fas fa-paper-plane"></i> Отправить письмо
+                </button>
             </div>
         </div>
     </div>
@@ -238,6 +295,87 @@
                 }
             });
         });
+
+        // Обработчик кнопки предпросмотра письма
+        const previewEmailBtn = document.getElementById('previewEmailBtn');
+        if (previewEmailBtn) {
+            previewEmailBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Проверить что выбран хотя бы один документ
+                const checkedBoxes = document.querySelectorAll('input[name="document_types"]:checked');
+                if (checkedBoxes.length === 0) {
+                    alert('Пожалуйста, выберите хотя бы один тип документа для отправки.');
+                    return;
+                }
+
+                // Показать модальное окно с индикатором загрузки
+                const modal = $('#emailPreviewModal');
+                modal.modal('show');
+
+                $('#previewLoading').show();
+                $('#previewError').hide();
+                $('#previewContent').hide();
+
+                // Собрать данные формы
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', $('input[name="csrfmiddlewaretoken"]').val());
+
+                checkedBoxes.forEach(function(checkbox) {
+                    formData.append('document_types', checkbox.value);
+                });
+
+                // AJAX запрос к preview endpoint
+                fetch('{% url "directory:hiring:preview_hiring_email" hiring.id %}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    $('#previewLoading').hide();
+
+                    if (data.success) {
+                        // Заполнить данные предпросмотра
+                        $('#previewRecipients').html('<strong>' + data.recipients.join(', ') + '</strong>');
+                        $('#previewSubject').text(data.subject);
+                        $('#previewDocuments').html(data.document_names.map(name =>
+                            '<div>' + name + '</div>'
+                        ).join(''));
+                        $('#previewBody').html(data.body);
+
+                        $('#previewContent').show();
+                    } else {
+                        $('#previewError').text(data.error || 'Произошла ошибка при загрузке предпросмотра').show();
+                    }
+                })
+                .catch(error => {
+                    $('#previewLoading').hide();
+                    $('#previewError').text('Ошибка при загрузке предпросмотра: ' + error.message).show();
+                });
+            });
+        }
+
+        // Обработчик кнопки подтверждения отправки
+        const confirmSendBtn = document.getElementById('confirmSendBtn');
+        if (confirmSendBtn) {
+            confirmSendBtn.addEventListener('click', function() {
+                // Скрыть модальное окно
+                $('#emailPreviewModal').modal('hide');
+
+                // Отправить форму с флагом send_documents
+                const form = document.getElementById('document-generation-form');
+
+                // Создать скрытое поле для отправки
+                const sendInput = document.createElement('input');
+                sendInput.type = 'hidden';
+                sendInput.name = 'send_documents';
+                sendInput.value = '1';
+                form.appendChild(sendInput);
+
+                // Отправить форму
+                form.submit();
+            });
+        }
     });
 </script>
 {% endblock %}

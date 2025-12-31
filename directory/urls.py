@@ -62,7 +62,7 @@ from directory.autocomplete_views import (
 from directory.views.hiring import (
     HiringTreeView, HiringListView, HiringDetailView, HiringCreateView, HiringUpdateView,
     HiringDeleteView, CreateHiringFromEmployeeView, SimpleHiringView, position_requirements_api,
-    send_hiring_documents
+    send_hiring_documents, preview_hiring_email
 )
 
 app_name = 'directory'
@@ -159,6 +159,7 @@ hiring_patterns = [
 
     # ✉️ Отправка документов приема
     path('send-documents/<int:hiring_id>/', hiring.send_hiring_documents, name='send_hiring_documents'),
+    path('<int:hiring_id>/preview-email/', preview_hiring_email, name='preview_hiring_email'),
 
     path('create-from-employee/<int:employee_id>/', hiring.CreateHiringFromEmployeeView.as_view(),
          name='create_from_employee'),

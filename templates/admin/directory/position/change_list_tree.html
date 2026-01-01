@@ -118,6 +118,11 @@
                     </span>
                   {% endfor %}
 
+                  {# Управляет служебным автомобилем #}
+                  {% if item.additional_data.drives_company_vehicle %}
+                    <span class="position-attribute" title="Управляет служебным автомобилем">🚗</span>
+                  {% endif %}
+
                   {# Инструкции по ОТ #}
                   {% if item.additional_data.instruction_numbers %}
                     <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
@@ -204,6 +209,11 @@
                       </span>
                     {% endfor %}
 
+                    {# Управляет служебным автомобилем #}
+                    {% if item.additional_data.drives_company_vehicle %}
+                      <span class="position-attribute" title="Управляет служебным автомобилем">🚗</span>
+                    {% endif %}
+
                     {# Инструкции по ОТ #}
                     {% if item.additional_data.instruction_numbers %}
                       <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
@@ -288,6 +298,11 @@
                           {% else %}👥{% endif %}
                         </span>
                       {% endfor %}
+
+                      {# Управляет служебным автомобилем #}
+                      {% if item.additional_data.drives_company_vehicle %}
+                        <span class="position-attribute" title="Управляет служебным автомобилем">🚗</span>
+                      {% endif %}
 
                       {# Инструкции по ОТ #}
                       {% if item.additional_data.instruction_numbers %}

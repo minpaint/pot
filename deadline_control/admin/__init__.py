@@ -18,6 +18,7 @@ from .send_log import InstructionJournalSendLogAdmin
 from .equipment_send_log import EquipmentJournalSendLogAdmin
 from .medical_send_log import MedicalNotificationSendLogAdmin
 from .key_deadline_send_log import KeyDeadlineSendLogAdmin
+from .hiring_send_log import DocumentEmailSendLogAdmin
 
 __all__ = [
     'EquipmentAdmin',
@@ -37,4 +38,5 @@ __all__ = [
     'EquipmentJournalSendLogAdmin',
     'MedicalNotificationSendLogAdmin',
     'KeyDeadlineSendLogAdmin',
+    'DocumentEmailSendLogAdmin',
 ]

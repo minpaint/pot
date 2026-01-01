@@ -319,8 +319,10 @@ class DocumentEmailSendLog(models.Model):
     )
 
     class Meta:
-        verbose_name = _("📧 Лог отправки документов")
-        verbose_name_plural = _("📧 Логи отправки документов")
+        app_label = 'deadline_control'
+        db_table = 'directory_documentemailsendlog'
+        verbose_name = _("📧 Документы приема")
+        verbose_name_plural = _("📧 Документы приема")
         ordering = ['-sent_at']
         indexes = [
             models.Index(fields=['employee', '-sent_at']),

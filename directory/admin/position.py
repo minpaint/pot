@@ -438,9 +438,17 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             'siz_norms',  # Предзагрузка СИЗ для оптимизации
             'medical_factors'  # Предзагрузка вредных факторов
         )
+
+        # Фильтрация по правам доступа
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
+
+        # Фильтрация по выбранной организации из dropdown
+        org_param = request.GET.get('organization__id__exact')
+        if org_param and org_param.isdigit():
+            qs = qs.filter(organization_id=int(org_param))
+
         return qs
 
     def get_form(self, request, obj=None, **kwargs):

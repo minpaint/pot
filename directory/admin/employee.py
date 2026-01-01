@@ -123,9 +123,17 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+
+        # Фильтрация по правам доступа
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
+
+        # Фильтрация по выбранной организации из dropdown
+        org_param = request.GET.get('organization__id__exact')
+        if org_param and org_param.isdigit():
+            qs = qs.filter(organization_id=int(org_param))
+
         return qs.select_related(
             'organization',
             'subdivision',

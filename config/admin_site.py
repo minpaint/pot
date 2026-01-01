@@ -23,6 +23,7 @@ class OTAdminSite(AdminSite):
             "MedicalNotificationSendLog",
             "KeyDeadlineSendLog",
             "EquipmentJournalSendLog",
+            "DocumentEmailSendLog",
         ]),
         (_("🏢 Организация"), [
             "Organization", "Subdivision", "Department", "StructuralSubdivision",

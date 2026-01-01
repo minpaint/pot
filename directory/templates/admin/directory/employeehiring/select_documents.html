@@ -1,0 +1,157 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Выбор документов для {{ action_title }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        .document-types-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .document-type-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .document-type-item:hover {
+            background: #e9ecef;
+        }
+
+        .submit-btn-container {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .hiring-info {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .hiring-info strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .alert-info-custom {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .btn-primary {
+            background-color: #417690;
+            border-color: #417690;
+        }
+
+        .btn-primary:hover {
+            background-color: #356a80;
+            border-color: #356a80;
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:directory_employeehiring_changelist' %}">Приём на работу</a>
+    &rsaquo; {{ action_title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{{ action_title }}</h1>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %}" role="alert">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% if hirings|length == 1 %}
+    {% with hiring=hirings.0 %}
+    <div class="hiring-info">
+        <strong>👤 {{ hiring.employee.full_name_nominative }}</strong>
+        <div>Должность: {{ hiring.position.position_name }}</div>
+        <div>Организация: {{ hiring.organization.short_name_ru }}</div>
+        {% if hiring.subdivision %}
+        <div>Подразделение: {{ hiring.subdivision.name }}</div>
+        {% endif %}
+        {% if hiring.department %}
+        <div>Отдел: {{ hiring.department.name }}</div>
+        {% endif %}
+        <div>Дата приема: {{ hiring.hiring_date|date:"d.m.Y" }}</div>
+    </div>
+    {% endwith %}
+{% else %}
+    <div class="hiring-info">
+        <strong>📋 Выбрано записей о приеме: {{ hirings|length }}</strong>
+        {% for hiring in hirings %}
+        <div style="margin-left: 20px; margin-top: 5px;">
+            {{ forloop.counter }}. {{ hiring.employee.full_name_nominative }} — {{ hiring.position.position_name }}
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<form method="post" action="">
+    {% csrf_token %}
+
+    {% for hiring_id in hiring_ids %}
+    <input type="hidden" name="hiring_ids" value="{{ hiring_id }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="{{ action }}">
+
+    <h3>📄 Выберите типы документов</h3>
+
+    <div class="document-types-container">
+        {% for value, text in document_types_choices %}
+        <div class="document-type-item">
+            <label>
+                <input type="checkbox" name="document_types" value="{{ value }}"
+                       {% if value in default_document_types %}checked{% endif %}>
+                {{ text }}
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if action == 'send' %}
+    <div class="alert-info-custom">
+        <strong>ℹ️ Информация:</strong> Документы будут отправлены на email адреса, настроенные для подразделений и ответственных за охрану труда.
+    </div>
+    {% endif %}
+
+    <div class="submit-btn-container">
+        {% if action == 'generate' %}
+        <button type="submit" class="btn btn-primary">
+            <i class="icon-download"></i> Скачать документы
+        </button>
+        {% else %}
+        <button type="submit" class="btn btn-primary">
+            <i class="icon-mail-forward"></i> Отправить документы
+        </button>
+        {% endif %}
+
+        <a href="{% url 'admin:directory_employeehiring_changelist' %}" class="btn btn-secondary" style="margin-left: 10px;">
+            Отмена
+        </a>
+    </div>
+</form>
+
+{% endblock %}

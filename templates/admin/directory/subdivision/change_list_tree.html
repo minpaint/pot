@@ -7,6 +7,9 @@
         <a href="{% url 'admin:directory_structuralsubdivision_add' %}" class="addlink">
             Добавить
         </a>
+        <a href="{% url 'admin:directory_structuralsubdivision_email_manage' %}" class="historylink" style="background-color: #417690; color: white;">
+            📧 Управление Email
+        </a>
     </div>
     <form id="changelist-form" method="post"
           {% if cl.formset and cl.formset.is_multipart %} enctype="multipart/form-data"{% endif %}

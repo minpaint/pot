@@ -1,0 +1,222 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .import-form {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .instruction-box {
+        background: #e7f3ff;
+        border-left: 4px solid #2196F3;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    .instruction-box h3 {
+        margin-top: 0;
+        color: #1976D2;
+    }
+    .instruction-box ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+    .instruction-box code {
+        background: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+    .file-upload-area {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        margin: 20px 0;
+        background: #fafafa;
+    }
+    .file-upload-area:hover {
+        border-color: #2196F3;
+        background: #f5f9ff;
+    }
+    .submit-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn-primary {
+        background: #417690;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #356a80;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    .error-list {
+        background: #ffebee;
+        border-left: 4px solid #f44336;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+    .error-list h3 {
+        margin-top: 0;
+        color: #c62828;
+    }
+    .error-item {
+        margin: 5px 0;
+        color: #d32f2f;
+    }
+    .summary-box {
+        background: #e8f5e9;
+        border-left: 4px solid #4caf50;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+    .summary-box h3 {
+        margin-top: 0;
+        color: #2e7d32;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:directory_structuralsubdivision_changelist' %}">Структурные подразделения</a>
+    &rsaquo; Импорт Email
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="import-form">
+    <h1>📥 {{ title }}</h1>
+
+    {% if selected_org_id != 'all' %}
+    <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+        <strong>🏢 Выбранная организация:</strong> {{ selected_org_name }}
+    </div>
+    {% else %}
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+        <strong>🏢 Режим:</strong> Импорт для всех доступных организаций
+    </div>
+    {% endif %}
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 10px; margin: 10px 0; border-radius: 4px;
+                {% if message.tags == 'error' %}background: #ffebee; color: #c62828; border-left: 4px solid #f44336;{% endif %}
+                {% if message.tags == 'success' %}background: #e8f5e9; color: #2e7d32; border-left: 4px solid #4caf50;{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="instruction-box">
+        <h3>📋 Инструкция</h3>
+        <p><strong>Формат файла:</strong> XLS или XLSX с колонками:</p>
+        <ul>
+            <li><code>target_level</code> - уровень (organization / subdivision / department)</li>
+            <li><code>org_short_name</code> - краткое название организации</li>
+            <li><code>subdivision_name</code> - название подразделения (для subdivision/department)</li>
+            <li><code>department_name</code> - название отдела (для department)</li>
+            <li><code>email</code> - email адрес</li>
+            <li><code>description</code> - описание (роль, должность)</li>
+            <li><code>is_active</code> - активен (1/true/да или 0/false/нет)</li>
+        </ul>
+        <p><strong>Логика импорта:</strong></p>
+        <ul>
+            <li><strong>Организации:</strong> полностью заменяют список <code>recipient_emails</code> в EmailSettings</li>
+            <li><strong>Подразделения/Отделы:</strong> перезаписывают список адресов для указанного объекта</li>
+            <li><strong>Пустой email:</strong> очищает список адресов для объекта</li>
+        </ul>
+        <p><strong>Порядок действий:</strong></p>
+        <ol>
+            <li>Сначала нажмите <strong>"Проверить файл"</strong> (без галочки) для проверки</li>
+            <li>Если ошибок нет, установите галочку <strong>"Сохранить изменения"</strong> и загрузите снова</li>
+        </ol>
+    </div>
+
+    {% if errors %}
+    <div class="error-list">
+        <h3>❌ Найдены ошибки ({{ errors|length }})</h3>
+        {% for row_num, error_msg in errors %}
+        <div class="error-item">Строка {{ row_num }}: {{ error_msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if summary %}
+    <div class="summary-box">
+        <h3>✅ Результаты проверки</h3>
+        <p>
+            <strong>Организаций:</strong> {{ summary.organizations }}<br>
+            <strong>Подразделений:</strong> {{ summary.subdivisions }}<br>
+            <strong>Отделов:</strong> {{ summary.departments }}
+        </p>
+        {% if not apply_changes %}
+        <p style="color: #f57c00; font-weight: bold;">
+            ⚠️ Это режим проверки! Изменения НЕ сохранены.<br>
+            Установите галочку "Сохранить изменения" и загрузите файл снова для фактического импорта.
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="file-upload-area">
+            <input type="file" name="import_file" accept=".xls,.xlsx" required style="margin: 10px 0;">
+            <p style="color: #666; margin: 10px 0;">Выберите XLS или XLSX файл для импорта</p>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" name="apply" value="1" style="margin-right: 10px;">
+                <strong>Сохранить изменения в БД</strong>
+                <span style="margin-left: 10px; color: #666;">(без галочки - только проверка)</span>
+            </label>
+        </div>
+
+        <div class="submit-buttons">
+            <button type="submit" class="btn btn-primary">
+                📤 {% if apply_changes %}Импортировать{% else %}Проверить файл{% endif %}
+            </button>
+            <a href="{% url 'admin:directory_structuralsubdivision_changelist' %}" class="btn btn-secondary">
+                ← Отмена
+            </a>
+        </div>
+    </form>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <p style="color: #666;">
+            <strong>💡 Совет:</strong> Вернитесь на
+            <a href="{% url 'admin:directory_structuralsubdivision_email_manage' %}">страницу управления Email</a>,
+            выберите организацию и экспортируйте данные для редактирования.
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -48,6 +48,9 @@ urlpatterns = [
     # Главная страница - Дашборд контроля сроков
     path('', DashboardView.as_view(), name='home'),
 
+    # Admin actions для EmployeeHiring (ВАЖНО: ПЕРЕД admin.site.urls!)
+    path('admin/hiring/', include('directory.urls_admin_hiring')),
+
     # 👨‍💼 Админка Django
     path('admin/', admin.site.urls),
 

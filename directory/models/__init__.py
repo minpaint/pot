@@ -3,6 +3,7 @@ from .organization import Organization
 from .subdivision import StructuralSubdivision
 from .subdivision_email import SubdivisionEmail
 from .department import Department
+from .department_email import DepartmentEmail
 from .document import Document
 from .position import Position, ResponsibilityType
 from .employee import Employee
@@ -23,6 +24,7 @@ __all__ = [
     'StructuralSubdivision',
     'SubdivisionEmail',
     'Department',
+    'DepartmentEmail',
     'Document',
     'Position',
     'ResponsibilityType',

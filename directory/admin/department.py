@@ -3,8 +3,20 @@
 """
 from django.contrib import admin
 from directory.admin.mixins.tree_view import TreeViewMixin
-from directory.models import Department
+from directory.models import Department, DepartmentEmail
 from directory.forms.department import DepartmentForm
+
+
+class DepartmentEmailInline(admin.TabularInline):
+    """
+    📧 Inline для email-адресов отдела.
+    """
+    model = DepartmentEmail
+    extra = 1
+    fields = ['email', 'description', 'is_active', 'created_at']
+    readonly_fields = ['created_at']
+    verbose_name = "Email отдела"
+    verbose_name_plural = "Email отдела"
 
 @admin.register(Department)
 class DepartmentAdmin(TreeViewMixin, admin.ModelAdmin):
@@ -12,6 +24,7 @@ class DepartmentAdmin(TreeViewMixin, admin.ModelAdmin):
     📂 Организация -> Подразделение -> Отдел
     """
     form = DepartmentForm
+    inlines = [DepartmentEmailInline]
 
     change_list_template = "admin/directory/department/change_list_tree.html"
 

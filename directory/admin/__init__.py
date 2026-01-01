@@ -45,6 +45,7 @@ class EmployeeHiringAdmin(admin.ModelAdmin):
     search_fields = ['employee__full_name_nominative', 'position__position_name']
     date_hierarchy = 'hiring_date'
     filter_horizontal = ['documents']
+    actions = ['generate_documents_action', 'send_documents_action']
 
     fieldsets = [
         (None, {'fields': ['employee', 'hiring_type', 'hiring_date', 'start_date', 'is_active']}),
@@ -80,3 +81,44 @@ class EmployeeHiringAdmin(admin.ModelAdmin):
         return format_html('<span class="badge badge-secondary">0</span>')
 
     documents_count.short_description = 'Документы'
+
+    def generate_documents_action(self, request, queryset):
+        """
+        Admin action для генерации и скачивания документов
+        """
+        from django.http import HttpResponseRedirect
+        from django.contrib import messages
+
+        count = queryset.count()
+
+        # Если выбрана только одна запись - редирект на страницу hiring detail
+        if count == 1:
+            hiring = queryset.first()
+            return HttpResponseRedirect(f'/directory/hiring/{hiring.id}/')
+
+        # Если несколько - через промежуточную страницу
+        selected = queryset.values_list('id', flat=True)
+        ids_params = '&'.join([f'ids={id}' for id in selected])
+        return HttpResponseRedirect(f'/admin/hiring/documents-action/?action=generate&{ids_params}')
+
+    generate_documents_action.short_description = '📥 Сгенерировать документы'
+
+    def send_documents_action(self, request, queryset):
+        """
+        Admin action для генерации и отправки документов по email
+        """
+        from django.http import HttpResponseRedirect
+
+        count = queryset.count()
+
+        # Если выбрана только одна запись - редирект на страницу hiring detail
+        if count == 1:
+            hiring = queryset.first()
+            return HttpResponseRedirect(f'/directory/hiring/{hiring.id}/')
+
+        # Если несколько - через промежуточную страницу
+        selected = queryset.values_list('id', flat=True)
+        ids_params = '&'.join([f'ids={id}' for id in selected])
+        return HttpResponseRedirect(f'/admin/hiring/documents-action/?action=send&{ids_params}')
+
+    send_documents_action.short_description = '✉️ Отправить документы'

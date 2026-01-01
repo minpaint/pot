@@ -1,0 +1,258 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .manage-container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 30px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .info-box {
+        background: #e3f2fd;
+        border-left: 4px solid #2196F3;
+        padding: 20px;
+        margin-bottom: 30px;
+        border-radius: 4px;
+    }
+    .info-box h3 {
+        margin-top: 0;
+        color: #1976D2;
+    }
+    .info-box ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+    .form-section {
+        margin: 30px 0;
+    }
+    .form-section h3 {
+        color: #333;
+        border-bottom: 2px solid #417690;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .form-group {
+        margin: 20px 0;
+    }
+    .form-group label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #555;
+    }
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .action-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin: 30px 0;
+    }
+    .action-card {
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .action-card:hover {
+        border-color: #417690;
+        background: #f5f9ff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .action-card input[type="radio"] {
+        margin-right: 10px;
+        transform: scale(1.2);
+    }
+    .action-card label {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    .action-card .description {
+        margin-top: 10px;
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .action-card.selected {
+        border-color: #417690;
+        background: #e7f3ff;
+    }
+    .submit-button {
+        width: 100%;
+        padding: 15px;
+        background: #417690;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .submit-button:hover {
+        background: #356a80;
+    }
+    .submit-button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    .back-link {
+        display: inline-block;
+        margin-top: 20px;
+        color: #417690;
+        text-decoration: none;
+    }
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    .warning-box {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+    .warning-box strong {
+        color: #856404;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const actionCards = document.querySelectorAll('.action-card');
+        const actionRadios = document.querySelectorAll('input[name="action"]');
+        const submitButton = document.querySelector('.submit-button');
+
+        actionCards.forEach(card => {
+            card.addEventListener('click', function() {
+                const radio = this.querySelector('input[type="radio"]');
+                radio.checked = true;
+
+                // Убираем класс selected со всех карточек
+                actionCards.forEach(c => c.classList.remove('selected'));
+                // Добавляем класс selected к выбранной карточке
+                this.classList.add('selected');
+
+                // Активируем кнопку
+                submitButton.disabled = false;
+            });
+        });
+
+        // Проверяем, выбрано ли действие при загрузке
+        actionRadios.forEach(radio => {
+            if (radio.checked) {
+                radio.closest('.action-card').classList.add('selected');
+                submitButton.disabled = false;
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:directory_structuralsubdivision_changelist' %}">Структурные подразделения</a>
+    &rsaquo; Управление Email
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="manage-container">
+    <h1>📧 {{ title }}</h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 10px; margin: 10px 0; border-radius: 4px;
+                {% if message.tags == 'error' %}background: #ffebee; color: #c62828; border-left: 4px solid #f44336;{% endif %}
+                {% if message.tags == 'success' %}background: #e8f5e9; color: #2e7d32; border-left: 4px solid #4caf50;{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="info-box">
+        <h3>ℹ️ Управление Email адресами для уведомлений</h3>
+        <p>На этой странице вы можете экспортировать и импортировать email адреса для:</p>
+        <ul>
+            <li><strong>Организаций</strong> - общие получатели уведомлений</li>
+            <li><strong>Подразделений</strong> - email конкретных подразделений</li>
+            <li><strong>Отделов</strong> - email конкретных отделов</li>
+        </ul>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-section">
+            <h3>1️⃣ Выберите организацию</h3>
+            <div class="form-group">
+                <label for="organization">Организация:</label>
+                <select name="organization" id="organization" required>
+                    <option value="all">🏢 Все доступные организации ({{ organizations.count }})</option>
+                    {% for org in organizations %}
+                    <option value="{{ org.id }}">{{ org.short_name_ru }}</option>
+                    {% endfor %}
+                </select>
+                <p style="color: #666; font-size: 13px; margin-top: 5px;">
+                    💡 Выберите конкретную организацию для работы только с её данными, или "Все организации" для работы со всеми доступными.
+                </p>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>2️⃣ Выберите действие</h3>
+            <div class="action-cards">
+                <div class="action-card">
+                    <label>
+                        <input type="radio" name="action" value="export">
+                        <span>📤 Экспорт в XLSX</span>
+                    </label>
+                    <div class="description">
+                        Выгрузить все email адреса в файл Excel для редактирования
+                    </div>
+                </div>
+
+                <div class="action-card">
+                    <label>
+                        <input type="radio" name="action" value="import">
+                        <span>📥 Импорт из XLSX</span>
+                    </label>
+                    <div class="description">
+                        Загрузить email адреса из файла Excel (полная замена существующих)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ Важно:</strong> При импорте все существующие email адреса для выбранных объектов будут
+            <strong>полностью заменены</strong> данными из файла. Сначала экспортируйте текущие данные для редактирования!
+        </div>
+
+        <button type="submit" class="submit-button" disabled>
+            Продолжить →
+        </button>
+    </form>
+
+    <a href="{% url 'admin:directory_structuralsubdivision_changelist' %}" class="back-link">
+        ← Вернуться к списку подразделений
+    </a>
+</div>
+{% endblock %}

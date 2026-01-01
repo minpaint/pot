@@ -79,6 +79,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware', # Защита от clickjacking 🖱️
     'directory.middleware.ExamSubdomainMiddleware',      # Изоляция exam.* поддомена 🔐
     'directory.middleware.anti_indexation.AntiIndexationMiddleware',  # Защита от индексации 🚫🔍
+    'directory.middleware.AdminPerformanceMiddleware',   # Мониторинг производительности admin страниц 📊
 ]
 
 # Добавляем debug_toolbar middleware только если не в режиме тестирования и DEBUG=True

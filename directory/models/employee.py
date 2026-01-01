@@ -164,6 +164,8 @@ class Employee(models.Model):
             models.Index(fields=['full_name_nominative'], name='emp_name_idx'),
             # Индекс для фильтрации активных сотрудников в древе
             models.Index(fields=['status', 'organization'], name='emp_status_org_idx'),
+            # Индекс для фильтрации по должности
+            models.Index(fields=['position'], name='emp_position_idx'),
         ]
 
     def clean(self):

@@ -181,6 +181,14 @@ class Position(models.Model):
         unique_together = [
             ['position_name', 'organization', 'subdivision', 'department']
         ]
+        indexes = [
+            # Индексы для древовидной структуры (организация → подразделение → отдел)
+            models.Index(fields=['organization', 'subdivision', 'department'], name='pos_tree_idx'),
+            # Индекс для поиска и сортировки по названию должности
+            models.Index(fields=['position_name'], name='pos_name_idx'),
+            # Индекс для эталонных норм (поиск по названию должности)
+            models.Index(fields=['position_name', 'organization'], name='pos_name_org_idx'),
+        ]
 
     def clean(self):
         if self.department:

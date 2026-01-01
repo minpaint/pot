@@ -7,6 +7,8 @@ from django.http import HttpResponse, Http404
 from directory.error_handlers import error_400, error_403, error_404, error_500
 # Импортируем дашборд контроля сроков как главную страницу
 from deadline_control.views.dashboard import DashboardView
+# Импортируем AJAX view для древовидных представлений
+from directory.views.admin_tree_ajax import load_tree_children
 import os
 
 # ВАЖНО: Регистрируем кастомные admin URLs ДО определения urlpatterns
@@ -50,6 +52,11 @@ urlpatterns = [
 
     # Admin actions для EmployeeHiring (ВАЖНО: ПЕРЕД admin.site.urls!)
     path('admin/hiring/', include('directory.urls_admin_hiring')),
+
+    # AJAX endpoints для древовидных представлений (ВАЖНО: ПЕРЕД admin.site.urls!)
+    path('admin/directory/ajax/tree-children/<str:model_name>/<str:parent_type>/<int:parent_id>/',
+         load_tree_children,
+         name='admin_tree_ajax_children'),
 
     # 👨‍💼 Админка Django
     path('admin/', admin.site.urls),

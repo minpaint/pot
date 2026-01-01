@@ -11,6 +11,9 @@ class TreeViewMixin:
     # 🚩 Базовый шаблон для отображения дерева (можно переопределять в каждом Admin-классе)
     change_list_template = "admin/directory/position/change_list_tree.html"
 
+    # 🔄 AJAX режим для постепенной загрузки дочерних узлов (по умолчанию выключен)
+    tree_ajax_mode = False
+
     # ⚙️ Настройки по умолчанию (в Admin-классах их можно переопределять)
     tree_settings = {
         'icons': {
@@ -44,6 +47,7 @@ class TreeViewMixin:
         extra_context.update({
             'tree': tree,
             'tree_settings': self.tree_settings,
+            'tree_ajax_mode': self.tree_ajax_mode,  # Передаём флаг AJAX режима в шаблон
         })
         return super().changelist_view(request, extra_context)
 
@@ -77,6 +81,22 @@ class TreeViewMixin:
         qs = self.get_queryset(request)
         # Оптимизируем запрос, используя select_related для заданных полей
         qs = self._optimize_queryset(qs)
+
+        # 🔄 В AJAX режиме загружаем только корневые узлы (без subdivision и department)
+        # Остальные узлы будут подгружаться через AJAX при раскрытии
+        if self.tree_ajax_mode:
+            fields = self.tree_settings['fields']
+            sub_field = fields.get('subdivision_field')
+            dept_field = fields.get('department_field')
+
+            filter_kwargs = {}
+            if sub_field:
+                filter_kwargs[f'{sub_field}__isnull'] = True
+            if dept_field:
+                filter_kwargs[f'{dept_field}__isnull'] = True
+
+            if filter_kwargs:
+                qs = qs.filter(**filter_kwargs)
 
         tree = {}
         fields = self.tree_settings['fields']

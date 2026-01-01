@@ -128,8 +128,7 @@ class DocumentEmailSendLogAdmin(admin.ModelAdmin):
         'get_status_icon',
         'employee',
         'get_document_types',
-        'recipients_count',
-        'documents_count',
+        'get_recipients_list',
         'sent_at',
         'sent_by'
     )

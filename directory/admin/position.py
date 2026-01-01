@@ -245,6 +245,32 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         Создаём кэш эталонных норм СИЗ и медосмотров ОДИН РАЗ
         перед построением дерева, чтобы избежать N+1 запросов.
         """
+        extra_context = extra_context or {}
+
+        # Получить доступные организации для фильтра
+        from directory.models import Organization
+        from django.db.models import Count
+
+        if request.user.is_superuser:
+            accessible_orgs = Organization.objects.all()
+        elif hasattr(request.user, 'profile'):
+            accessible_orgs = request.user.profile.organizations.all()
+        else:
+            accessible_orgs = Organization.objects.none()
+
+        # Передаем список всех доступных организаций для dropdown фильтра
+        org_options = accessible_orgs.annotate(
+            position_count=Count('positions')
+        ).filter(position_count__gt=0).order_by('-position_count')
+
+        org_param = request.GET.get('organization__id__exact')
+        selected_org_id = None
+        if org_param and org_param.isdigit():
+            selected_org_id = int(org_param)
+
+        extra_context['org_options'] = org_options
+        extra_context['selected_org_id'] = selected_org_id
+
         # Получить queryset с фильтрами
         qs = self.get_queryset(request)
 

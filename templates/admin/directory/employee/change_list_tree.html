@@ -37,12 +37,15 @@
       <div class="tree-filter-container">
         <label for="org-filter" style="font-weight: bold; margin-right: 8px;">🏢 Организация:</label>
         <select id="org-filter" class="tree-filter-select" style="min-width: 300px;">
-          <option value="">Все организации</option>
-          {% for org, org_data in tree.items %}
-            <option value="{{ org.id }}" {% if request.GET.organization__id__exact == org.id|stringformat:"s" %}selected{% endif %}>
-              {{ org.short_name_ru }}
-            </option>
-          {% endfor %}
+          {% if org_options %}
+            {% for org in org_options %}
+              <option value="{{ org.id }}" {% if selected_org_id == org.id %}selected{% endif %}>
+                {{ org.short_name_ru }} ({{ org.employee_count }} чел.)
+              </option>
+            {% endfor %}
+          {% else %}
+            <option value="">Нет доступных организаций</option>
+          {% endif %}
         </select>
       </div>
 

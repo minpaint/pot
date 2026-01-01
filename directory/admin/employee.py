@@ -109,7 +109,13 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             url = f"{request.path}?{params.urlencode()}"
             return HttpResponseRedirect(url)
 
-        extra_context['org_options'] = []
+        # Передаем список всех доступных организаций для dropdown фильтра
+        from django.db.models import Count
+        org_options = accessible_orgs.annotate(
+            employee_count=Count('employees')
+        ).order_by('-employee_count')
+
+        extra_context['org_options'] = org_options
         extra_context['selected_org_id'] = selected_org_id
         extra_context['show_tree'] = True
 

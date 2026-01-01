@@ -54,14 +54,8 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         'contract_type',
         'status',
     ]
-    list_filter = [
-        ('organization', admin.RelatedOnlyFieldListFilter),  # Только организации с сотрудниками
-        ('subdivision', admin.RelatedOnlyFieldListFilter),  # Только подразделения с сотрудниками
-        'department',
-        'position',
-        'contract_type',
-        'status',
-    ]
+    # Фильтры отключены - используется компактный dropdown над деревом
+    list_filter = []
     search_fields = [
         'full_name_nominative',
         'position__position_name'

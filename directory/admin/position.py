@@ -179,12 +179,8 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         }),
     )
 
-    # Фильтры для боковой панели (показывают только используемые значения)
-    list_filter = [
-        ('organization', admin.RelatedOnlyFieldListFilter),  # Только организации с должностями
-        ('subdivision', admin.RelatedOnlyFieldListFilter),  # Только подразделения с должностями
-        'department',
-    ]
+    # Фильтры отключены - используется компактный dropdown над деревом
+    list_filter = []
     # Очищаем стандартное отображение столбцов
     list_display = []
     search_fields = [

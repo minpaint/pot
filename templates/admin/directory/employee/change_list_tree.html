@@ -1,15 +1,5 @@
 {% extends "admin/change_list.html" %}
-{% load static admin_list %}
-
-{# Включаем стандартную боковую панель с фильтрами Django Admin #}
-{% block sidebar %}
-  {% if cl.has_filters %}
-    <div id="changelist-filter">
-      <h2>🔍 Фильтры</h2>
-      {% for spec in cl.filter_specs %}{% admin_list_filter cl spec %}{% endfor %}
-    </div>
-  {% endif %}
-{% endblock %}
+{% load static %}
 
 {% block content %}
 <div id="content-main">
@@ -42,6 +32,20 @@
     <div class="tree-controls">
       <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
       <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
+
+      {# Компактный фильтр по организации #}
+      <div class="tree-filter-container">
+        <label for="org-filter" style="font-weight: bold; margin-right: 8px;">🏢 Организация:</label>
+        <select id="org-filter" class="tree-filter-select" style="min-width: 300px;">
+          <option value="">Все организации</option>
+          {% for org, org_data in tree.items %}
+            <option value="{{ org.id }}" {% if request.GET.organization__id__exact == org.id|stringformat:"s" %}selected{% endif %}>
+              {{ org.short_name_ru }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
       <div class="tree-search-container">
         <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам...">
       </div>
@@ -358,5 +362,50 @@
     .history-link:hover {
       color: #17a2b8;
     }
+
+    /* Компактный фильтр */
+    .tree-filter-container {
+      display: inline-block;
+      margin-left: 20px;
+      vertical-align: middle;
+    }
+
+    .tree-filter-select {
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      background-color: white;
+    }
+
+    .tree-filter-select:focus {
+      outline: none;
+      border-color: #417690;
+      box-shadow: 0 0 5px rgba(65, 118, 144, 0.3);
+    }
   </style>
+
+  <script>
+    // Обработчик изменения фильтра по организации
+    document.addEventListener('DOMContentLoaded', function() {
+      const orgFilter = document.getElementById('org-filter');
+      if (orgFilter) {
+        orgFilter.addEventListener('change', function() {
+          const selectedOrg = this.value;
+          const url = new URL(window.location.href);
+
+          if (selectedOrg) {
+            // Добавляем фильтр по организации
+            url.searchParams.set('organization__id__exact', selectedOrg);
+          } else {
+            // Убираем фильтр (показываем все)
+            url.searchParams.delete('organization__id__exact');
+          }
+
+          // Перезагружаем страницу с новым фильтром
+          window.location.href = url.toString();
+        });
+      }
+    });
+  </script>
 {% endblock %}

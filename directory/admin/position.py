@@ -140,6 +140,9 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
     actions = ['copy_instructions_from_template']
     # Путь к шаблону для древовидного отображения
     change_list_template = "admin/directory/position/change_list_tree.html"
+    # 🔄 AJAX режим для постепенной загрузки узлов дерева
+    # ВРЕМЕННО ОТКЛЮЧЕН: требуется другой подход для структур где все записи в подразделениях
+    tree_ajax_mode = False
     # Шаблон формы для добавления кнопки подтягивания норм
     change_form_template = "admin/directory/position/change_form.html"
 
@@ -176,8 +179,12 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         }),
     )
 
-    # Фильтры для боковой панели
-    list_filter = ['organization', 'subdivision', 'department']
+    # Фильтры для боковой панели (показывают только используемые значения)
+    list_filter = [
+        ('organization', admin.RelatedOnlyFieldListFilter),  # Только организации с должностями
+        ('subdivision', admin.RelatedOnlyFieldListFilter),  # Только подразделения с должностями
+        'department',
+    ]
     # Очищаем стандартное отображение столбцов
     list_display = []
     search_fields = [

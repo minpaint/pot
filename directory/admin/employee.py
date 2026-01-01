@@ -55,8 +55,8 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         'status',
     ]
     list_filter = [
-        'organization',
-        'subdivision',
+        ('organization', admin.RelatedOnlyFieldListFilter),  # Только организации с сотрудниками
+        ('subdivision', admin.RelatedOnlyFieldListFilter),  # Только подразделения с сотрудниками
         'department',
         'position',
         'contract_type',

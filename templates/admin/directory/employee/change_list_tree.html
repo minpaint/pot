@@ -1,6 +1,16 @@
 {% extends "admin/change_list.html" %}
 {% load static %}
 
+{# Включаем стандартную боковую панель с фильтрами Django Admin #}
+{% block sidebar %}
+  {% if cl.has_filters %}
+    <div id="changelist-filter">
+      <h2>🔍 Фильтры</h2>
+      {% for spec in cl.filter_specs %}{% admin_list_filter cl spec %}{% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
 <div id="content-main">
   <div class="object-tools">

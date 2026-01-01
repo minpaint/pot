@@ -11,7 +11,7 @@ from .profile import Profile
 from .menu_item import MenuItem
 from .siz_issued import SIZIssued
 from .siz import SIZ, SIZNorm
-from .document_template import DocumentTemplateType, DocumentTemplate, GeneratedDocument, DocumentGenerationLog
+from .document_template import DocumentTemplateType, DocumentTemplate, GeneratedDocument, DocumentGenerationLog, DocumentEmailSendLog
 from .commission import Commission, CommissionMember
 from .hiring import EmployeeHiring
 # Добавляем импорт моделей экзаменов
@@ -36,6 +36,7 @@ __all__ = [
     'DocumentTemplateType',
     'GeneratedDocument',
     'DocumentGenerationLog',
+    'DocumentEmailSendLog',
     'Commission',
     'CommissionMember',
     'EmployeeHiring',

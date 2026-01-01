@@ -22,7 +22,8 @@ from directory.models import (
     EmployeeHiring,
     Organization,
     Position,
-    GeneratedDocument
+    GeneratedDocument,
+    DocumentEmailSendLog
 )
 from deadline_control.models.medical_norm import MedicalExaminationNorm
 from deadline_control.models import EmailSettings
@@ -755,6 +756,22 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
                 f"Получатели: {', '.join(recipients)}. Документов: {len(generated_files)}"
             )
 
+            # Логируем успешную отправку в БД
+            try:
+                DocumentEmailSendLog.objects.create(
+                    employee=employee,
+                    hiring=self.object,
+                    document_types=document_types,
+                    recipients=recipients,
+                    recipients_count=len(recipients),
+                    documents_count=len(generated_files),
+                    status='success',
+                    email_subject=subject,
+                    sent_by=request.user if request.user.is_authenticated else None
+                )
+            except Exception as log_error:
+                logger.warning(f"Не удалось записать лог отправки: {str(log_error)}")
+
             messages.success(
                 request,
                 mark_safe(
@@ -769,6 +786,24 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
                 f"Ошибка отправки email для hiring_id={self.object.pk}: {str(e)}",
                 exc_info=True
             )
+
+            # Логируем неуспешную отправку в БД
+            try:
+                DocumentEmailSendLog.objects.create(
+                    employee=employee,
+                    hiring=self.object,
+                    document_types=document_types,
+                    recipients=recipients if 'recipients' in locals() else [],
+                    recipients_count=len(recipients) if 'recipients' in locals() else 0,
+                    documents_count=len(generated_files),
+                    status='failed',
+                    error_message=str(e),
+                    email_subject=subject if 'subject' in locals() else '',
+                    sent_by=request.user if request.user.is_authenticated else None
+                )
+            except Exception as log_error:
+                logger.warning(f"Не удалось записать лог ошибки отправки: {str(log_error)}")
+
             messages.error(
                 request,
                 mark_safe(

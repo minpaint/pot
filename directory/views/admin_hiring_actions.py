@@ -9,7 +9,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
 from django.utils import timezone
 
-from directory.models import EmployeeHiring, DocumentTemplateType
+from directory.models import EmployeeHiring, DocumentTemplateType, DocumentEmailSendLog
 from deadline_control.models import EmailSettings
 from directory.utils.declension import get_initials_from_name
 from directory.utils.email_recipients import collect_recipients_for_subdivision
@@ -386,6 +386,22 @@ def _handle_send_documents(request, hirings, document_types):
                     f"Получатели: {', '.join(recipients)}. Документов: {len(generated_files)}"
                 )
 
+                # Логируем успешную отправку в БД
+                try:
+                    DocumentEmailSendLog.objects.create(
+                        employee=employee,
+                        hiring=hiring,
+                        document_types=document_types,
+                        recipients=recipients,
+                        recipients_count=len(recipients),
+                        documents_count=len(generated_files),
+                        status='success',
+                        email_subject=subject,
+                        sent_by=request.user
+                    )
+                except Exception as log_error:
+                    logger.error(f"Ошибка логирования отправки: {str(log_error)}", exc_info=True)
+
                 success_count += 1
 
             except Exception as e:
@@ -397,6 +413,24 @@ def _handle_send_documents(request, hirings, document_types):
                     request,
                     f"Ошибка отправки для {employee.full_name_nominative}: {str(e)}"
                 )
+
+                # Логируем неудачную отправку в БД
+                try:
+                    DocumentEmailSendLog.objects.create(
+                        employee=employee,
+                        hiring=hiring,
+                        document_types=document_types,
+                        recipients=recipients if 'recipients' in locals() else [],
+                        recipients_count=len(recipients) if 'recipients' in locals() else 0,
+                        documents_count=len(generated_files),
+                        status='failed',
+                        error_message=str(e),
+                        email_subject=subject if 'subject' in locals() else '',
+                        sent_by=request.user
+                    )
+                except Exception as log_error:
+                    logger.error(f"Ошибка логирования неудачной отправки: {str(log_error)}", exc_info=True)
+
                 error_count += 1
                 continue
 

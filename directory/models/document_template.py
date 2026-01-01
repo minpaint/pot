@@ -227,3 +227,125 @@ class DocumentGenerationLog(models.Model):
             for template_type in DocumentTemplateType.objects.all()
         }
         return ', '.join([types_by_code.get(t, t) for t in self.document_types])
+
+
+class DocumentEmailSendLog(models.Model):
+    """
+    📧 Лог отправки документов по email
+
+    Записывает факт отправки документов сотруднику по email.
+    Отличается от DocumentGenerationLog тем, что логирует именно отправку писем.
+    """
+
+    STATUS_CHOICES = [
+        ('success', '✅ Отправлено успешно'),
+        ('failed', '❌ Ошибка отправки'),
+    ]
+
+    employee = models.ForeignKey(
+        'directory.Employee',
+        verbose_name=_("Сотрудник"),
+        on_delete=models.CASCADE,
+        related_name="document_email_send_logs",
+        help_text=_("Сотрудник, для которого отправлялись документы")
+    )
+
+    hiring = models.ForeignKey(
+        'directory.EmployeeHiring',
+        verbose_name=_("Запись о приеме"),
+        on_delete=models.CASCADE,
+        related_name="document_email_send_logs",
+        null=True,
+        blank=True,
+        help_text=_("Связанная запись о приеме на работу (если отправка из hiring)")
+    )
+
+    document_types = models.JSONField(
+        _("Типы документов"),
+        default=list,
+        help_text=_("Список типов отправленных документов")
+    )
+
+    recipients = models.JSONField(
+        _("Получатели"),
+        default=list,
+        help_text=_("Список email адресов получателей")
+    )
+
+    recipients_count = models.IntegerField(
+        _("Количество получателей"),
+        default=0
+    )
+
+    documents_count = models.IntegerField(
+        _("Количество документов"),
+        default=0,
+        help_text=_("Количество документов во вложениях")
+    )
+
+    status = models.CharField(
+        _("Статус"),
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='success'
+    )
+
+    error_message = models.TextField(
+        _("Сообщение об ошибке"),
+        blank=True,
+        default='',
+        help_text=_("Текст ошибки, если отправка не удалась")
+    )
+
+    email_subject = models.CharField(
+        _("Тема письма"),
+        max_length=500,
+        blank=True,
+        default=''
+    )
+
+    sent_by = models.ForeignKey(
+        'auth.User',
+        verbose_name=_("Отправил"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("Пользователь, который инициировал отправку")
+    )
+
+    sent_at = models.DateTimeField(
+        _("Дата отправки"),
+        auto_now_add=True
+    )
+
+    class Meta:
+        verbose_name = _("📧 Лог отправки документов")
+        verbose_name_plural = _("📧 Логи отправки документов")
+        ordering = ['-sent_at']
+        indexes = [
+            models.Index(fields=['employee', '-sent_at']),
+            models.Index(fields=['hiring', '-sent_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['-sent_at']),
+        ]
+
+    def __str__(self):
+        status_icon = '✅' if self.status == 'success' else '❌'
+        return f"{status_icon} {self.employee} → {self.recipients_count} получателей ({self.sent_at.strftime('%d.%m.%Y %H:%M')})"
+
+    def get_document_types_display(self):
+        """Возвращает читаемые названия типов документов"""
+        if not self.document_types:
+            return ""
+
+        types_by_code = {
+            template_type.code: template_type.name
+            for template_type in DocumentTemplateType.objects.all()
+        }
+        return ', '.join([types_by_code.get(t, t) for t in self.document_types])
+
+    def get_recipients_display(self):
+        """Возвращает список получателей в читаемом виде"""
+        if not self.recipients:
+            return ""
+        return ', '.join(self.recipients)

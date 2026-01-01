@@ -15,7 +15,7 @@
                     {% if employee %}
                     <div class="employee-info">
                         <strong>👤 {{ employee.full_name_nominative }}</strong> — {{ employee.position.position_name }}
-                        {% if employee.department %}({{ employee.department.name }}){% elif employee.subdivision %}({{ employee.subdivision.name }}){% endif %}
+                        {% if employee.department %}({{ employee.department.name }}){% elif employee.subdivision %}({{ employee.subdivision.name }}){% endif %}{% if employee.hire_date %}, дата начала работы: <strong>{{ employee.hire_date|date:"d.m.Y" }}</strong>{% endif %}
                     </div>
                     {% endif %}
 
@@ -90,9 +90,7 @@
                 <h5 class="modal-title" id="emailPreviewModalLabel">
                     <i class="fas fa-envelope-open-text"></i> Предпросмотр письма
                 </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="previewLoading" class="text-center" style="display: none;">
@@ -129,7 +127,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times"></i> Отмена
                 </button>
                 <button type="button" class="btn btn-primary" id="confirmSendBtn">
@@ -316,9 +314,10 @@
                     return;
                 }
 
-                // Показать модальное окно с индикатором загрузки
-                const modal = $('#emailPreviewModal');
-                modal.modal('show');
+                // Показать модальное окно с индикатором загрузки (Bootstrap 5 API)
+                const modalElement = document.getElementById('emailPreviewModal');
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
 
                 $('#previewLoading').show();
                 $('#previewError').hide();
@@ -366,8 +365,12 @@
         const confirmSendBtn = document.getElementById('confirmSendBtn');
         if (confirmSendBtn) {
             confirmSendBtn.addEventListener('click', function() {
-                // Скрыть модальное окно
-                $('#emailPreviewModal').modal('hide');
+                // Скрыть модальное окно (Bootstrap 5 API)
+                const modalElement = document.getElementById('emailPreviewModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
 
                 // Отправить форму с флагом send_documents
                 const form = document.getElementById('document-generation-form');

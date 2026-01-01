@@ -484,6 +484,7 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         from directory.document_generators.ot_card_generator import generate_personal_ot_card
         from directory.document_generators.journal_example_generator import generate_journal_example
         from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
+        from directory.document_generators.vvodny_journal_generator import generate_vvodny_journal
 
         generator_map = {
             'all_orders': generate_all_orders,
@@ -492,6 +493,7 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
             'personal_ot_card': generate_personal_ot_card,
             'journal_example': generate_journal_example,
             'siz_card': generate_siz_card_docx,
+            'vvodny_journal_template': generate_vvodny_journal,
         }
 
         # Генерируем документы
@@ -601,6 +603,7 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         from directory.document_generators.ot_card_generator import generate_personal_ot_card
         from directory.document_generators.journal_example_generator import generate_journal_example
         from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
+        from directory.document_generators.vvodny_journal_generator import generate_vvodny_journal
 
         generator_map = {
             'all_orders': generate_all_orders,
@@ -609,6 +612,7 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
             'personal_ot_card': generate_personal_ot_card,
             'journal_example': generate_journal_example,
             'siz_card': generate_siz_card_docx,
+            'vvodny_journal_template': generate_vvodny_journal,
         }
 
         # Генерируем только выбранные типы документов
@@ -1003,6 +1007,7 @@ def preview_hiring_email(request, hiring_id):
         'personal_ot_card': '🗂️ Личная карточка по охране труда',
         'journal_example': '📓 Пример заполнения журналов',
         'siz_card': '🧥 Карточка учета СИЗ',
+        'vvodny_journal_template': '📺 Образец журнала вводного инструктажа',
     }
 
     document_names = [document_names_map.get(dt, dt) for dt in document_types]

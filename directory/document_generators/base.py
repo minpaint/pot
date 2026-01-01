@@ -28,8 +28,9 @@ DOCUMENT_TYPE_NAMES = {
     'doc_familiarization': 'Лист ознакомления',
     'siz_card': 'Карточка СИЗ',
     'personal_ot_card': 'Личная карточка',
-    'journal_example': 'Образец журнала',
+    'journal_example': 'Образец заполнения журнала инструктажей',
     'instruction_journal': 'Образец журнала инструктажей',
+    'vvodny_journal_template': 'Образец журнала вводного инструктажа',
 }
 
 # Организационно-правовые формы для разбора названия

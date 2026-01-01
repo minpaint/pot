@@ -159,6 +159,9 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         """
         Получает дополнительные данные для отображения в дереве.
         Сокращенная версия с фокусом на ключевых атрибутах.
+
+        ОПТИМИЗИРОВАНО: Использует уже загруженные данные из prefetch_related
+        вместо создания новых SQL-запросов для каждого сотрудника.
         """
         # Базовые данные о статусе
         additional_data = {
@@ -172,11 +175,13 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             additional_data['is_responsible_for_safety'] = getattr(obj.position, 'is_responsible_for_safety', False)
             additional_data['can_be_internship_leader'] = getattr(obj.position, 'can_be_internship_leader', False)
 
-        # Роли в комиссиях
-        commission_roles = CommissionMember.objects.filter(
-            employee=obj,
-            is_active=True
-        ).select_related('commission')
+        # Роли в комиссиях - ИСПОЛЬЗОВАТЬ УЖЕ ЗАГРУЖЕННЫЕ ДАННЫЕ из prefetch_related
+        # Данные загружены в get_queryset() строки 134-136
+        # Фильтруем на стороне Python вместо нового SQL-запроса
+        commission_roles = [
+            role for role in obj.commission_roles.all()
+            if role.is_active
+        ]
 
         # Для отображения в табличном виде сгруппируем роли
         additional_data['commission_roles'] = []

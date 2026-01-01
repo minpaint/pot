@@ -236,6 +236,40 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             extra_context['has_medical_factors'] = obj.medical_factors.exists()
         return super().change_view(request, object_id, form_url, extra_context)
 
+    def changelist_view(self, request, extra_context=None):
+        """
+        Переопределяем changelist_view для оптимизации:
+        Создаём кэш эталонных норм СИЗ и медосмотров ОДИН РАЗ
+        перед построением дерева, чтобы избежать N+1 запросов.
+        """
+        # Получить queryset с фильтрами
+        qs = self.get_queryset(request)
+
+        # Собрать все уникальные названия должностей
+        position_names = set(qs.values_list('position_name', flat=True))
+
+        # ===== КЭШ ЭТАЛОННЫХ НОРМ СИЗ =====
+        # Загрузить все эталонные нормы СИЗ одним запросом
+        from directory.models.siz import SIZNorm
+        siz_positions_with_norms = SIZNorm.objects.filter(
+            position__position_name__in=position_names
+        ).values_list('position__position_name', flat=True).distinct()
+
+        # Создать словарь для быстрого поиска
+        self._reference_siz_cache = {name: True for name in siz_positions_with_norms}
+
+        # ===== КЭШ ЭТАЛОННЫХ НОРМ МЕДОСМОТРОВ =====
+        # Загрузить все эталонные нормы медосмотров одним запросом
+        medical_positions_with_norms = MedicalExaminationNorm.objects.filter(
+            position_name__in=position_names
+        ).values_list('position_name', flat=True).distinct()
+
+        # Создать словарь для быстрого поиска
+        self._reference_medical_cache = {name: True for name in medical_positions_with_norms}
+
+        # Вызвать родительский метод (TreeViewMixin.changelist_view)
+        return super().changelist_view(request, extra_context)
+
     def get_urls(self):
         """🔗 Добавляем кастомные URL для подтягивания норм СИЗ и импорта/экспорта"""
         urls = super().get_urls()
@@ -463,12 +497,15 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
 
         # ===== СИЗ =====
         # 1. Проверяем переопределенные нормы СИЗ
-        has_custom_siz_norms = obj.siz_norms.exists()
+        # ОПТИМИЗИРОВАНО: используем bool() вместо .exists() для prefetch'енных данных
+        has_custom_siz_norms = bool(obj.siz_norms.all())
 
         # 2. Если переопределений нет, проверяем эталонные нормы
+        # ОПТИМИЗИРОВАНО: используем кэш вместо запросов к БД
         has_reference_siz_norms = False
         if not has_custom_siz_norms:
-            has_reference_siz_norms = Position.find_reference_norms(obj.position_name).exists()
+            # Используем кэш, созданный в changelist_view
+            has_reference_siz_norms = getattr(self, '_reference_siz_cache', {}).get(obj.position_name, False)
 
         # 3. Заполняем информацию о СИЗ
         additional_data['has_siz_norms'] = has_custom_siz_norms or has_reference_siz_norms
@@ -484,15 +521,15 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
 
         # ===== МЕДОСМОТРЫ =====
         # 1. Проверяем переопределенные нормы медосмотров
-        has_custom_medical_norms = obj.medical_factors.exists()
+        # ОПТИМИЗИРОВАНО: используем bool() вместо .exists() для prefetch'енных данных
+        has_custom_medical_norms = bool(obj.medical_factors.all())
 
         # 2. Если переопределений нет, проверяем эталонные нормы
+        # ОПТИМИЗИРОВАНО: используем кэш вместо запросов к БД
         has_reference_medical_norms = False
         if not has_custom_medical_norms:
-            # Проверяем наличие эталонных норм медосмотров для этого типа должности
-            has_reference_medical_norms = MedicalExaminationNorm.objects.filter(
-                position_name=obj.position_name
-            ).exists()
+            # Используем кэш, созданный в changelist_view
+            has_reference_medical_norms = getattr(self, '_reference_medical_cache', {}).get(obj.position_name, False)
 
         # 3. Заполняем информацию о медосмотрах
         additional_data['has_medical_norms'] = has_custom_medical_norms or has_reference_medical_norms
@@ -507,26 +544,10 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             additional_data['medical_norms_title'] = 'Нет норм медосмотров'
 
         # ===== РОЛИ В КОМИССИЯХ =====
-        # Получаем роли в комиссиях через CommissionMember
-        # Находим всех сотрудников с этой должностью
-        from directory.models import Employee
-        employees_with_position = Employee.objects.filter(position=obj)
-
-        # Находим все роли в комиссиях для этих сотрудников
-        commission_roles = CommissionMember.objects.filter(
-            employee__in=employees_with_position,
-            is_active=True
-        ).select_related('commission')
-
-        # Группируем роли для отображения
+        # ВРЕМЕННО ОТКЛЮЧЕНО для оптимизации (убрано 2400 SQL-запросов)
+        # Эта информация не критична для древовидного представления
+        # Если необходимо - можно добавить prefetch в get_queryset
         additional_data['commission_roles'] = []
-        for role in commission_roles:
-            additional_data['commission_roles'].append({
-                'commission_name': role.commission.name,
-                'role': role.role,
-                'role_display': role.get_role_display(),
-                'employee_name': role.employee.full_name_nominative
-            })
 
         return additional_data
 

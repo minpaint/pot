@@ -465,13 +465,13 @@ def generate_periodic_protocol(
             # Если передано название подразделения для группировки
             # Убираем кавычки из названия файла
             clean_name = grouping_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
-            filename = f"Протокол проверки знаний_{clean_name}.docx"
+            filename = f"Протокол проверки знаний по ОТ_{clean_name}.docx"
         else:
             # Используем название организации первого сотрудника
             org_name = primary_employee.organization.short_name_ru if primary_employee.organization else "Организация"
             # Убираем кавычки из названия файла
             clean_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
-            filename = f"Протокол проверки знаний_{clean_name}.docx"
+            filename = f"Протокол проверки знаний по ОТ_{clean_name}.docx"
 
         return {'content': buffer.getvalue(), 'filename': filename}
 

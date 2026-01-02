@@ -351,7 +351,19 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
 
             buffer.seek(0)
             response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-            response['Content-Disposition'] = 'attachment; filename="periodic_protocols.zip"'
+
+            # Формируем название архива с названием организации
+            if employees:
+                org_name = employees[0].organization.short_name_ru if employees[0].organization else "Организация"
+                # Убираем кавычки из названия файла
+                clean_org_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
+                zip_filename = f"Протоколы проверки знаний по ОТ {clean_org_name}.zip"
+            else:
+                zip_filename = "Протоколы проверки знаний по ОТ.zip"
+
+            from urllib.parse import quote
+            zip_filename_encoded = quote(zip_filename)
+            response['Content-Disposition'] = f'attachment; filename="protocols.zip"; filename*=UTF-8\'\'{zip_filename_encoded}'
             return response
 
         doc = generate_periodic_protocol(employees, user=request.user)

@@ -142,6 +142,8 @@
                   {# Инструкции по ОТ #}
                   {% if item.additional_data.instruction_numbers %}
                     <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
+                  {% elif item.additional_data.is_responsible_for_safety %}
+                    <span class="instruction-recipient" title="Получатель письма - ответственный за охрану труда">📧 Получатель письма</span>
                   {% else %}
                     <span class="instruction-missing" title="Инструкции по охране труда не заполнены">⚠️ нет инструкций</span>
                   {% endif %}
@@ -233,6 +235,8 @@
                     {# Инструкции по ОТ #}
                     {% if item.additional_data.instruction_numbers %}
                       <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
+                    {% elif item.additional_data.is_responsible_for_safety %}
+                      <span class="instruction-recipient" title="Получатель письма - ответственный за охрану труда">📧 Получатель письма</span>
                     {% else %}
                       <span class="instruction-missing" title="Инструкции по охране труда не заполнены">⚠️ нет инструкций</span>
                     {% endif %}
@@ -323,6 +327,8 @@
                       {# Инструкции по ОТ #}
                       {% if item.additional_data.instruction_numbers %}
                         <span class="instruction-tag" title="Инструкции по охране труда">{{ item.additional_data.instruction_numbers }}</span>
+                      {% elif item.additional_data.is_responsible_for_safety %}
+                        <span class="instruction-recipient" title="Получатель письма - ответственный за охрану труда">📧 Получатель письма</span>
                       {% else %}
                         <span class="instruction-missing" title="Инструкции по охране труда не заполнены">⚠️ нет инструкций</span>
                       {% endif %}
@@ -424,6 +430,19 @@
       border-radius: 8px;
       font-size: 12px;
       color: #0b5394;
+      white-space: nowrap;
+    }
+
+    .instruction-recipient {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      background: #e8f5e9;
+      border: 1px solid #81c784;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #2e7d32;
+      font-weight: 500;
       white-space: nowrap;
     }
 

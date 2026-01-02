@@ -158,6 +158,9 @@ def generate_knowledge_protocol(
             # Заполняем таблицу с типом проверки "первичная" (при приёме на работу)
             _fill_periodic_rows(table, employees_data, check_type='первичная')
 
+            # Удаляем лишние пустые параграфы после таблицы
+            _remove_empty_paragraphs_after_table(doc.docx, table)
+
         # 8) Сохраняем документ
         buffer = BytesIO()
         doc.save(buffer)
@@ -225,6 +228,44 @@ def _reset_periodic_table(table):
         # Добавляем тег tblHeader для повторения строки
         tblHeader = parse_xml(f'<w:tblHeader {nsdecls("w")}/>')
         trPr.append(tblHeader)
+
+
+def _remove_empty_paragraphs_after_table(doc, table):
+    """
+    Удаляет пустые параграфы после таблицы, чтобы избежать пустых страниц.
+    """
+    # Получаем индекс таблицы в документе
+    table_element = table._element
+    body = doc.element.body
+
+    # Находим индекс таблицы
+    table_index = None
+    for idx, element in enumerate(body):
+        if element == table_element:
+            table_index = idx
+            break
+
+    if table_index is None:
+        return
+
+    # Удаляем все параграфы после таблицы, которые пустые или содержат только пробелы
+    elements_to_remove = []
+    for idx in range(table_index + 1, len(body)):
+        element = body[idx]
+        # Проверяем только параграфы
+        if element.tag.endswith('}p'):
+            # Получаем текст параграфа
+            text = ''.join(node.text for node in element.iter() if node.text)
+            # Если параграф пустой или содержит только пробелы - помечаем на удаление
+            if not text or text.strip() == '':
+                elements_to_remove.append(element)
+            else:
+                # Если нашли непустой параграф - прекращаем проверку
+                break
+
+    # Удаляем помеченные элементы
+    for element in elements_to_remove:
+        body.remove(element)
 
 
 def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type: str = 'периодическая'):
@@ -348,9 +389,9 @@ def generate_periodic_protocol(
         ]
         context['members_initials_paragraphs'] = members_initials_paragraphs
 
-        if grouping_name:
-            binding = decline_phrase(grouping_name, 'gent')
-        elif commission:
+        # Определяем binding по уровню найденной комиссии, а не по grouping_name
+        # grouping_name используется только для группировки файлов, но не влияет на состав комиссии
+        if commission:
             if commission.department:
                 binding = decline_phrase(commission.department.name, 'gent')
             elif commission.subdivision:
@@ -412,11 +453,26 @@ def generate_periodic_protocol(
             # Заполняем таблицу с типом проверки "периодическая"
             _fill_periodic_rows(table, employees_data, check_type='периодическая')
 
+            # Удаляем лишние пустые параграфы после таблицы
+            _remove_empty_paragraphs_after_table(doc.docx, table)
+
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)
 
-        filename = "Протокол_периодической_проверки.docx"
+        # Формируем имя файла на основе grouping_name или организации
+        if grouping_name:
+            # Если передано название подразделения для группировки
+            # Убираем кавычки из названия файла
+            clean_name = grouping_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
+            filename = f"Протокол проверки знаний_{clean_name}.docx"
+        else:
+            # Используем название организации первого сотрудника
+            org_name = primary_employee.organization.short_name_ru if primary_employee.organization else "Организация"
+            # Убираем кавычки из названия файла
+            clean_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
+            filename = f"Протокол проверки знаний_{clean_name}.docx"
+
         return {'content': buffer.getvalue(), 'filename': filename}
 
     except Exception:

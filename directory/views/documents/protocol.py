@@ -346,9 +346,8 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                     doc = generate_periodic_protocol(emps, user=request.user, grouping_name=key)
                     if not doc:
                         continue
-                    name = key or 'Общий'
-                    filename = f"periodic_protocol_{slugify(name or 'obshchiy') or 'protocol'}.docx"
-                    zip_buffer.writestr(filename, doc['content'])
+                    # Используем имя файла, сформированное генератором
+                    zip_buffer.writestr(doc['filename'], doc['content'])
 
             buffer.seek(0)
             response = HttpResponse(buffer.getvalue(), content_type='application/zip')
@@ -367,5 +366,6 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
         # Кодируем имя файла для корректного отображения в разных браузерах
         from urllib.parse import quote
         filename_encoded = quote(doc["filename"])
-        response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"; filename*=UTF-8\'\'{filename_encoded}'
+        # Используем ASCII-безопасное имя в filename и UTF-8 в filename*
+        response['Content-Disposition'] = f'attachment; filename="protocol.docx"; filename*=UTF-8\'\'{filename_encoded}'
         return response

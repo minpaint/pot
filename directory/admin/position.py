@@ -709,18 +709,19 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
 
     def copy_instructions_from_template(self, request, queryset):
         """
-        🔄 Массовое действие для тиражирования инструкций по ОТ между должностями.
+        🔄 Массовое действие для тиражирования инструкций и атрибутов между должностями.
 
         Логика:
-        1. Пользователь выбирает ОДНУ должность-эталон с инструкциями
+        1. Пользователь выбирает ОДНУ должность-эталон
         2. Система находит все должности с таким же названием в той же организации
-        3. Копирует инструкции в должности, где:
-           - Пустое основное поле safety_instructions_numbers, ИЛИ
-           - drives_company_vehicle=True И пустое поле company_vehicle_instructions
+        3. Копирует атрибуты и инструкции
 
-        Копируются 2 поля:
-        - safety_instructions_numbers (основные инструкции по ОТ)
-        - company_vehicle_instructions (для водителей)
+        Копируются поля:
+        - safety_instructions_numbers (основные инструкции по ОТ) - если пусто
+        - company_vehicle_instructions (для водителей) - если пусто и drives_company_vehicle=True
+        - is_responsible_for_safety (ответственный за ОТ) - если True у эталона
+        - can_be_internship_leader (может быть руководителем стажировки) - если True у эталона
+        - can_sign_orders (может подписывать распоряжения) - если True у эталона
         """
         # Проверка: выбрана ровно 1 должность
         if queryset.count() != 1:
@@ -733,7 +734,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
 
         template_position = queryset.first()
 
-        # Проверка: у эталона есть хотя бы одно поле инструкций
+        # Проверка: у эталона есть хотя бы что-то для тиражирования
         has_safety_instructions = bool(
             template_position.safety_instructions_numbers and
             template_position.safety_instructions_numbers.strip()
@@ -742,11 +743,16 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             template_position.company_vehicle_instructions and
             template_position.company_vehicle_instructions.strip()
         )
+        has_attributes = (
+            template_position.is_responsible_for_safety or
+            template_position.can_be_internship_leader or
+            template_position.can_sign_orders
+        )
 
-        if not has_safety_instructions and not has_vehicle_instructions:
+        if not has_safety_instructions and not has_vehicle_instructions and not has_attributes:
             self.message_user(
                 request,
-                f'У выбранной должности "{template_position.position_name}" нет инструкций для тиражирования.',
+                f'У выбранной должности "{template_position.position_name}" нет инструкций или атрибутов для тиражирования.',
                 level=messages.WARNING
             )
             return
@@ -768,27 +774,48 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             )
             return
 
-        # Копируем инструкции
+        # Копируем инструкции и атрибуты
         updated_count = 0
         updated_safety_count = 0
         updated_vehicle_count = 0
+        updated_responsible_count = 0
+        updated_internship_leader_count = 0
+        updated_sign_orders_count = 0
 
         for position in candidates:
             updated = False
 
-            # Условие 1: Основное поле пустое
+            # 1. Основные инструкции по ОТ (только если пусто)
             if has_safety_instructions:
                 if not position.safety_instructions_numbers or not position.safety_instructions_numbers.strip():
                     position.safety_instructions_numbers = template_position.safety_instructions_numbers
                     updated = True
                     updated_safety_count += 1
 
-            # Условие 2: Водитель без инструкций
+            # 2. Инструкции для водителей (только если пусто и drives_company_vehicle=True)
             if has_vehicle_instructions and position.drives_company_vehicle:
                 if not position.company_vehicle_instructions or not position.company_vehicle_instructions.strip():
                     position.company_vehicle_instructions = template_position.company_vehicle_instructions
                     updated = True
                     updated_vehicle_count += 1
+
+            # 3. Флаг "Ответственный за ОТ" (копируем если True у эталона и False у кандидата)
+            if template_position.is_responsible_for_safety and not position.is_responsible_for_safety:
+                position.is_responsible_for_safety = True
+                updated = True
+                updated_responsible_count += 1
+
+            # 4. Флаг "Может быть руководителем стажировки" (копируем если True у эталона и False у кандидата)
+            if template_position.can_be_internship_leader and not position.can_be_internship_leader:
+                position.can_be_internship_leader = True
+                updated = True
+                updated_internship_leader_count += 1
+
+            # 5. Флаг "Может подписывать распоряжения" (копируем если True у эталона и False у кандидата)
+            if template_position.can_sign_orders and not position.can_sign_orders:
+                position.can_sign_orders = True
+                updated = True
+                updated_sign_orders_count += 1
 
             if updated:
                 position.save()
@@ -798,21 +825,27 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         if updated_count > 0:
             details = []
             if updated_safety_count > 0:
-                details.append(f'основные инструкции для {updated_safety_count} должн.')
+                details.append(f'📋 инструкции по ОТ: {updated_safety_count} должн.')
             if updated_vehicle_count > 0:
-                details.append(f'инструкции водителей для {updated_vehicle_count} должн.')
+                details.append(f'🚗 инструкции водителей: {updated_vehicle_count} должн.')
+            if updated_responsible_count > 0:
+                details.append(f'🔰 ответственный за ОТ: {updated_responsible_count} должн.')
+            if updated_internship_leader_count > 0:
+                details.append(f'🎓 руководитель стажировки: {updated_internship_leader_count} должн.')
+            if updated_sign_orders_count > 0:
+                details.append(f'📝 подпись распоряжений: {updated_sign_orders_count} должн.')
 
             message = (
-                f'✅ Заполнено инструкций для {updated_count} должностей '
+                f'✅ Обновлено {updated_count} должностей '
                 f'"{template_position.position_name}": {", ".join(details)}'
             )
             self.message_user(request, message, level=messages.SUCCESS)
         else:
             self.message_user(
                 request,
-                f'Все должности "{template_position.position_name}" уже имеют инструкции. '
+                f'Все должности "{template_position.position_name}" уже имеют все атрибуты и инструкции. '
                 f'Тиражирование не требуется.',
                 level=messages.INFO
             )
 
-    copy_instructions_from_template.short_description = '🔄 Заполнить инструкции из эталона'
+    copy_instructions_from_template.short_description = '🔄 Заполнить инструкции и атрибуты из эталона'

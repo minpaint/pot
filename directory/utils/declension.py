@@ -27,7 +27,39 @@ def get_gender_from_name(full_name: str) -> str:
         elif patronymic.endswith('вна') or patronymic.endswith('чна') or patronymic.endswith('шна'):
             return 'femn'
 
-    # Если отчества нет или оно неполное, пробуем угадать по имени
+    # Если отчества нет или оно неполное, пробуем определить по имени через морфологию
+    if len(parts) >= 2:
+        first_name = parts[1]
+        parses = morph.parse(first_name)
+        best = None
+        best_score = 0.0
+        for p in parses:
+            if 'Name' not in p.tag:
+                continue
+            if 'masc' in p.tag or 'femn' in p.tag:
+                if p.score > best_score:
+                    best = p
+                    best_score = p.score
+        if best:
+            return 'femn' if 'femn' in best.tag else 'masc'
+
+    # Попробуем по фамилии, если имя не помогло
+    if parts:
+        surname = parts[0]
+        parses = morph.parse(surname)
+        best = None
+        best_score = 0.0
+        for p in parses:
+            if 'Surn' not in p.tag:
+                continue
+            if 'masc' in p.tag or 'femn' in p.tag:
+                if p.score > best_score:
+                    best = p
+                    best_score = p.score
+        if best:
+            return 'femn' if 'femn' in best.tag else 'masc'
+
+    # Если отчества нет или оно неполное, пробуем угадать по имени (эвристика)
     if len(parts) >= 2:
         first_name = parts[1].lower()
         male_endings = ['й', 'н', 'р', 'т', 'м', 'к', 'п', 'с', 'л', 'в', 'д', 'б']
@@ -275,6 +307,17 @@ def decline_surname(surname: str, target_case: str, gender: str) -> str:
         }
         if target_case in endings:
             return base + endings[target_case]
+
+    # Женские фамилии на согласный обычно несклоняемые (Кожан, Билан, и т.п.)
+    if gender == 'femn':
+        if re.search(r'[бвгджзйклмнпрстфхцчшщ]$', surname_lower):
+            # Исключаем явно склоняемые женские окончания
+            if not surname_lower.endswith(('а', 'я', 'ая', 'яя', 'ова', 'ева', 'ёва', 'ина', 'ына', 'ь')):
+                return surname
+
+    # Женские фамилии на -ич/-вич/-евич чаще всего несклоняемые
+    if gender == 'femn' and surname_lower.endswith(('ич', 'вич', 'евич', 'ович')):
+        return surname
 
     # Пробуем найти разбор как фамилию (Surn) в pymorphy3
     best_parse = None

@@ -146,6 +146,18 @@ class Position(models.Model):
         help_text="Отметьте, если должность предполагает управление служебным автомобилем"
     )
 
+    siz_norms_overridden = models.BooleanField(
+        default=False,
+        verbose_name="🛡️ Нормы СИЗ переопределены",
+        help_text="Если включено, используются только нормы из таблицы ниже. Если нет норм - СИЗ не положены."
+    )
+
+    medical_norms_overridden = models.BooleanField(
+        default=False,
+        verbose_name="🏥 Нормы медосмотров переопределены",
+        help_text="Если включено, используются только нормы из таблицы ниже. Если нет норм - медосмотры не требуются."
+    )
+
     documents = models.ManyToManyField(
         'directory.Document',
         blank=True,
@@ -237,10 +249,3 @@ class Position(models.Model):
             parts.append(self.department.name)
         parts.append(self.position_name)
         return " → ".join(parts)
-
-    @classmethod
-    def find_reference_norms(cls, position_name):
-        positions = cls.objects.filter(position_name__exact=position_name)
-        from directory.models.siz import SIZNorm
-        norms = SIZNorm.objects.filter(position__in=positions).select_related('siz')
-        return norms

@@ -59,6 +59,56 @@ class SIZ(models.Model):
         return f"{self.wear_period} мес."
 
 
+class ProfessionSIZNorm(models.Model):
+    """
+    📖 Эталонные нормы выдачи СИЗ для ПРОФЕССИИ (не привязаны к конкретной должности)
+
+    Эта модель хранит справочные нормы СИЗ для профессий.
+    Используется как эталон для всех должностей с одинаковым названием.
+    """
+    profession_name = models.CharField(
+        "Название профессии",
+        max_length=255,
+        db_index=True,
+        help_text="Точное название профессии (регистронезависимо)"
+    )
+    siz = models.ForeignKey(
+        SIZ,
+        on_delete=models.CASCADE,
+        related_name="profession_norms",
+        verbose_name="СИЗ"
+    )
+    quantity = models.PositiveIntegerField(
+        "Количество",
+        default=1
+    )
+    condition = models.CharField(
+        "Условие выдачи",
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Например: 'При влажной уборке помещений', 'При работе на высоте' и т.д."
+    )
+    order = models.PositiveIntegerField(
+        "Порядок отображения",
+        default=0
+    )
+
+    class Meta:
+        verbose_name = "📖 Эталонная норма СИЗ профессии"
+        verbose_name_plural = "📖 Эталонные нормы СИЗ профессий"
+        unique_together = [['profession_name', 'siz', 'condition']]
+        ordering = ['profession_name', 'condition', 'order', 'siz__name']
+        indexes = [
+            models.Index(fields=['profession_name'], name='prof_siz_name_idx'),
+        ]
+
+    def __str__(self):
+        if self.condition:
+            return f"{self.profession_name} - {self.siz.name} ({self.condition})"
+        return f"{self.profession_name} - {self.siz.name}"
+
+
 class SIZNorm(models.Model):
     """
     📋 Норма выдачи СИЗ для профессии

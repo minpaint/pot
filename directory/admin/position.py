@@ -25,7 +25,7 @@ from directory.resources.organization_structure import OrganizationStructureReso
 class SIZNormInlineForPosition(admin.TabularInline):
     """📋 Встроенные нормы СИЗ для должности с отображением всех полей"""
     model = SIZNorm
-    extra = 3  # Показываем 3 пустые строки для быстрого добавления нескольких СИЗ
+    extra = 0  # Не показываем пустые строки по умолчанию
     fields = ('siz', 'classification', 'unit', 'quantity', 'wear_period', 'condition', 'order')
     readonly_fields = ('classification', 'unit', 'wear_period')
     verbose_name = "Норма СИЗ"
@@ -34,10 +34,10 @@ class SIZNormInlineForPosition(admin.TabularInline):
     # Восстанавливаем autocomplete_fields с добавлением формы
     autocomplete_fields = ['siz']
 
-    # Предотвращаем отображение слишком много пустых форм
+    # Не показываем пустые формы по умолчанию
     def get_extra(self, request, obj=None, **kwargs):
-        """Возвращает 3 пустые строки для добавления новых СИЗ"""
-        return 3
+        """Возвращает 0 пустых строк (пользователь добавит через кнопку 'Добавить ещё')"""
+        return 0
 
     # Улучшаем фильтрацию запросов
     def get_queryset(self, request):
@@ -172,6 +172,22 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                 'internship_period_days',
             )
         }),
+        ('🛡️ Переопределение норм СИЗ', {
+            'fields': ('siz_norms_overridden',),
+            'description': '''<strong>⚠️ Включите этот флаг, если:</strong><br>
+• Для этой должности нормы СИЗ отличаются от эталонных (заполните таблицу ниже)<br>
+• Или СИЗ вообще НЕ положены (оставьте таблицу пустой → будет красный индикатор 🔴)<br><br>
+<strong>Если флаг выключен</strong> – используются эталонные нормы для профессии.''',
+            'classes': ('siz-override-section',)
+        }),
+        ('🏥 Переопределение норм медосмотров', {
+            'fields': ('medical_norms_overridden',),
+            'description': '''<strong>⚠️ Включите этот флаг, если:</strong><br>
+• Для этой должности нормы медосмотров отличаются от эталонных (заполните таблицу ниже)<br>
+• Или медосмотры НЕ требуются (оставьте таблицу пустой → будет красный индикатор 🔴)<br><br>
+<strong>Если флаг выключен</strong> – используются эталонные нормы для профессии.''',
+            'classes': ('medical-override-section',)
+        }),
         ('Связанные документы и оборудование', {
             'fields': ('documents', 'equipment'),
             'description': '📄 Выберите документы и оборудование, относящиеся к данной должности',
@@ -278,14 +294,14 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         position_names = set(qs.values_list('position_name', flat=True))
 
         # ===== КЭШ ЭТАЛОННЫХ НОРМ СИЗ =====
-        # Загрузить все эталонные нормы СИЗ одним запросом
-        from directory.models.siz import SIZNorm
-        siz_positions_with_norms = SIZNorm.objects.filter(
-            position__position_name__in=position_names
-        ).values_list('position__position_name', flat=True).distinct()
+        # Загрузить все эталонные нормы СИЗ из справочника профессий
+        from directory.models.siz import ProfessionSIZNorm
+        profession_names_with_siz = ProfessionSIZNorm.objects.filter(
+            profession_name__in=position_names
+        ).values_list('profession_name', flat=True).distinct()
 
         # Создать словарь для быстрого поиска
-        self._reference_siz_cache = {name: True for name in siz_positions_with_norms}
+        self._reference_siz_cache = {name: True for name in profession_names_with_siz}
 
         # ===== КЭШ ЭТАЛОННЫХ НОРМ МЕДОСМОТРОВ =====
         # Загрузить все эталонные нормы медосмотров одним запросом
@@ -316,21 +332,24 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
     def copy_reference_norms_view(self, request, object_id):
         """👥 View для копирования эталонных норм в текущую должность
 
-        Копирование выполняется только при точном совпадении названий должностей
-        и только в исключительных случаях, когда в разных организациях
-        для одинаковых профессий выдаются разные СИЗ.
+        Копирует эталонные нормы из справочника профессий (ProfessionSIZNorm)
+        в конкретную должность.
         """
+        from directory.models.siz import ProfessionSIZNorm
+
         position = self.get_object(request, object_id)
         if not position:
             messages.error(request, "Должность не найдена.")
             return redirect('admin:directory_position_change', object_id)
 
-        # Находим эталонные нормы для этой должности
-        reference_norms = Position.find_reference_norms(position.position_name)
+        # Находим эталонные нормы для этой профессии из справочника
+        reference_norms = ProfessionSIZNorm.objects.filter(
+            profession_name=position.position_name
+        ).select_related('siz')
 
         if not reference_norms.exists():
             messages.warning(request,
-                             f"Эталонные нормы СИЗ для должности '{position.position_name}' не найдены. Проверьте, что существуют должности с точно таким же названием и у них есть нормы СИЗ.")
+                             f"Эталонные нормы СИЗ для профессии '{position.position_name}' не найдены в справочнике. Проверьте раздел 'Эталонные нормы СИЗ профессий'.")
             return redirect('admin:directory_position_change', object_id)
 
         # Сначала удаляем все пустые нормы у этой должности
@@ -544,17 +563,36 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             # Используем кэш, созданный в changelist_view
             has_reference_siz_norms = getattr(self, '_reference_siz_cache', {}).get(obj.position_name, False)
 
-        # 3. Заполняем информацию о СИЗ
-        additional_data['has_siz_norms'] = has_custom_siz_norms or has_reference_siz_norms
-        if has_custom_siz_norms:
-            additional_data['siz_norms_type'] = 'custom'
-            additional_data['siz_norms_title'] = 'Переопределенные нормы СИЗ для данной должности'
-        elif has_reference_siz_norms:
-            additional_data['siz_norms_type'] = 'reference'
-            additional_data['siz_norms_title'] = 'Используются стандартные нормы СИЗ'
+        # 3. Заполняем информацию о СИЗ с учётом флага переопределения
+        if obj.siz_norms_overridden:
+            # Нормы переопределены - игнорируем эталонные
+            if has_custom_siz_norms:
+                # Есть свои нормы → индикатор custom
+                additional_data['has_siz_norms'] = True
+                additional_data['siz_norms_type'] = 'custom'
+                additional_data['siz_norms_title'] = 'Переопределенные нормы СИЗ для данной должности'
+            else:
+                # Нет своих норм → индикатор none (красный - "СИЗ не положены")
+                additional_data['has_siz_norms'] = True
+                additional_data['siz_norms_type'] = 'none'
+                additional_data['siz_norms_title'] = '🚫 СИЗ не положены для данной должности'
         else:
-            additional_data['siz_norms_type'] = 'none'
-            additional_data['siz_norms_title'] = 'Нет норм СИЗ'
+            # Нормы НЕ переопределены - используем стандартную логику
+            if has_custom_siz_norms:
+                # Есть свои нормы (редкий случай без флага) → custom
+                additional_data['has_siz_norms'] = True
+                additional_data['siz_norms_type'] = 'custom'
+                additional_data['siz_norms_title'] = 'Переопределенные нормы СИЗ для данной должности'
+            elif has_reference_siz_norms:
+                # Есть эталонные нормы → reference
+                additional_data['has_siz_norms'] = True
+                additional_data['siz_norms_type'] = 'reference'
+                additional_data['siz_norms_title'] = 'Используются стандартные нормы СИЗ'
+            else:
+                # Ни своих, ни эталонных нет → индикатор не показываем
+                additional_data['has_siz_norms'] = False
+                additional_data['siz_norms_type'] = 'none'
+                additional_data['siz_norms_title'] = 'Нет норм СИЗ'
 
         # ===== МЕДОСМОТРЫ =====
         # 1. Проверяем переопределенные нормы медосмотров
@@ -568,17 +606,36 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             # Используем кэш, созданный в changelist_view
             has_reference_medical_norms = getattr(self, '_reference_medical_cache', {}).get(obj.position_name, False)
 
-        # 3. Заполняем информацию о медосмотрах
-        additional_data['has_medical_norms'] = has_custom_medical_norms or has_reference_medical_norms
-        if has_custom_medical_norms:
-            additional_data['medical_norms_type'] = 'custom'
-            additional_data['medical_norms_title'] = 'Переопределенные нормы медосмотров для данной должности'
-        elif has_reference_medical_norms:
-            additional_data['medical_norms_type'] = 'reference'
-            additional_data['medical_norms_title'] = 'Используются стандартные нормы медосмотров'
+        # 3. Заполняем информацию о медосмотрах с учётом флага переопределения
+        if obj.medical_norms_overridden:
+            # Нормы переопределены - игнорируем эталонные
+            if has_custom_medical_norms:
+                # Есть свои нормы → индикатор custom
+                additional_data['has_medical_norms'] = True
+                additional_data['medical_norms_type'] = 'custom'
+                additional_data['medical_norms_title'] = 'Переопределенные нормы медосмотров для данной должности'
+            else:
+                # Нет своих норм → индикатор none (красный - "медосмотры не требуются")
+                additional_data['has_medical_norms'] = True
+                additional_data['medical_norms_type'] = 'none'
+                additional_data['medical_norms_title'] = '🚫 Медосмотры не требуются для данной должности'
         else:
-            additional_data['medical_norms_type'] = 'none'
-            additional_data['medical_norms_title'] = 'Нет норм медосмотров'
+            # Нормы НЕ переопределены - используем стандартную логику
+            if has_custom_medical_norms:
+                # Есть свои нормы (редкий случай без флага) → custom
+                additional_data['has_medical_norms'] = True
+                additional_data['medical_norms_type'] = 'custom'
+                additional_data['medical_norms_title'] = 'Переопределенные нормы медосмотров для данной должности'
+            elif has_reference_medical_norms:
+                # Есть эталонные нормы → reference
+                additional_data['has_medical_norms'] = True
+                additional_data['medical_norms_type'] = 'reference'
+                additional_data['medical_norms_title'] = 'Используются стандартные нормы медосмотров'
+            else:
+                # Ни своих, ни эталонных нет → индикатор не показываем
+                additional_data['has_medical_norms'] = False
+                additional_data['medical_norms_type'] = 'none'
+                additional_data['medical_norms_title'] = 'Нет норм медосмотров'
 
         # ===== РОЛИ В КОМИССИЯХ =====
         # ВРЕМЕННО ОТКЛЮЧЕНО для оптимизации (убрано 2400 SQL-запросов)

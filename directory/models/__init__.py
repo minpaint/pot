@@ -10,7 +10,7 @@ from .employee import Employee
 from .profile import Profile
 from .menu_item import MenuItem
 from .siz_issued import SIZIssued
-from .siz import SIZ, SIZNorm
+from .siz import SIZ, SIZNorm, ProfessionSIZNorm
 from .document_template import DocumentTemplateType, DocumentTemplate, GeneratedDocument, DocumentGenerationLog, DocumentEmailSendLog
 from .commission import Commission, CommissionMember
 from .hiring import EmployeeHiring
@@ -32,6 +32,7 @@ __all__ = [
     'SIZIssued',
     'SIZ',
     'SIZNorm',
+    'ProfessionSIZNorm',
     'DocumentTemplate',
     'DocumentTemplateType',
     'GeneratedDocument',

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from directory.models.siz import SIZ, SIZNorm
+from directory.models.siz import SIZ, SIZNorm, ProfessionSIZNorm
 from directory.models.position import Position
 from directory.forms.siz import SIZForm, SIZNormForm
 from import_export import resources, fields, widgets
@@ -11,6 +11,7 @@ from django.utils.translation import ngettext
 from django.contrib import messages
 from django.db.models.functions import Lower
 from directory.resources.siz_norm import SIZNormResource
+from directory.resources.profession_siz_norm import ProfessionSIZNormResource
 
 
 class WearPeriodWidget(widgets.IntegerWidget):
@@ -206,8 +207,10 @@ class SIZNormAdmin(ImportExportModelAdmin):
             # Получаем все должности с таким названием
             positions = Position.objects.filter(position_name=position_name)
 
-            # Берем первую должность как эталонную (по алфавиту организаций)
-            reference_position = positions.order_by('organization__full_name_ru').first()
+            # Берем первую должность с нормами как эталонную (по алфавиту организаций)
+            reference_position = positions.filter(
+                siz_norms__isnull=False
+            ).order_by('organization__full_name_ru').first()
 
             if not reference_position:
                 continue
@@ -260,6 +263,99 @@ class SIZNormAdmin(ImportExportModelAdmin):
             profession_data = {
                 'name': position_name,
                 'positions': positions,
+                'base_norms': base_norms,
+                'group_norms': group_norms,
+            }
+
+            professions_data.append(profession_data)
+
+        extra_context['professions'] = professions_data
+
+        return super().changelist_view(request, extra_context)
+
+
+@admin.register(ProfessionSIZNorm)
+class ProfessionSIZNormAdmin(ImportExportModelAdmin):
+    """📖 Административный интерфейс для эталонных норм СИЗ профессий"""
+    resource_class = ProfessionSIZNormResource
+    list_display = ('profession_name', 'siz', 'quantity', 'get_condition', 'order')
+    list_filter = ('profession_name',)
+    search_fields = ('profession_name', 'siz__name', 'condition')
+    autocomplete_fields = ['siz']
+    ordering = ['profession_name', 'condition', 'order', 'siz__name']
+
+    # Используем кастомный шаблон для древовидного отображения
+    change_list_template = "admin/directory/professionsiznorm/change_list_tree.html"
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('profession_name', 'siz', 'quantity', 'order')
+        }),
+        ('Условия выдачи', {
+            'fields': ('condition',),
+            'description': 'Укажите условие выдачи СИЗ (например, "При работе в зимнее время", "При влажной уборке" и т.д.)'
+        }),
+    )
+
+    def get_condition(self, obj):
+        """📝 Получение условия выдачи для отображения в списке"""
+        return obj.condition if obj.condition else "Основная норма"
+
+    get_condition.short_description = "Условие выдачи"
+
+    def changelist_view(self, request, extra_context=None):
+        """
+        📋 Представление списка эталонных норм СИЗ с группировкой по профессиям
+
+        Формирует структуру данных для шаблона, где нормы СИЗ группируются:
+        1. По названиям профессий
+        2. По условиям выдачи СИЗ внутри каждой профессии
+        """
+        extra_context = extra_context or {}
+
+        # Получаем уникальные названия профессий, у которых есть эталонные нормы СИЗ
+        profession_names = ProfessionSIZNorm.objects.values_list(
+            'profession_name', flat=True
+        ).distinct().order_by(Lower('profession_name'))
+
+        # Данные профессий
+        professions_data = []
+
+        for profession_name in profession_names:
+            # Получаем все нормы для профессии
+            all_norms = ProfessionSIZNorm.objects.filter(
+                profession_name=profession_name
+            ).select_related('siz')
+
+            # Базовые нормы (без условий)
+            base_norms = all_norms.filter(condition='').order_by('order', 'siz__name')
+
+            # Группируем нормы по условиям
+            grouped_norms = {}
+            condition_norms = all_norms.exclude(condition='')
+
+            for norm in condition_norms:
+                condition_name = norm.condition
+                if condition_name not in grouped_norms:
+                    grouped_norms[condition_name] = []
+                grouped_norms[condition_name].append(norm)
+
+            # Преобразуем словарь в список для шаблона
+            group_norms = []
+            for condition_name, norms in grouped_norms.items():
+                sorted_norms = sorted(norms, key=lambda x: (x.order, x.siz.name))
+                group_norms.append({
+                    'name': condition_name,
+                    'norms': sorted_norms
+                })
+
+            # Получаем количество должностей с таким названием
+            positions_count = Position.objects.filter(position_name=profession_name).count()
+
+            # Добавляем информацию о профессии
+            profession_data = {
+                'name': profession_name,
+                'positions_count': positions_count,
                 'base_norms': base_norms,
                 'group_norms': group_norms,
             }

@@ -29,6 +29,24 @@
     </table>
 </div>
 
+<div class="app-directory module">
+    <table style="width: 100%;">
+        <caption>
+            <a href="{% url 'admin:registry_import' %}" class="section" title="Импорт реестра сотрудников">
+                📋 Импорт реестра сотрудников
+            </a>
+        </caption>
+        <tbody>
+            <tr class="model-registryimport">
+                <th scope="row" style="width: 300px; white-space: nowrap;">
+                    <a href="{% url 'admin:registry_import' %}">📥 Импорт иерархического реестра</a>
+                </th>
+                <td style="white-space: normal;">Импорт сотрудников из Excel-файла с автоматическим созданием организационной структуры (подразделения → отделы → должности → сотрудники)</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
 {% if request.user.is_superuser %}
 <div class="app-directory module">
     <table style="width: 100%;">

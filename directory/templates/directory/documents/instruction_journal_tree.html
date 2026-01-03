@@ -287,6 +287,51 @@
         </p>
     </div>
 
+    <!-- 🏢 Фильтр по организации -->
+    {% if org_options|length >= 1 %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" action="" class="row g-2 align-items-end">
+                <div class="col-md-8 col-lg-6">
+                    <label for="orgSelect" class="form-label fw-bold">
+                        🏢 {% if org_options|length == 1 %}Организация:{% else %}Выберите организацию:{% endif %}
+                    </label>
+                    <select name="org" id="orgSelect" class="form-select" {% if org_options|length > 1 %}required{% endif %} {% if org_options|length == 1 %}disabled{% endif %}>
+                        {% if org_options|length > 1 %}
+                        <option value="">-- Выберите организацию --</option>
+                        {% endif %}
+                        {% for org in org_options %}
+                        <option value="{{ org.id }}" {% if org.id == selected_org_id %}selected{% endif %}>
+                            {{ org.short_name_ru }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if org_options|length > 1 %}
+                <div class="col-md-4 col-lg-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter"></i> Показать
+                    </button>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not show_tree %}
+    <div class="alert alert-info" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-info-circle"></i> Информация
+        </h5>
+        {% if org_options|length == 0 %}
+        <p class="mb-0">У вас нет доступных организаций. Обратитесь к администратору для настройки прав доступа.</p>
+        {% elif org_options|length > 1 %}
+        <p class="mb-0">Пожалуйста, выберите организацию из списка выше для формирования журнала инструктажей.</p>
+        {% endif %}
+    </div>
+    {% else %}
+
     <form method="post" id="instructionJournalForm">
         {% csrf_token %}
 
@@ -490,6 +535,9 @@
             </table>
         </div>
     </form>
+
+    {% endif %} {# Закрытие блока show_tree #}
+
 </div>
 {% endblock %}
 

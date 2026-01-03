@@ -13,7 +13,7 @@ from io import BytesIO
 from zipfile import ZipFile
 from datetime import date
 
-from directory.models import Employee
+from directory.models import Employee, Organization
 from directory.utils.permissions import AccessControlHelper
 
 # Настройка логирования
@@ -143,7 +143,73 @@ class InstructionJournalView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        employees = list(self.get_base_queryset())
+
+        # 🔍 Получаем доступные организации пользователя
+        user = self.request.user
+
+        if user.is_superuser:
+            accessible_orgs = Organization.objects.all()
+        else:
+            # Очищаем кеш перед получением организаций
+            if hasattr(self.request, '_user_orgs_cache'):
+                delattr(self.request, '_user_orgs_cache')
+            accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
+
+        # 📋 Определяем выбранную организацию из GET-параметра
+        org_id_param = self.request.GET.get('org', '')
+        selected_org_id = None
+
+        if org_id_param:
+            try:
+                org_id = int(org_id_param)
+                # Проверка доступа к организации
+                if accessible_orgs.filter(id=org_id).exists():
+                    selected_org_id = org_id
+                    logger.info(f"User {user.username} viewing org_id={selected_org_id} in instruction journal")
+            except (ValueError, TypeError):
+                pass  # Игнорируем невалидный параметр
+
+        # 🎯 Автоподстановка при единственной доступной организации
+        if selected_org_id is None and accessible_orgs.count() == 1:
+            selected_org_id = accessible_orgs.first().id
+            logger.info(f"User {user.username} auto-selected org_id={selected_org_id} in instruction journal")
+
+        # 💾 Сохранить выбор в сессии для UX
+        try:
+            if selected_org_id:
+                self.request.session['last_selected_org_id_instruction_journal'] = selected_org_id
+            elif hasattr(self.request, 'session') and 'last_selected_org_id_instruction_journal' in self.request.session:
+                # Попытка восстановить последний выбор
+                last_org_id = self.request.session.get('last_selected_org_id_instruction_journal')
+                if accessible_orgs.filter(id=last_org_id).exists():
+                    selected_org_id = last_org_id
+                    logger.info(f"User {user.username} restored org_id={selected_org_id} from session")
+        except Exception as e:
+            # Если сессия недоступна, просто продолжаем без восстановления
+            logger.warning(f"Session not available: {e}")
+
+        # 📊 Добавляем данные о выборе организации в контекст
+        context['org_options'] = accessible_orgs
+        context['selected_org_id'] = selected_org_id
+        context['show_tree'] = selected_org_id is not None
+
+        # 🚫 Если организация не выбрана, не строим дерево
+        if not context['show_tree']:
+            context['tree'] = {}
+            context['tree_settings'] = {
+                'icons': {
+                    'organization': '🏢',
+                    'subdivision': '🏭',
+                    'department': '📂',
+                    'employee': '👤'
+                }
+            }
+            context['default_date'] = date.today().strftime('%Y-%m-%d')
+            context['title'] = 'Образец заполнения журнала повторных инструктажей'
+            return context
+
+        # ✅ Фильтруем сотрудников по выбранной организации
+        employees = list(self.get_base_queryset().filter(organization_id=selected_org_id))
 
         context['title'] = 'Образец заполнения журнала повторных инструктажей'
         context['tree'] = self.build_tree_structure(employees)

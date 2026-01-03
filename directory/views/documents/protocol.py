@@ -15,6 +15,7 @@ from zipfile import ZipFile
 
 from directory.models import Employee
 from directory.document_generators.protocol_generator import generate_knowledge_protocol, generate_periodic_protocol
+from directory.document_generators.certificate_generator_rowwise import generate_safety_certificates_rowwise as generate_safety_certificates
 from directory.utils import find_appropriate_commission, get_commission_members_formatted
 from directory.utils.permissions import AccessControlHelper
 
@@ -322,16 +323,109 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
 
     def post(self, request, *args, **kwargs):
         employees_qs = self.get_base_queryset()
-        selected_ids = request.POST.getlist('employee_ids')
-        if selected_ids:
-            employees_qs = employees_qs.filter(id__in=selected_ids)
+        action = request.POST.get('action')
+        scope_type = request.POST.get('scope_type')
+        scope_id = request.POST.get('scope_id')
+
+        if scope_type and scope_id:
+            try:
+                scope_id_int = int(scope_id)
+            except (TypeError, ValueError):
+                messages.error(request, "Некорректный идентификатор раздела")
+                return redirect(request.path)
+
+            if scope_type == 'org':
+                employees_qs = employees_qs.filter(organization_id=scope_id_int)
+            elif scope_type == 'sub':
+                employees_qs = employees_qs.filter(subdivision_id=scope_id_int)
+            elif scope_type == 'dept':
+                employees_qs = employees_qs.filter(department_id=scope_id_int)
+        else:
+            selected_ids = request.POST.getlist('employee_ids')
+            if selected_ids:
+                employees_qs = employees_qs.filter(id__in=selected_ids)
 
         employees = list(employees_qs)
         if not employees:
-            messages.error(request, "Нет выбранных сотрудников для протокола")
+            if scope_type:
+                messages.error(request, "Нет сотрудников для выбранного раздела")
+            else:
+                messages.error(request, "Нет выбранных сотрудников для протокола")
             return redirect(request.path)
 
-        action = request.POST.get('action')
+        if action in {'scope_protocol', 'scope_certificates'}:
+            if scope_type == 'org':
+                grouping_name = employees[0].organization.short_name_ru if employees[0].organization else "Организация"
+            elif scope_type == 'sub':
+                grouping_name = employees[0].subdivision.name if employees[0].subdivision else "Подразделение"
+            elif scope_type == 'dept':
+                grouping_name = employees[0].department.name if employees[0].department else "Отдел"
+            else:
+                grouping_name = None
+
+            if action == 'scope_protocol':
+                doc = generate_periodic_protocol(employees, user=request.user, grouping_name=grouping_name)
+            else:
+                doc = generate_safety_certificates(employees, grouping_name=grouping_name)
+
+            if not doc:
+                messages.error(request, "Не удалось сформировать документ")
+                return redirect(request.path)
+
+            response = HttpResponse(
+                doc['content'],
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            from urllib.parse import quote
+            filename_encoded = quote(doc["filename"])
+            response['Content-Disposition'] = f'attachment; filename="document.docx"; filename*=UTF-8\'\'{filename_encoded}'
+            return response
+
+        if action in {'certificates_org', 'certificates_by_subdivision'}:
+            group_by_subdivision = action == 'certificates_by_subdivision'
+
+            if group_by_subdivision:
+                buffer = BytesIO()
+                with ZipFile(buffer, 'w') as zip_buffer:
+                    grouped = {}
+                    for emp in employees:
+                        key = emp.subdivision.name if emp.subdivision else "Без подразделения"
+                        grouped.setdefault(key, []).append(emp)
+
+                    for key, emps in grouped.items():
+                        doc = generate_safety_certificates(emps, grouping_name=key)
+                        if not doc:
+                            continue
+                        zip_buffer.writestr(doc['filename'], doc['content'])
+
+                buffer.seek(0)
+                response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+
+                org_name = employees[0].organization.short_name_ru if employees[0].organization else "Организация"
+                clean_org_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
+                zip_filename = f"Удостоверения по ОТ {clean_org_name}.zip"
+
+                from urllib.parse import quote
+                zip_filename_encoded = quote(zip_filename)
+                response['Content-Disposition'] = (
+                    f'attachment; filename="certificates.zip"; filename*=UTF-8\'\'{zip_filename_encoded}'
+                )
+                return response
+
+            doc = generate_safety_certificates(employees)
+            if not doc:
+                messages.error(request, "Не удалось сформировать удостоверения")
+                return redirect(request.path)
+
+            response = HttpResponse(
+                doc['content'],
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            from urllib.parse import quote
+            filename_encoded = quote(doc["filename"])
+            response['Content-Disposition'] = f'attachment; filename="certificates.docx"; filename*=UTF-8\'\'{filename_encoded}'
+            return response
+
         group_by_subdivision = action == 'download_by_subdivision'
 
         if group_by_subdivision:

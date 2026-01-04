@@ -13,13 +13,14 @@ class Commission(models.Model):
         ('ot', '🛡️ Охрана труда'),
         ('eb', '⚡ Электробезопасность'),
         ('pb', '🔥 Пожарная безопасность'),
+        ('qualification', '🎓 Квалификационная комиссия'),
         ('other', '📋 Иная'),
     ]
 
     name = models.CharField('Наименование комиссии', max_length=255)
     commission_type = models.CharField(
         'Тип комиссии',
-        max_length=10,
+        max_length=20,
         choices=COMMISSION_TYPES,
         default='ot'
     )

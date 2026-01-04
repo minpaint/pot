@@ -142,6 +142,34 @@ class EmailSettings(models.Model):
         default=''
     )
 
+    # Настройки массовой рассылки (Rate Limiting & Retry)
+    email_delay_seconds = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        default=1.0,
+        validators=[MinValueValidator(0.0), MaxValueValidator(60.0)],
+        verbose_name="Задержка между письмами (сек)",
+        help_text="Пауза между отправкой писем при массовой рассылке. "
+                  "Защита от блокировки SMTP провайдером. "
+                  "Gmail/Yandex: рекомендуется 1-2 сек."
+    )
+
+    max_retry_attempts = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Макс. попыток повтора",
+        help_text="Количество попыток повторной отправки при временных ошибках. "
+                  "0 = без повторов, рекомендуется 3."
+    )
+
+    connection_timeout = models.PositiveSmallIntegerField(
+        default=30,
+        validators=[MinValueValidator(5), MaxValueValidator(300)],
+        verbose_name="Таймаут соединения (сек)",
+        help_text="Максимальное время ожидания ответа от SMTP сервера. "
+                  "Рекомендуется 30 секунд."
+    )
+
     # Метаданные
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -518,6 +546,9 @@ class EmailSettings(models.Model):
                 'email_port': 587,
                 'email_use_tls': True,
                 'email_use_ssl': False,
+                'email_delay_seconds': 1.0,  # 1 секунда между письмами
+                'max_retry_attempts': 3,  # 3 попытки повтора
+                'connection_timeout': 30,  # 30 секунд таймаут
             }
         )
         return settings

@@ -18,6 +18,8 @@ from directory.document_generators.base import (
 from directory.utils import find_appropriate_commission, get_commission_members_formatted
 # Для склонения названий в родительном падеже
 from directory.utils.declension import decline_phrase
+# Для очистки пустых параграфов в сгенерированных документах
+from directory.utils.docx_cleaner import clean_document
 
 logger = logging.getLogger(__name__)
 
@@ -178,11 +180,14 @@ def generate_knowledge_protocol(
         doc.save(buffer)
         buffer.seek(0)
 
+        # 9) Очищаем пустые параграфы и строки
+        cleaned_content = clean_document(buffer.getvalue())
+
         from directory.utils.declension import get_initials_from_name
         employee_initials = get_initials_from_name(context.get('fio_nominative', ''))
         filename = f"Протокол_{employee_initials}.docx"
 
-        return {'content': buffer.getvalue(), 'filename': filename}
+        return {'content': cleaned_content, 'filename': filename}
 
     except Exception:
         logger.error("Ошибка генерации протокола", exc_info=True)
@@ -483,6 +488,9 @@ def generate_periodic_protocol(
         doc.save(buffer)
         buffer.seek(0)
 
+        # Очищаем пустые параграфы и строки
+        cleaned_content = clean_document(buffer.getvalue())
+
         # Формируем имя файла на основе grouping_name или организации
         if grouping_name:
             # Если передано название подразделения для группировки
@@ -496,7 +504,7 @@ def generate_periodic_protocol(
             clean_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
             filename = f"Протокол проверки знаний по ОТ_{clean_name}.docx"
 
-        return {'content': buffer.getvalue(), 'filename': filename}
+        return {'content': cleaned_content, 'filename': filename}
 
     except Exception:
         logger.error("Ошибка формирования периодического протокола", exc_info=True)

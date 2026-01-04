@@ -10,14 +10,20 @@ logger = logging.getLogger(__name__)
 def _remove_marker_from_paragraph(paragraph, marker='{# keep_empty #}'):
     """
     Удаляет маркер из параграфа, сохраняя форматирование.
+    Заменяет маркер на пробел нулевой ширины, чтобы параграф не стал пустым.
 
     Args:
         paragraph: Параграф из которого нужно удалить маркер
         marker: Маркер для удаления
     """
+    # Пробел нулевой ширины (Zero Width Space) - невидимый символ
+    # который не отображается, но предотвращает удаление пустого параграфа
+    ZERO_WIDTH_SPACE = '\u200B'
+
     for run in paragraph.runs:
         if marker in run.text:
-            run.text = run.text.replace(marker, '')
+            # Заменяем маркер на пробел нулевой ширины
+            run.text = run.text.replace(marker, ZERO_WIDTH_SPACE)
 
 
 def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:

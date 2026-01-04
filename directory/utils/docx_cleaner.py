@@ -7,6 +7,19 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
+def _remove_marker_from_paragraph(paragraph, marker='{# keep_empty #}'):
+    """
+    Удаляет маркер из параграфа, сохраняя форматирование.
+
+    Args:
+        paragraph: Параграф из которого нужно удалить маркер
+        marker: Маркер для удаления
+    """
+    for run in paragraph.runs:
+        if marker in run.text:
+            run.text = run.text.replace(marker, '')
+
+
 def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
     """
     Удаляет пустые параграфы из DOCX документа (body, headers, footers).
@@ -30,6 +43,13 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
 
         for i, paragraph in enumerate(doc.paragraphs):
             text = paragraph.text.strip()
+
+            # Проверяем наличие маркера {# keep_empty #}
+            if '{# keep_empty #}' in text:
+                # Удаляем маркер из текста, сохраняя форматирование
+                _remove_marker_from_paragraph(paragraph)
+                logger.debug(f"[remove_empty_paragraphs] Body параграф {i} сохранён с маркером keep_empty")
+                continue
 
             # Проверяем, является ли параграф пустым
             if not text:
@@ -56,6 +76,13 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
             header_paras_to_remove = []
             for i, paragraph in enumerate(section.header.paragraphs):
                 text = paragraph.text.strip()
+
+                # Проверяем наличие маркера {# keep_empty #}
+                if '{# keep_empty #}' in text:
+                    _remove_marker_from_paragraph(paragraph)
+                    logger.debug(f"[remove_empty_paragraphs] Header параграф {i} сохранён с маркером keep_empty")
+                    continue
+
                 if not text or all(char in ' -–—' for char in text):
                     header_paras_to_remove.append(i)
                     logger.debug(f"[remove_empty_paragraphs] Header параграф {i} будет удалён: '{text}'")
@@ -69,6 +96,13 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
             footer_paras_to_remove = []
             for i, paragraph in enumerate(section.footer.paragraphs):
                 text = paragraph.text.strip()
+
+                # Проверяем наличие маркера {# keep_empty #}
+                if '{# keep_empty #}' in text:
+                    _remove_marker_from_paragraph(paragraph)
+                    logger.debug(f"[remove_empty_paragraphs] Footer параграф {i} сохранён с маркером keep_empty")
+                    continue
+
                 if not text or all(char in ' -–—' for char in text):
                     footer_paras_to_remove.append(i)
                     logger.debug(f"[remove_empty_paragraphs] Footer параграф {i} будет удалён: '{text}'")

@@ -105,6 +105,7 @@ class CommissionMember(models.Model):
     """
     ROLE_CHOICES = [
         ('chairman', '👑 Председатель комиссии'),
+        ('vice_chairman', '🥈 Заместитель председателя комиссии'),
         ('member', '👤 Член комиссии'),
         ('secretary', '📝 Секретарь комиссии'),
     ]
@@ -123,7 +124,7 @@ class CommissionMember(models.Model):
     )
     role = models.CharField(
         'Роль в комиссии',
-        max_length=10,
+        max_length=20,
         choices=ROLE_CHOICES,
         default='member'
     )
@@ -146,7 +147,7 @@ class CommissionMember(models.Model):
         if not self.commission_id:
             return  # Комиссия ещё не сохранена, пропускаем
 
-        if self.is_active and self.role in ['chairman', 'secretary']:
+        if self.is_active and self.role in ['chairman', 'vice_chairman', 'secretary']:
             existing = CommissionMember.objects.filter(
                 commission=self.commission,
                 role=self.role,

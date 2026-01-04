@@ -125,6 +125,7 @@ def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True) -> bytes:
         Очищенный DOCX документ в виде байтов
     """
     try:
+        logger.info(f"[clean_document] ===== ВЫЗОВ ФУНКЦИИ clean_document, размер документа: {len(doc_bytes)} байт =====")
         logger.debug("[clean_document] Начало очистки документа")
 
         # Сначала удаляем пустые параграфы

@@ -181,7 +181,9 @@ def generate_knowledge_protocol(
         buffer.seek(0)
 
         # 9) Очищаем пустые параграфы и строки
+        logger.info("[generate_protocol] ПЕРЕД вызовом clean_document")
         cleaned_content = clean_document(buffer.getvalue())
+        logger.info("[generate_protocol] ПОСЛЕ вызова clean_document")
 
         from directory.utils.declension import get_initials_from_name
         employee_initials = get_initials_from_name(context.get('fio_nominative', ''))
@@ -489,7 +491,9 @@ def generate_periodic_protocol(
         buffer.seek(0)
 
         # Очищаем пустые параграфы и строки
+        logger.info("[generate_periodic_protocols] ПЕРЕД вызовом clean_document")
         cleaned_content = clean_document(buffer.getvalue())
+        logger.info("[generate_periodic_protocols] ПОСЛЕ вызова clean_document")
 
         # Формируем имя файла на основе grouping_name или организации
         if grouping_name:

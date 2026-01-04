@@ -19,6 +19,7 @@ from docxtpl import DocxTemplate
 from directory.document_generators.base import prepare_employee_context
 from directory.utils import find_appropriate_commission, get_commission_members_formatted
 from directory.utils.declension import decline_phrase
+from directory.utils.docx_cleaner import clean_document
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +397,9 @@ def generate_safety_certificates_rowwise(
     composer.save(buffer)
     buffer.seek(0)
 
+    # Очищаем пустые параграфы и строки
+    cleaned_content = clean_document(buffer.getvalue())
+
     # Формируем имя файла
     if grouping_name:
         clean_name = grouping_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
@@ -405,4 +409,4 @@ def generate_safety_certificates_rowwise(
         clean_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
         filename = f"Удостоверения по ОТ_{clean_name}.docx"
 
-    return {'content': buffer.getvalue(), 'filename': filename}
+    return {'content': cleaned_content, 'filename': filename}

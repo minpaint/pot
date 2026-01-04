@@ -26,8 +26,14 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
     for i, paragraph in enumerate(doc.paragraphs):
         text = paragraph.text.strip()
 
-        # Проверяем, является ли параграф пустым или содержит только разделители
-        if not text or text in ['', '-', '—', '–', ' - ', ' — ', ' – ']:
+        # Проверяем, является ли параграф пустым
+        if not text:
+            paragraphs_to_remove.append(i)
+            continue
+
+        # Проверяем, состоит ли строка только из разделителей (тире и пробелы)
+        # Разрешённые символы: пробел, дефис, короткое тире, длинное тире
+        if all(char in ' -–—' for char in text):
             paragraphs_to_remove.append(i)
 
     # Удаляем параграфы в обратном порядке (чтобы индексы не сбились)

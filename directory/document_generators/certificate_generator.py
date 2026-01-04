@@ -33,16 +33,16 @@ def _build_certificate_context(employee, commission_cache: Optional[Dict[int, Di
 
     if commission_cache is not None and cache_key in commission_cache:
         cached = commission_cache[cache_key]
-        context.setdefault('chairman_name_initials', cached.get('chairman_name_initials', '—'))
-        context.setdefault('vice_chairman_name_initials', cached.get('vice_chairman_name_initials', '—'))
+        context.setdefault('chairman_name_initials', cached.get('chairman_name_initials', ''))
+        context.setdefault('vice_chairman_name_initials', cached.get('vice_chairman_name_initials', ''))
         context.setdefault('binding_name_genitive', cached.get('binding_name_genitive', ''))
         return context
 
     commission_data = get_commission_members_formatted(commission) if commission else {}
     chairman = commission_data.get('chairman', {})
-    chairman_initials = chairman.get('name_initials', '—')
+    chairman_initials = chairman.get('name_initials', '')
     vice_chairman = commission_data.get('vice_chairman', {})
-    vice_chairman_initials = vice_chairman.get('name_initials', '—')
+    vice_chairman_initials = vice_chairman.get('name_initials', '')
 
     if commission:
         if commission.department:

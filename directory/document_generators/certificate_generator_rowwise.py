@@ -91,9 +91,9 @@ def _build_employee_context(employee, commission_cache: Optional[Dict[int, Dict[
     # Получаем данные комиссии
     commission_data = get_commission_members_formatted(commission) if commission else {}
     chairman = commission_data.get('chairman', {})
-    chairman_initials = chairman.get('name_initials', '—')
+    chairman_initials = chairman.get('name_initials', '')
     vice_chairman = commission_data.get('vice_chairman', {})
-    vice_chairman_initials = vice_chairman.get('name_initials', '—')
+    vice_chairman_initials = vice_chairman.get('name_initials', '')
 
     # Определяем binding (привязку к подразделению/отделу)
     if commission:

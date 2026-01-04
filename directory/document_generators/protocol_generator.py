@@ -60,21 +60,27 @@ def generate_knowledge_protocol(
 
         # 4.1) Председатель
         chairman = cdata.get('chairman', {})
-        context.setdefault('chairman_name', chairman.get('name', '—'))
-        context.setdefault('chairman_position', chairman.get('position', '—').lower())
-        context.setdefault('chairman_name_initials', chairman.get('name_initials', '—'))
+        has_chairman = bool(chairman.get('name'))
+        context.setdefault('chairman_role_label', 'Председатель комиссии:' if has_chairman else '')
+        context.setdefault('chairman_name', chairman.get('name', ''))
+        context.setdefault('chairman_position', chairman.get('position', '').lower() if chairman.get('position') else '')
+        context.setdefault('chairman_name_initials', chairman.get('name_initials', ''))
 
         # 4.2) Заместитель председателя
         vice_chairman = cdata.get('vice_chairman', {})
-        context.setdefault('vice_chairman_name', vice_chairman.get('name', '—'))
-        context.setdefault('vice_chairman_position', vice_chairman.get('position', '—').lower())
-        context.setdefault('vice_chairman_name_initials', vice_chairman.get('name_initials', '—'))
+        has_vice_chairman = bool(vice_chairman.get('name'))
+        context.setdefault('vice_chairman_role_label', 'Заместитель председателя комиссии:' if has_vice_chairman else '')
+        context.setdefault('vice_chairman_name', vice_chairman.get('name', ''))
+        context.setdefault('vice_chairman_position', vice_chairman.get('position', '').lower() if vice_chairman.get('position') else '')
+        context.setdefault('vice_chairman_name_initials', vice_chairman.get('name_initials', ''))
 
         # 4.3) Секретарь
         secretary = cdata.get('secretary', {})
-        context.setdefault('secretary_name', secretary.get('name', '—'))
-        context.setdefault('secretary_position', secretary.get('position', '—').lower())
-        context.setdefault('secretary_name_initials', secretary.get('name_initials', '—'))
+        has_secretary = bool(secretary.get('name'))
+        context.setdefault('secretary_role_label', 'Секретарь комиссии:' if has_secretary else '')
+        context.setdefault('secretary_name', secretary.get('name', ''))
+        context.setdefault('secretary_position', secretary.get('position', '').lower() if secretary.get('position') else '')
+        context.setdefault('secretary_name_initials', secretary.get('name_initials', ''))
 
         # 4.4) Члены комиссии
         members = cdata.get('members_formatted', [])
@@ -369,19 +375,25 @@ def generate_periodic_protocol(
         logger.info(f"[periodic_protocol] Данные комиссии: chairman={bool(cdata.get('chairman'))}, secretary={bool(cdata.get('secretary'))}, members={len(cdata.get('members_formatted', []))}")
 
         chairman = cdata.get('chairman', {})
-        context.setdefault('chairman_name', chairman.get('name', '-'))
-        context.setdefault('chairman_position', chairman.get('position', '-').lower())
-        context.setdefault('chairman_name_initials', chairman.get('name_initials', '-'))
+        has_chairman = bool(chairman.get('name'))
+        context.setdefault('chairman_role_label', 'Председатель комиссии:' if has_chairman else '')
+        context.setdefault('chairman_name', chairman.get('name', ''))
+        context.setdefault('chairman_position', chairman.get('position', '').lower() if chairman.get('position') else '')
+        context.setdefault('chairman_name_initials', chairman.get('name_initials', ''))
 
         vice_chairman = cdata.get('vice_chairman', {})
-        context.setdefault('vice_chairman_name', vice_chairman.get('name', '-'))
-        context.setdefault('vice_chairman_position', vice_chairman.get('position', '-').lower())
-        context.setdefault('vice_chairman_name_initials', vice_chairman.get('name_initials', '-'))
+        has_vice_chairman = bool(vice_chairman.get('name'))
+        context.setdefault('vice_chairman_role_label', 'Заместитель председателя комиссии:' if has_vice_chairman else '')
+        context.setdefault('vice_chairman_name', vice_chairman.get('name', ''))
+        context.setdefault('vice_chairman_position', vice_chairman.get('position', '').lower() if vice_chairman.get('position') else '')
+        context.setdefault('vice_chairman_name_initials', vice_chairman.get('name_initials', ''))
 
         secretary = cdata.get('secretary', {})
-        context.setdefault('secretary_name', secretary.get('name', '-'))
-        context.setdefault('secretary_position', secretary.get('position', '-').lower())
-        context.setdefault('secretary_name_initials', secretary.get('name_initials', '-'))
+        has_secretary = bool(secretary.get('name'))
+        context.setdefault('secretary_role_label', 'Секретарь комиссии:' if has_secretary else '')
+        context.setdefault('secretary_name', secretary.get('name', ''))
+        context.setdefault('secretary_position', secretary.get('position', '').lower() if secretary.get('position') else '')
+        context.setdefault('secretary_name_initials', secretary.get('name_initials', ''))
 
         members = cdata.get('members_formatted', [])
         context.setdefault('members_formatted', members)

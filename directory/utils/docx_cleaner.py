@@ -157,23 +157,16 @@ def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True) -> bytes:
         Очищенный DOCX документ в виде байтов
     """
     try:
-        logger.info(f"[clean_document] ===== ВЫЗОВ ФУНКЦИИ clean_document, размер документа: {len(doc_bytes)} байт =====")
-        logger.debug("[clean_document] Начало очистки документа")
-
         # Сначала удаляем пустые параграфы
         doc_bytes = remove_empty_paragraphs(doc_bytes)
-        logger.debug("[clean_document] Пустые параграфы удалены")
 
         # Потом удаляем пустые строки таблиц (если нужно)
         if remove_empty_rows:
             doc_bytes = remove_empty_table_rows(doc_bytes)
-            logger.debug("[clean_document] Пустые строки таблиц удалены")
 
-        logger.info("[clean_document] Документ успешно очищен")
         return doc_bytes
 
     except Exception as e:
         logger.error(f"[clean_document] Ошибка при очистке документа: {e}", exc_info=True)
         # В случае ошибки возвращаем оригинальный документ
-        logger.warning("[clean_document] Возвращаем неочищенный документ")
         return doc_bytes

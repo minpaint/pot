@@ -375,13 +375,10 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        print(f"\n\n{'='*60}\nVIEW DEBUG: POST запрос к PeriodicProtocolView\n{'='*60}\n", flush=True)
         employees_qs = self.get_base_queryset()
         action = request.POST.get('action')
-        print(f"ACTION: {action}", flush=True)
         scope_type = request.POST.get('scope_type')
         scope_id = request.POST.get('scope_id')
-        print(f"SCOPE: type={scope_type}, id={scope_id}\n", flush=True)
 
         if scope_type and scope_id:
             try:
@@ -420,7 +417,6 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                 grouping_name = None
 
             if action == 'scope_protocol':
-                print(f"\n===== VIEW DEBUG: Генерация протокола для {len(employees)} сотрудников, action=scope_protocol =====\n", flush=True)
                 doc = generate_periodic_protocol(employees, user=request.user, grouping_name=grouping_name)
             else:
                 doc = generate_safety_certificates(employees, grouping_name=grouping_name)
@@ -494,7 +490,6 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                     grouped.setdefault(key, []).append(emp)
 
                 for key, emps in grouped.items():
-                    print(f"\n===== VIEW DEBUG: Генерация протокола для группы '{key}', {len(emps)} сотрудников =====\n", flush=True)
                     doc = generate_periodic_protocol(emps, user=request.user, grouping_name=key)
                     if not doc:
                         continue
@@ -518,7 +513,6 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
             response['Content-Disposition'] = f'attachment; filename="protocols.zip"; filename*=UTF-8\'\'{zip_filename_encoded}'
             return response
 
-        print(f"\n===== VIEW DEBUG: Генерация протокола (default path) для {len(employees)} сотрудников =====\n", flush=True)
         doc = generate_periodic_protocol(employees, user=request.user)
         if not doc:
             messages.error(request, "Не удалось сформировать протокол")

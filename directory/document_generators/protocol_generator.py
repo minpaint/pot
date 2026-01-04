@@ -181,9 +181,7 @@ def generate_knowledge_protocol(
         buffer.seek(0)
 
         # 9) Очищаем пустые параграфы и строки
-        logger.info("[generate_protocol] ПЕРЕД вызовом clean_document")
         cleaned_content = clean_document(buffer.getvalue())
-        logger.info("[generate_protocol] ПОСЛЕ вызова clean_document")
 
         from directory.utils.declension import get_initials_from_name
         employee_initials = get_initials_from_name(context.get('fio_nominative', ''))
@@ -354,8 +352,6 @@ def generate_periodic_protocol(
     """
     Сформировать протокол периодической проверки знаний для списка сотрудников.
     """
-    print(f"\n\n===== DEBUG: ВЫЗОВ generate_periodic_protocol для {len(employees) if employees else 0} сотрудников =====\n", flush=True)
-    logger.info(f"===== ВЫЗОВ generate_periodic_protocol для {len(employees) if employees else 0} сотрудников =====")
     try:
         if not employees:
             raise ValueError("Не переданы сотрудники для протокола")
@@ -493,11 +489,7 @@ def generate_periodic_protocol(
         buffer.seek(0)
 
         # Очищаем пустые параграфы и строки
-        print(f"\n===== DEBUG: ПЕРЕД вызовом clean_document, размер документа: {len(buffer.getvalue())} байт =====\n", flush=True)
-        logger.info("[generate_periodic_protocols] ПЕРЕД вызовом clean_document")
         cleaned_content = clean_document(buffer.getvalue())
-        print(f"\n===== DEBUG: ПОСЛЕ вызова clean_document, размер: {len(cleaned_content)} байт =====\n", flush=True)
-        logger.info("[generate_periodic_protocols] ПОСЛЕ вызова clean_document")
 
         # Формируем имя файла на основе grouping_name или организации
         if grouping_name:

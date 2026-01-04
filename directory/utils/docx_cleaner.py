@@ -7,7 +7,7 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
-def _remove_marker_from_paragraph(paragraph, marker='{# keep_empty #}'):
+def _remove_marker_from_paragraph(paragraph, marker='__KEEP_EMPTY__'):
     """
     Удаляет маркер из параграфа, сохраняя форматирование.
     Заменяет маркер на пробел нулевой ширины, чтобы параграф не стал пустым.
@@ -50,8 +50,8 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
         for i, paragraph in enumerate(doc.paragraphs):
             text = paragraph.text.strip()
 
-            # Проверяем наличие маркера {# keep_empty #}
-            if '{# keep_empty #}' in text:
+            # Проверяем наличие маркера __KEEP_EMPTY__
+            if '__KEEP_EMPTY__' in text:
                 # Удаляем маркер из текста, сохраняя форматирование
                 _remove_marker_from_paragraph(paragraph)
                 logger.debug(f"[remove_empty_paragraphs] Body параграф {i} сохранён с маркером keep_empty")
@@ -83,8 +83,8 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
             for i, paragraph in enumerate(section.header.paragraphs):
                 text = paragraph.text.strip()
 
-                # Проверяем наличие маркера {# keep_empty #}
-                if '{# keep_empty #}' in text:
+                # Проверяем наличие маркера __KEEP_EMPTY__
+                if '__KEEP_EMPTY__' in text:
                     _remove_marker_from_paragraph(paragraph)
                     logger.debug(f"[remove_empty_paragraphs] Header параграф {i} сохранён с маркером keep_empty")
                     continue
@@ -103,8 +103,8 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
             for i, paragraph in enumerate(section.footer.paragraphs):
                 text = paragraph.text.strip()
 
-                # Проверяем наличие маркера {# keep_empty #}
-                if '{# keep_empty #}' in text:
+                # Проверяем наличие маркера __KEEP_EMPTY__
+                if '__KEEP_EMPTY__' in text:
                     _remove_marker_from_paragraph(paragraph)
                     logger.debug(f"[remove_empty_paragraphs] Footer параграф {i} сохранён с маркером keep_empty")
                     continue

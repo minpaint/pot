@@ -1,7 +1,10 @@
 # directory/utils/docx_cleaner.py
 
+import logging
 from docx import Document
 from io import BytesIO
+
+logger = logging.getLogger(__name__)
 
 
 def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
@@ -18,35 +21,44 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
     Returns:
         Очищенный DOCX документ в виде байтов
     """
-    doc = Document(BytesIO(doc_bytes))
+    try:
+        doc = Document(BytesIO(doc_bytes))
+        total_paragraphs = len(doc.paragraphs)
 
-    # Список индексов параграфов для удаления
-    paragraphs_to_remove = []
+        # Список индексов параграфов для удаления
+        paragraphs_to_remove = []
 
-    for i, paragraph in enumerate(doc.paragraphs):
-        text = paragraph.text.strip()
+        for i, paragraph in enumerate(doc.paragraphs):
+            text = paragraph.text.strip()
 
-        # Проверяем, является ли параграф пустым
-        if not text:
-            paragraphs_to_remove.append(i)
-            continue
+            # Проверяем, является ли параграф пустым
+            if not text:
+                paragraphs_to_remove.append(i)
+                continue
 
-        # Проверяем, состоит ли строка только из разделителей (тире и пробелы)
-        # Разрешённые символы: пробел, дефис, короткое тире, длинное тире
-        if all(char in ' -–—' for char in text):
-            paragraphs_to_remove.append(i)
+            # Проверяем, состоит ли строка только из разделителей (тире и пробелы)
+            # Разрешённые символы: пробел, дефис, короткое тире, длинное тире
+            if all(char in ' -–—' for char in text):
+                paragraphs_to_remove.append(i)
+                logger.debug(f"[remove_empty_paragraphs] Параграф {i} будет удалён: '{text}'")
 
-    # Удаляем параграфы в обратном порядке (чтобы индексы не сбились)
-    for i in reversed(paragraphs_to_remove):
-        p = doc.paragraphs[i]._element
-        p.getparent().remove(p)
+        # Удаляем параграфы в обратном порядке (чтобы индексы не сбились)
+        for i in reversed(paragraphs_to_remove):
+            p = doc.paragraphs[i]._element
+            p.getparent().remove(p)
 
-    # Сохраняем в BytesIO
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
+        logger.info(f"[remove_empty_paragraphs] Удалено {len(paragraphs_to_remove)} из {total_paragraphs} параграфов")
 
-    return buffer.getvalue()
+        # Сохраняем в BytesIO
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+
+        return buffer.getvalue()
+
+    except Exception as e:
+        logger.error(f"[remove_empty_paragraphs] Ошибка: {e}", exc_info=True)
+        return doc_bytes
 
 
 def remove_empty_table_rows(doc_bytes: bytes) -> bytes:
@@ -61,32 +73,44 @@ def remove_empty_table_rows(doc_bytes: bytes) -> bytes:
     Returns:
         Очищенный DOCX документ в виде байтов
     """
-    doc = Document(BytesIO(doc_bytes))
+    try:
+        doc = Document(BytesIO(doc_bytes))
+        total_removed = 0
 
-    for table in doc.tables:
-        rows_to_remove = []
+        for table_idx, table in enumerate(doc.tables):
+            rows_to_remove = []
 
-        for i, row in enumerate(table.rows):
-            # Проверяем все ячейки в строке
-            all_empty = True
-            for cell in row.cells:
-                cell_text = cell.text.strip()
-                if cell_text and cell_text not in ['', '-', '—', '–']:
-                    all_empty = False
-                    break
+            for i, row in enumerate(table.rows):
+                # Проверяем все ячейки в строке
+                all_empty = True
+                for cell in row.cells:
+                    cell_text = cell.text.strip()
+                    if cell_text and cell_text not in ['', '-', '—', '–']:
+                        all_empty = False
+                        break
 
-            if all_empty:
-                rows_to_remove.append(i)
+                if all_empty:
+                    rows_to_remove.append(i)
 
-        # Удаляем строки в обратном порядке
-        for i in reversed(rows_to_remove):
-            table._tbl.remove(table.rows[i]._tr)
+            # Удаляем строки в обратном порядке
+            for i in reversed(rows_to_remove):
+                table._tbl.remove(table.rows[i]._tr)
+                total_removed += 1
 
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
+            if rows_to_remove:
+                logger.debug(f"[remove_empty_table_rows] Таблица {table_idx}: удалено {len(rows_to_remove)} строк")
 
-    return buffer.getvalue()
+        logger.info(f"[remove_empty_table_rows] Всего удалено {total_removed} пустых строк из таблиц")
+
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+
+        return buffer.getvalue()
+
+    except Exception as e:
+        logger.error(f"[remove_empty_table_rows] Ошибка: {e}", exc_info=True)
+        return doc_bytes
 
 
 def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True) -> bytes:
@@ -100,11 +124,23 @@ def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True) -> bytes:
     Returns:
         Очищенный DOCX документ в виде байтов
     """
-    # Сначала удаляем пустые параграфы
-    doc_bytes = remove_empty_paragraphs(doc_bytes)
+    try:
+        logger.debug("[clean_document] Начало очистки документа")
 
-    # Потом удаляем пустые строки таблиц (если нужно)
-    if remove_empty_rows:
-        doc_bytes = remove_empty_table_rows(doc_bytes)
+        # Сначала удаляем пустые параграфы
+        doc_bytes = remove_empty_paragraphs(doc_bytes)
+        logger.debug("[clean_document] Пустые параграфы удалены")
 
-    return doc_bytes
+        # Потом удаляем пустые строки таблиц (если нужно)
+        if remove_empty_rows:
+            doc_bytes = remove_empty_table_rows(doc_bytes)
+            logger.debug("[clean_document] Пустые строки таблиц удалены")
+
+        logger.info("[clean_document] Документ успешно очищен")
+        return doc_bytes
+
+    except Exception as e:
+        logger.error(f"[clean_document] Ошибка при очистке документа: {e}", exc_info=True)
+        # В случае ошибки возвращаем оригинальный документ
+        logger.warning("[clean_document] Возвращаем неочищенный документ")
+        return doc_bytes

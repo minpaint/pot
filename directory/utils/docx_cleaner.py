@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
     """
-    Удаляет пустые параграфы из DOCX документа.
+    Удаляет пустые параграфы из DOCX документа (body, headers, footers).
 
     Параграф считается пустым, если:
     - Не содержит текста
@@ -23,9 +23,9 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
     """
     try:
         doc = Document(BytesIO(doc_bytes))
-        total_paragraphs = len(doc.paragraphs)
 
-        # Список индексов параграфов для удаления
+        # Удаляем пустые параграфы из body
+        total_paragraphs = len(doc.paragraphs)
         paragraphs_to_remove = []
 
         for i, paragraph in enumerate(doc.paragraphs):
@@ -40,14 +40,46 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
             # Разрешённые символы: пробел, дефис, короткое тире, длинное тире
             if all(char in ' -–—' for char in text):
                 paragraphs_to_remove.append(i)
-                logger.debug(f"[remove_empty_paragraphs] Параграф {i} будет удалён: '{text}'")
+                logger.debug(f"[remove_empty_paragraphs] Body параграф {i} будет удалён: '{text}'")
 
         # Удаляем параграфы в обратном порядке (чтобы индексы не сбились)
         for i in reversed(paragraphs_to_remove):
             p = doc.paragraphs[i]._element
             p.getparent().remove(p)
 
-        logger.info(f"[remove_empty_paragraphs] Удалено {len(paragraphs_to_remove)} из {total_paragraphs} параграфов")
+        logger.info(f"[remove_empty_paragraphs] Удалено {len(paragraphs_to_remove)} из {total_paragraphs} параграфов из body")
+
+        # Удаляем пустые параграфы из headers и footers всех секций
+        headers_footers_removed = 0
+        for section in doc.sections:
+            # Обрабатываем header
+            header_paras_to_remove = []
+            for i, paragraph in enumerate(section.header.paragraphs):
+                text = paragraph.text.strip()
+                if not text or all(char in ' -–—' for char in text):
+                    header_paras_to_remove.append(i)
+                    logger.debug(f"[remove_empty_paragraphs] Header параграф {i} будет удалён: '{text}'")
+
+            for i in reversed(header_paras_to_remove):
+                p = section.header.paragraphs[i]._element
+                p.getparent().remove(p)
+                headers_footers_removed += 1
+
+            # Обрабатываем footer
+            footer_paras_to_remove = []
+            for i, paragraph in enumerate(section.footer.paragraphs):
+                text = paragraph.text.strip()
+                if not text or all(char in ' -–—' for char in text):
+                    footer_paras_to_remove.append(i)
+                    logger.debug(f"[remove_empty_paragraphs] Footer параграф {i} будет удалён: '{text}'")
+
+            for i in reversed(footer_paras_to_remove):
+                p = section.footer.paragraphs[i]._element
+                p.getparent().remove(p)
+                headers_footers_removed += 1
+
+        if headers_footers_removed > 0:
+            logger.info(f"[remove_empty_paragraphs] Удалено {headers_footers_removed} параграфов из headers/footers")
 
         # Сохраняем в BytesIO
         buffer = BytesIO()

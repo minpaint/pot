@@ -59,9 +59,11 @@ def _build_employee_context(employee, commission_cache: Optional[Dict[int, Dict[
         - fio_dative: ФИО в дательном падеже
         - position_nominative: Должность
         - chairman_name_initials: Инициалы председателя комиссии
+        - vice_chairman_name_initials: Инициалы заместителя председателя комиссии
         - binding_name_genitive: Название подразделения/отдела в родительном падеже
         - organization_name_genitive: Название организации в родительном падеже
         - organization_name: Название организации
+        - workplace: Место работы (2 нижних уровня иерархии)
     """
     context = prepare_employee_context(employee)
     commission = find_appropriate_commission(employee)
@@ -73,12 +75,25 @@ def _build_employee_context(employee, commission_cache: Optional[Dict[int, Dict[
         # Объединяем с базовым контекстом сотрудника
         result = context.copy()
         result.update(cached)
+
+        # Вычисляем "Место работы" (2 нижних уровня иерархии)
+        # Это поле зависит от сотрудника, поэтому не кэшируется
+        if context.get('department'):
+            workplace = context.get('department', '')
+        elif context.get('subdivision'):
+            workplace = context.get('subdivision', '')
+        else:
+            workplace = context.get('organization_name', '')
+        result['workplace'] = workplace
+
         return result
 
     # Получаем данные комиссии
     commission_data = get_commission_members_formatted(commission) if commission else {}
     chairman = commission_data.get('chairman', {})
     chairman_initials = chairman.get('name_initials', '—')
+    vice_chairman = commission_data.get('vice_chairman', {})
+    vice_chairman_initials = vice_chairman.get('name_initials', '—')
 
     # Определяем binding (привязку к подразделению/отделу)
     if commission:
@@ -95,19 +110,31 @@ def _build_employee_context(employee, commission_cache: Optional[Dict[int, Dict[
 
     # Формируем переменные для шаблона
     # Шаблон использует binding_name_genitive и organization_name_genitive
+
+    # Вычисляем "Место работы" (2 нижних уровня иерархии)
+    if context.get('department'):
+        workplace = context.get('department', '')
+    elif context.get('subdivision'):
+        workplace = context.get('subdivision', '')
+    else:
+        workplace = context.get('organization_name', '')
+
     result = {
         'fio_dative': context.get('fio_dative', ''),
         'position_nominative': context.get('position_nominative', ''),
         'chairman_name_initials': chairman_initials,
+        'vice_chairman_name_initials': vice_chairman_initials,
         'binding_name_genitive': binding if binding else '',
         'organization_name_genitive': context.get('organization_name_genitive', ''),
         'organization_name': context.get('organization_name', ''),
+        'workplace': workplace,
     }
 
     # Сохраняем в кэш
     if commission_cache is not None:
         commission_cache[cache_key] = {
             'chairman_name_initials': chairman_initials,
+            'vice_chairman_name_initials': vice_chairman_initials,
             'binding_name_genitive': result['binding_name_genitive'],
             'organization_name_genitive': result['organization_name_genitive'],
             'organization_name': result['organization_name'],
@@ -181,6 +208,10 @@ def _copy_cell_content(source_cell, target_cell):
         else:
             target_para = target_cell.add_paragraph()
 
+        # Копируем стиль параграфа, чтобы сохранить размер шрифта по стилю
+        if paragraph.style is not None:
+            target_para.style = paragraph.style
+
         # Копируем форматирование параграфа
         target_para.alignment = paragraph.alignment
 
@@ -207,6 +238,8 @@ def _copy_cell_content(source_cell, target_cell):
         # Копируем runs
         for run in paragraph.runs:
             new_run = target_para.add_run(run.text)
+            if run.style is not None:
+                new_run.style = run.style
             if run.font.name:
                 new_run.font.name = run.font.name
             if run.font.size:
@@ -217,6 +250,26 @@ def _copy_cell_content(source_cell, target_cell):
                 new_run.font.italic = run.font.italic
             if run.font.underline is not None:
                 new_run.font.underline = run.font.underline
+            if run.font.color is not None and run.font.color.rgb is not None:
+                new_run.font.color.rgb = run.font.color.rgb
+            if run.font.highlight_color is not None:
+                new_run.font.highlight_color = run.font.highlight_color
+            if run.font.all_caps is not None:
+                new_run.font.all_caps = run.font.all_caps
+            if run.font.small_caps is not None:
+                new_run.font.small_caps = run.font.small_caps
+            if run.font.strike is not None:
+                new_run.font.strike = run.font.strike
+            if run.font.double_strike is not None:
+                new_run.font.double_strike = run.font.double_strike
+            if run.font.subscript is not None:
+                new_run.font.subscript = run.font.subscript
+            if run.font.superscript is not None:
+                new_run.font.superscript = run.font.superscript
+            if run.font.shadow is not None:
+                new_run.font.shadow = run.font.shadow
+            if run.font.outline is not None:
+                new_run.font.outline = run.font.outline
 
 
 def _assemble_document(template_bytes: bytes, employees: List, commission_cache: Dict) -> Document:

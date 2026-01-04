@@ -62,11 +62,13 @@ def get_commission_members_formatted(commission: Commission) -> Dict[str, any]:
     """
     Формирует состав комиссии с разбивкой по ролям:
       - chairman (председатель)
+      - vice_chairman (заместитель председателя)
       - secretary (секретарь)
       - members (список остальных)
       - members_formatted (то же самое, чаще для шаблонов)
     """
     chairman_data = {}
+    vice_chairman_data = {}
     secretary_data = {}
     members_data = []
 
@@ -84,6 +86,8 @@ def get_commission_members_formatted(commission: Commission) -> Dict[str, any]:
         }
         if member.role == 'chairman':
             chairman_data = entry
+        elif member.role == 'vice_chairman':
+            vice_chairman_data = entry
         elif member.role == 'secretary':
             secretary_data = entry
         else:
@@ -91,6 +95,7 @@ def get_commission_members_formatted(commission: Commission) -> Dict[str, any]:
 
     return {
         'chairman': chairman_data,
+        'vice_chairman': vice_chairman_data,
         'secretary': secretary_data,
         'members': members_data,
         'members_formatted': members_data

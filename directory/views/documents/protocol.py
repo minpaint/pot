@@ -13,7 +13,7 @@ import logging
 from io import BytesIO
 from zipfile import ZipFile
 
-from directory.models import Employee
+from directory.models import Employee, Organization
 from directory.document_generators.protocol_generator import generate_knowledge_protocol, generate_periodic_protocol
 from directory.document_generators.certificate_generator_rowwise import generate_safety_certificates_rowwise as generate_safety_certificates
 from directory.utils import find_appropriate_commission, get_commission_members_formatted
@@ -306,10 +306,56 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        employees = list(self.get_base_queryset())
 
+        user = self.request.user
+
+        if user.is_superuser:
+            accessible_orgs = Organization.objects.all()
+        else:
+            if hasattr(self.request, '_user_orgs_cache'):
+                delattr(self.request, '_user_orgs_cache')
+            accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
+
+        org_id_param = self.request.GET.get('org', '')
+        selected_org_id = None
+
+        if org_id_param:
+            try:
+                org_id = int(org_id_param)
+                if accessible_orgs.filter(id=org_id).exists():
+                    selected_org_id = org_id
+                    logger.info(
+                        f"User {user.username} viewing org_id={selected_org_id} in periodic protocol"
+                    )
+            except (ValueError, TypeError):
+                pass
+
+        if selected_org_id is None and accessible_orgs.count() == 1:
+            selected_org_id = accessible_orgs.first().id
+            logger.info(
+                f"User {user.username} auto-selected org_id={selected_org_id} in periodic protocol"
+            )
+
+        try:
+            if selected_org_id:
+                self.request.session['last_selected_org_id_periodic_protocol'] = selected_org_id
+            elif hasattr(self.request, 'session') and 'last_selected_org_id_periodic_protocol' in self.request.session:
+                last_org_id = self.request.session.get('last_selected_org_id_periodic_protocol')
+                if accessible_orgs.filter(id=last_org_id).exists():
+                    selected_org_id = last_org_id
+                    logger.info(
+                        f"User {user.username} restored org_id={selected_org_id} from session"
+                    )
+        except Exception as e:
+            logger.warning(f"Session not available: {e}")
+
+        if selected_org_id and accessible_orgs.count() == 1:
+            context['org_options'] = accessible_orgs.filter(id=selected_org_id)
+        else:
+            context['org_options'] = accessible_orgs
+        context['selected_org_id'] = selected_org_id
+        context['show_tree'] = selected_org_id is not None
         context['title'] = 'Периодическая проверка знаний'
-        context['tree'] = self.build_tree_structure(employees)
         context['tree_settings'] = {
             'icons': {
                 'organization': '🏢',
@@ -319,13 +365,23 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
             }
         }
 
+        if not context['show_tree']:
+            context['tree'] = {}
+            return context
+
+        employees = list(self.get_base_queryset().filter(organization_id=selected_org_id))
+        context['tree'] = self.build_tree_structure(employees)
+
         return context
 
     def post(self, request, *args, **kwargs):
+        print(f"\n\n{'='*60}\nVIEW DEBUG: POST запрос к PeriodicProtocolView\n{'='*60}\n", flush=True)
         employees_qs = self.get_base_queryset()
         action = request.POST.get('action')
+        print(f"ACTION: {action}", flush=True)
         scope_type = request.POST.get('scope_type')
         scope_id = request.POST.get('scope_id')
+        print(f"SCOPE: type={scope_type}, id={scope_id}\n", flush=True)
 
         if scope_type and scope_id:
             try:
@@ -364,6 +420,7 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                 grouping_name = None
 
             if action == 'scope_protocol':
+                print(f"\n===== VIEW DEBUG: Генерация протокола для {len(employees)} сотрудников, action=scope_protocol =====\n", flush=True)
                 doc = generate_periodic_protocol(employees, user=request.user, grouping_name=grouping_name)
             else:
                 doc = generate_safety_certificates(employees, grouping_name=grouping_name)
@@ -437,6 +494,7 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                     grouped.setdefault(key, []).append(emp)
 
                 for key, emps in grouped.items():
+                    print(f"\n===== VIEW DEBUG: Генерация протокола для группы '{key}', {len(emps)} сотрудников =====\n", flush=True)
                     doc = generate_periodic_protocol(emps, user=request.user, grouping_name=key)
                     if not doc:
                         continue
@@ -460,6 +518,7 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
             response['Content-Disposition'] = f'attachment; filename="protocols.zip"; filename*=UTF-8\'\'{zip_filename_encoded}'
             return response
 
+        print(f"\n===== VIEW DEBUG: Генерация протокола (default path) для {len(employees)} сотрудников =====\n", flush=True)
         doc = generate_periodic_protocol(employees, user=request.user)
         if not doc:
             messages.error(request, "Не удалось сформировать протокол")

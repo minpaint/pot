@@ -81,6 +81,7 @@ class CommissionTreeViewMixin(TreeViewMixin):
             members = obj.members.filter(is_active=True).select_related('employee')
             roles = {
                 'chairman': [],
+                'vice_chairman': [],
                 'secretary': [],
                 'member': []
             }
@@ -93,6 +94,7 @@ class CommissionTreeViewMixin(TreeViewMixin):
                 })
             item['members'] = {
                 'chairman': roles['chairman'],
+                'vice_chairman': roles['vice_chairman'],
                 'secretary': roles['secretary'],
                 'members': roles['member'],
                 'total': len(members)

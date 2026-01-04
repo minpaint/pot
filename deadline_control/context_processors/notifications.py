@@ -10,7 +10,8 @@ def deadline_notifications(request):
     """
     Context processor для отображения уведомлений об истекающих сроках
     """
-    if not request.user.is_authenticated:
+    # Проверяем наличие атрибута user (может отсутствовать до AuthenticationMiddleware)
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
         return {}
 
     today = timezone.now().date()

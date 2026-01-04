@@ -28,6 +28,11 @@
                     👑 {{ chair.name }}{% if chair.position %} — {{ chair.position }}{% endif %}
                 </div>
             {% endfor %}
+            {% for vice in item.members.vice_chairman %}
+                <div>
+                    🥈 {{ vice.name }}{% if vice.position %} — {{ vice.position }}{% endif %}
+                </div>
+            {% endfor %}
             {% for sec in item.members.secretary %}
                 <div>
                     📝 {{ sec.name }}{% if sec.position %} — {{ sec.position }}{% endif %}

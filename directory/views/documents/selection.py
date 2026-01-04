@@ -102,10 +102,18 @@ def get_auto_selected_document_types(employee):
     # Проверяем наличие норм СИЗ
     has_siz_norms = False
 
-    # Проверяем эталонные нормы СИЗ
-    from directory.models.siz import SIZNorm
-    if SIZNorm.objects.filter(position=employee.position).exists():
-        has_siz_norms = True
+    # Проверяем нормы СИЗ с учётом флага siz_norms_overridden
+    from directory.models.siz import SIZNorm, ProfessionSIZNorm
+
+    if employee.position.siz_norms_overridden:
+        # Если нормы переопределены, используем только индивидуальные нормы
+        has_siz_norms = SIZNorm.objects.filter(position=employee.position).exists()
+    else:
+        # Иначе проверяем и индивидуальные, и эталонные нормы
+        has_siz_norms = (
+            SIZNorm.objects.filter(position=employee.position).exists() or
+            ProfessionSIZNorm.objects.filter(profession_name__iexact=employee.position.position_name).exists()
+        )
 
     if has_siz_norms:
         document_types.append('siz_card')
@@ -166,10 +174,20 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
                 context['has_documents'] = hasattr(employee.position,
                                                    'documents') and employee.position.documents.exists() if employee.position else False
 
-                # Проверяем наличие норм СИЗ
-                from directory.models.siz import SIZNorm
-                context['has_siz_norms'] = SIZNorm.objects.filter(
-                    position=employee.position).exists() if employee.position else False
+                # Проверяем наличие норм СИЗ с учётом флага siz_norms_overridden
+                from directory.models.siz import SIZNorm, ProfessionSIZNorm
+                if employee.position:
+                    if employee.position.siz_norms_overridden:
+                        # Если нормы переопределены, используем только индивидуальные нормы
+                        context['has_siz_norms'] = SIZNorm.objects.filter(position=employee.position).exists()
+                    else:
+                        # Иначе проверяем и индивидуальные, и эталонные нормы
+                        context['has_siz_norms'] = (
+                            SIZNorm.objects.filter(position=employee.position).exists() or
+                            ProfessionSIZNorm.objects.filter(profession_name__iexact=employee.position.position_name).exists()
+                        )
+                else:
+                    context['has_siz_norms'] = False
 
             except Employee.DoesNotExist:
                 logger.error(f"Сотрудник с ID {employee_id} не найден")

@@ -49,9 +49,20 @@ class Employee(models.Model):
         ('fired', 'Уволен'),
     ]
 
+    # График работы
+    WORK_SCHEDULE_CHOICES = [
+        ('5/2', '5/2 (пн-пт)'),
+        ('2/2', '2/2 (сменный)'),
+    ]
+
     full_name_nominative = models.CharField(
         max_length=255,
         verbose_name="ФИО"
+    )
+    full_name_by = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="ФИО (бел.)"
     )
     date_of_birth = models.DateField(
         verbose_name="Дата рождения",
@@ -98,6 +109,28 @@ class Employee(models.Model):
         on_delete=models.PROTECT,
         verbose_name="Должность"
     )
+    education_level = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Уровень образования",
+        help_text="Например: среднее специальное"
+    )
+    prior_qualification = models.TextField(
+        blank=True,
+        verbose_name="Имеющаяся квалификация",
+        help_text="Например: автослесарь, А№0584083 от 09.02.2009"
+    )
+    qualification_document_number = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Номер диплома/свидетельства"
+    )
+    qualification_document_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата диплома/свидетельства"
+    )
     height = models.CharField(
         max_length=15,
         choices=HEIGHT_CHOICES,
@@ -130,6 +163,12 @@ class Employee(models.Model):
         default='active',
         db_index=True,
         help_text="Текущий статус сотрудника в организации"
+    )
+    work_schedule = models.CharField(
+        max_length=3,
+        choices=WORK_SCHEDULE_CHOICES,
+        default='5/2',
+        verbose_name="График работы"
     )
     hire_date = models.DateField(
         verbose_name="Дата приема",

@@ -4,7 +4,7 @@
 {% block content %}
 <div id="content-main">
   <div class="object-tools">
-    <a href="{% url 'admin:directory_position_add' %}" class="addlink">
+    <a href="{% url 'admin:directory_position_add' %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="addlink">
       Добавить
     </a>
     <a href="{% url 'admin:directory_position_import' %}" class="addlink" style="background-position: 0 -96px;">
@@ -35,8 +35,8 @@
 
       {# Компактный фильтр по организации #}
       <div class="tree-filter-container">
-        <label for="org-filter" style="font-weight: bold; margin-right: 8px;">🏢 Организация:</label>
-        <select id="org-filter" class="tree-filter-select" style="min-width: 300px;">
+        <label for="org-filter">🏢 Организация:</label>
+        <select id="org-filter" class="tree-filter-select">
           <option value="">Все организации</option>
           {% if org_options %}
             {% for org in org_options %}
@@ -46,6 +46,51 @@
             {% endfor %}
           {% endif %}
         </select>
+      </div>
+
+      {# Фильтр по структурному подразделению #}
+      <div class="tree-filter-container">
+        <label for="subdivision-filter">🏭 Подразделение:</label>
+        <select id="subdivision-filter" class="tree-filter-select" {% if not selected_org_id %}disabled{% endif %}>
+          {% if selected_org_id %}
+            <option value="">Все подразделения</option>
+            {% if subdivision_options %}
+              {% for sub in subdivision_options %}
+                <option value="{{ sub.id }}" {% if selected_sub_id == sub.id %}selected{% endif %}>
+                  {{ sub.name }}
+                </option>
+              {% endfor %}
+            {% endif %}
+          {% else %}
+            <option value="">Сначала выберите организацию</option>
+          {% endif %}
+        </select>
+      </div>
+
+      {# Фильтр по отделу #}
+      <div class="tree-filter-container">
+        <label for="department-filter">📂 Отдел:</label>
+        <select id="department-filter" class="tree-filter-select" {% if not selected_org_id or not selected_sub_id %}disabled{% endif %}>
+          {% if selected_org_id and selected_sub_id %}
+            <option value="">Все отделы</option>
+            {% if department_options %}
+              {% for dept in department_options %}
+                <option value="{{ dept.id }}" {% if selected_dept_id == dept.id %}selected{% endif %}>
+                  {{ dept.name }}
+                </option>
+              {% endfor %}
+            {% endif %}
+          {% else %}
+            <option value="">Сначала выберите подразделение</option>
+          {% endif %}
+        </select>
+      </div>
+
+      <div class="tree-filter-container tree-filter-checkbox">
+        <label for="no-instructions-filter">
+          <input type="checkbox" id="no-instructions-filter" {% if no_instructions_selected %}checked{% endif %}>
+          Нет инструкций
+        </label>
       </div>
 
       <div class="tree-search-container">
@@ -84,7 +129,7 @@
                 </td>
                 <td class="field-name">
                   <span class="tree-icon">{{ item.additional_data.profession_icon|default:"👔" }}</span>
-                  <a href="{% url 'admin:directory_position_change' item.object.pk %}">
+                  <a href="{% url 'admin:directory_position_change' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}">
                     {{ item.name }}
                   </a>
                 </td>
@@ -149,9 +194,9 @@
                   {% endif %}
                 </td>
                 <td class="field-actions">
-                  <a href="{% url 'admin:directory_position_change' item.object.pk %}" class="edit-link">✏️</a>
-                  <a href="{% url 'admin:directory_position_delete' item.object.pk %}" class="delete-link">🗑️</a>
-                  <a href="{% url 'admin:directory_position_history' item.object.pk %}" class="history-link">📋</a>
+                  <a href="{% url 'admin:directory_position_change' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="edit-link">✏️</a>
+                  <a href="{% url 'admin:directory_position_delete' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="delete-link">🗑️</a>
+                  <a href="{% url 'admin:directory_position_history' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="history-link">📋</a>
                 </td>
               </tr>
             {% endfor %}
@@ -177,7 +222,7 @@
                   </td>
                   <td class="field-name">
                     <span class="tree-icon">{{ item.additional_data.profession_icon|default:"👔" }}</span>
-                    <a href="{% url 'admin:directory_position_change' item.object.pk %}">
+                    <a href="{% url 'admin:directory_position_change' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}">
                       {{ item.name }}
                     </a>
                   </td>
@@ -242,9 +287,9 @@
                     {% endif %}
                   </td>
                   <td class="field-actions">
-                    <a href="{% url 'admin:directory_position_change' item.object.pk %}" class="edit-link">✏️</a>
-                    <a href="{% url 'admin:directory_position_delete' item.object.pk %}" class="delete-link">🗑️</a>
-                    <a href="{% url 'admin:directory_position_history' item.object.pk %}" class="history-link">📋</a>
+                    <a href="{% url 'admin:directory_position_change' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="edit-link">✏️</a>
+                    <a href="{% url 'admin:directory_position_delete' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="delete-link">🗑️</a>
+                    <a href="{% url 'admin:directory_position_history' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="history-link">📋</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -269,7 +314,7 @@
                     </td>
                     <td class="field-name">
                       <span class="tree-icon">{{ item.additional_data.profession_icon|default:"👔" }}</span>
-                      <a href="{% url 'admin:directory_position_change' item.object.pk %}">
+                      <a href="{% url 'admin:directory_position_change' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}">
                         {{ item.name }}
                       </a>
                     </td>
@@ -334,9 +379,9 @@
                       {% endif %}
                     </td>
                     <td class="field-actions">
-                      <a href="{% url 'admin:directory_position_change' item.object.pk %}" class="edit-link">✏️</a>
-                      <a href="{% url 'admin:directory_position_delete' item.object.pk %}" class="delete-link">🗑️</a>
-                      <a href="{% url 'admin:directory_position_history' item.object.pk %}" class="history-link">📋</a>
+                      <a href="{% url 'admin:directory_position_change' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="edit-link">✏️</a>
+                      <a href="{% url 'admin:directory_position_delete' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="delete-link">🗑️</a>
+                      <a href="{% url 'admin:directory_position_history' item.object.pk %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="history-link">📋</a>
                     </td>
                   </tr>
                 {% endfor %}
@@ -349,9 +394,9 @@
   </form>
 </div>
 
-{# Плавающая кнопка для запуска действия "Заполнить инструкции из эталона" #}
-<button type="button" id="floating-copy-instructions" title="Заполнить инструкции из эталона">
-  🔄 Заполнить инструкции из эталона
+{# Плавающая кнопка для запуска действия "Тиражировать атрибуты должности" #}
+<button type="button" id="floating-copy-instructions" title="Тиражировать атрибуты должности">
+  🔄 Тиражировать атрибуты
 </button>
 
 <script>
@@ -367,7 +412,7 @@
     btn.addEventListener('click', function() {
       const checked = Array.from(form.querySelectorAll('input.action-select:checked'));
       if (checked.length !== 1) {
-        alert('Выберите ровно одну должность-эталон для копирования инструкций.');
+        alert('Выберите ровно одну должность-эталон для тиражирования атрибутов.');
         return;
       }
 
@@ -406,6 +451,17 @@
     .badge-reference {
       background-color: transparent;
       color: inherit;
+    }
+
+    /* Нормы не положены - красный индикатор */
+    .badge-none {
+      background-color: #dc3545; /* Красный */
+      color: white;
+      padding: 3px 7px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      border-radius: 10px;
     }
 
     .position-attribute {
@@ -479,9 +535,9 @@
 
     /* Компактный фильтр */
     .tree-filter-container {
-      display: inline-block;
-      margin-left: 20px;
-      vertical-align: middle;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .tree-filter-select {
@@ -490,6 +546,7 @@
       border-radius: 4px;
       font-size: 14px;
       background-color: white;
+      min-width: 220px;
     }
 
     .tree-filter-select:focus {
@@ -497,12 +554,80 @@
       border-color: #417690;
       box-shadow: 0 0 5px rgba(65, 118, 144, 0.3);
     }
+
+    .tree-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+    }
+
+    .tree-filter-container label {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .tree-filter-checkbox label {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 1100px) {
+      .tree-filter-select {
+        min-width: 200px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .tree-controls {
+        align-items: stretch;
+      }
+      .tree-filter-container {
+        flex: 1 1 260px;
+      }
+      .tree-search-container {
+        flex: 1 1 260px;
+      }
+      .tree-search {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .tree-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .tree-btn {
+        width: 100%;
+      }
+      .tree-filter-container {
+        width: 100%;
+      }
+      .tree-filter-select {
+        width: 100%;
+        min-width: 0;
+      }
+    }
   </style>
 
   <script>
     // Обработчик изменения фильтра по организации
     document.addEventListener('DOMContentLoaded', function() {
       const orgFilter = document.getElementById('org-filter');
+      const subFilter = document.getElementById('subdivision-filter');
+      const deptFilter = document.getElementById('department-filter');
+
+      const applyParam = (url, key, value) => {
+        if (value) {
+          url.searchParams.set(key, value);
+        } else {
+          url.searchParams.delete(key);
+        }
+      };
+
       if (orgFilter) {
         orgFilter.addEventListener('change', function() {
           const selectedOrg = this.value;
@@ -515,8 +640,38 @@
             // Убираем фильтр (показываем все)
             url.searchParams.delete('organization__id__exact');
           }
+          url.searchParams.delete('subdivision__id__exact');
+          url.searchParams.delete('department__id__exact');
 
           // Перезагружаем страницу с новым фильтром
+          window.location.href = url.toString();
+        });
+      }
+
+      if (subFilter) {
+        subFilter.addEventListener('change', function() {
+          const selectedSub = this.value;
+          const url = new URL(window.location.href);
+          applyParam(url, 'subdivision__id__exact', selectedSub);
+          url.searchParams.delete('department__id__exact');
+          window.location.href = url.toString();
+        });
+      }
+
+      if (deptFilter) {
+        deptFilter.addEventListener('change', function() {
+          const selectedDept = this.value;
+          const url = new URL(window.location.href);
+          applyParam(url, 'department__id__exact', selectedDept);
+          window.location.href = url.toString();
+        });
+      }
+
+      const noInstructionsFilter = document.getElementById('no-instructions-filter');
+      if (noInstructionsFilter) {
+        noInstructionsFilter.addEventListener('change', function() {
+          const url = new URL(window.location.href);
+          applyParam(url, 'no_instructions', this.checked ? '1' : '');
           window.location.href = url.toString();
         });
       }

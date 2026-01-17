@@ -3,7 +3,7 @@
 Упрощённые модели для модуля "Обучение на производстве"
 
 Изменения по сравнению с production_training/models.py:
-- 14 моделей → 6 моделей (-57%)
+- 14 моделей → 5 моделей (-64%)
 - TrainingProgram: содержание программы в JSON вместо Section+Entry
 - ProductionTraining: роли как прямые поля вместо отдельной модели
 - Удалены: TrainingEntryType, TrainingScheduleRule, TrainingProgramSection,
@@ -16,7 +16,7 @@ from django.core.exceptions import ValidationError
 
 
 # ============================================================================
-# СПРАВОЧНИКИ (4 модели - БЕЗ ИЗМЕНЕНИЙ)
+# СПРАВОЧНИКИ (3 модели - БЕЗ ИЗМЕНЕНИЙ)
 # ============================================================================
 
 class TrainingType(models.Model):
@@ -147,40 +147,6 @@ class TrainingProfession(models.Model):
 
     def __str__(self):
         return self.name_ru_nominative
-
-
-class EducationLevel(models.Model):
-    """
-    Уровень образования: среднее, среднее специальное, высшее.
-
-    БЕЗ ИЗМЕНЕНИЙ.
-    """
-    name_ru = models.CharField(
-        max_length=255,
-        unique=True,
-        verbose_name="Образование (рус)"
-    )
-    name_by = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name="Образование (бел)"
-    )
-    is_active = models.BooleanField(
-        default=True,
-        verbose_name="Активен"
-    )
-    order = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Порядок"
-    )
-
-    class Meta:
-        verbose_name = "🎓 Уровень образования"
-        verbose_name_plural = "🎓 Уровни образования"
-        ordering = ['order', 'name_ru']
-
-    def __str__(self):
-        return self.name_ru
 
 
 # ============================================================================
@@ -402,14 +368,6 @@ class ProductionTraining(models.Model):
         blank=True,
         related_name='production_trainings',
         verbose_name="Профессия на предприятии"
-    )
-    education_level = models.ForeignKey(
-        EducationLevel,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='trainings',
-        verbose_name="Образование"
     )
     prior_qualification = models.TextField(
         blank=True,
@@ -654,7 +612,7 @@ class ProductionTraining(models.Model):
 
 
 # ============================================================================
-# ИТОГО: 6 МОДЕЛЕЙ вместо 14 (-57%)
+# ИТОГО: 5 МОДЕЛЕЙ вместо 14 (-64%)
 # ============================================================================
 
 """
@@ -668,11 +626,10 @@ class ProductionTraining(models.Model):
 - TrainingDiaryEntry → переделать или удалить (пока удалено)
 - TrainingTheoryConsultation → объединить с дневником или удалить (пока удалено)
 
-ОСТАВЛЕНО (6 моделей):
+ОСТАВЛЕНО (5 моделей):
 1. TrainingType — типы обучения (подготовка, переподготовка)
 2. TrainingQualificationGrade — разряды (2, 3, 4, 5, 6)
 3. TrainingProfession — профессии
-4. EducationLevel — уровни образования
-5. TrainingProgram — программы обучения (с JSON вместо 3 моделей)
-6. ProductionTraining — карточки обучения (с прямыми полями ролей)
+4. TrainingProgram — программы обучения (с JSON вместо 3 моделей)
+5. ProductionTraining — карточки обучения (с прямыми полями ролей)
 """

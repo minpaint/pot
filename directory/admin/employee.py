@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.contrib import messages
 from django.shortcuts import redirect, render
-from django.urls import path
+from django.urls import path, reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from tablib import Dataset
 
@@ -61,23 +61,39 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         'position__position_name'
     ]
 
-    fields = [
-        'full_name_nominative',
-        'date_of_birth',
-        'place_of_residence',
-        'organization',
-        'subdivision',
-        'department',
-        'position',
-        'contract_type',
-        'status',
-        'hire_date',
-        'start_date',
-        'height',
-        'clothing_size',
-        'shoe_size',
-        'is_contractor',
-    ]
+    fieldsets = (
+        ('Основная информация', {
+            'fields': (
+                'full_name_nominative',
+                'full_name_by',
+                'date_of_birth',
+                'place_of_residence',
+                'email',
+                'organization',
+                'subdivision',
+                'department',
+                'position',
+                'contract_type',
+                'status',
+                'work_schedule',
+                'hire_date',
+                'start_date',
+                'height',
+                'clothing_size',
+                'shoe_size',
+                'is_contractor',
+            )
+        }),
+        ('Образование', {
+            'fields': (
+                'education_level',
+                'prior_qualification',
+                'qualification_document_number',
+                'qualification_document_date',
+            ),
+            'classes': ('collapse',)
+        }),
+    )
 
     def changelist_view(self, request, extra_context=None):
         """
@@ -153,15 +169,6 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 super().__init__(*args, **inner_kwargs)
 
         return FormWithUser
-
-    def get_urls(self):
-        """🔗 Добавляем кастомные URL для импорта/экспорта"""
-        urls = super().get_urls()
-        custom_urls = [
-            path('import/', self.admin_site.admin_view(self.import_view), name='directory_employee_import'),
-            path('export/', self.admin_site.admin_view(self.export_view), name='directory_employee_export'),
-        ]
-        return custom_urls + urls
 
     def get_node_additional_data(self, obj):
         """
@@ -328,3 +335,167 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         )
         response['Content-Disposition'] = 'attachment; filename="employees.xlsx"'
         return response
+
+    # ========================================================================
+    # ACTIONS
+    # ========================================================================
+
+    actions = ['action_assign_training']
+
+    def action_assign_training(self, request, queryset):
+        """
+        🎓 Назначить обучение на производстве выбранным сотрудникам.
+
+        Показывает промежуточную форму для выбора параметров обучения.
+        """
+        # Сохраняем выбранных сотрудников в сессии
+        selected_ids = list(queryset.values_list('id', flat=True))
+
+        if not selected_ids:
+            self.message_user(request, 'Выберите хотя бы одного сотрудника', level=messages.WARNING)
+            return
+
+        # Перенаправляем на view с формой
+        request.session['assign_training_employee_ids'] = selected_ids
+        return HttpResponseRedirect(
+            reverse('admin:directory_employee_assign_training')
+        )
+
+    action_assign_training.short_description = '🎓 Назначить обучение на производстве'
+
+    def assign_training_view(self, request):
+        """
+        View для формы назначения обучения.
+        """
+        from production_training.forms import AssignTrainingForm
+        from production_training.models import ProductionTraining
+
+        context = self.admin_site.each_context(request)
+
+        # Получаем IDs сотрудников из сессии или POST
+        employee_ids = request.session.get('assign_training_employee_ids', [])
+
+        if request.method == 'POST':
+            # Получаем IDs из hidden field
+            ids_str = request.POST.get('employee_ids', '')
+            if ids_str:
+                employee_ids = [int(x) for x in ids_str.split(',') if x.isdigit()]
+
+        if not employee_ids:
+            messages.error(request, 'Сотрудники не выбраны. Вернитесь к списку и выберите сотрудников.')
+            return redirect('admin:directory_employee_changelist')
+
+        employees = Employee.objects.filter(id__in=employee_ids).select_related(
+            'organization', 'subdivision', 'department', 'position'
+        )
+
+        if request.method == 'POST':
+            form = AssignTrainingForm(request.POST)
+
+            if form.is_valid():
+                training_type = form.cleaned_data['training_type']
+                profession = form.cleaned_data['profession']
+                program = form.cleaned_data.get('program')
+                qualification_grade = form.cleaned_data.get('qualification_grade')
+                start_date = form.cleaned_data['start_date']
+                full_name_by = form.cleaned_data.get('full_name_by')
+                education_level = form.cleaned_data.get('education_level')
+                prior_qualification = form.cleaned_data.get('prior_qualification')
+                qualification_document_number = form.cleaned_data.get('qualification_document_number')
+                qualification_document_date = form.cleaned_data.get('qualification_document_date')
+
+                created_count = 0
+                errors = []
+
+                for employee in employees:
+                    try:
+                        update_fields = []
+                        if full_name_by:
+                            employee.full_name_by = full_name_by
+                            update_fields.append('full_name_by')
+                        if education_level:
+                            employee.education_level = education_level
+                            update_fields.append('education_level')
+                        if prior_qualification:
+                            employee.prior_qualification = prior_qualification
+                            update_fields.append('prior_qualification')
+                        if qualification_document_number:
+                            employee.qualification_document_number = qualification_document_number
+                            update_fields.append('qualification_document_number')
+                        if qualification_document_date:
+                            employee.qualification_document_date = qualification_document_date
+                            update_fields.append('qualification_document_date')
+                        if update_fields:
+                            employee.save(update_fields=update_fields)
+
+                        # Создаём карточку обучения для каждого сотрудника
+                        training = ProductionTraining(
+                            organization=employee.organization,
+                            employee=employee,
+                            subdivision=employee.subdivision,
+                            department=employee.department,
+                            current_position=employee.position,
+                            training_type=training_type,
+                            profession=profession,
+                            program=program,
+                            qualification_grade=qualification_grade,
+                            start_date=start_date,
+                            status='draft',
+                        )
+
+                        # Подставляем эталонные роли из организации
+                        if employee.organization:
+                            org = employee.organization
+                            if hasattr(org, 'default_theory_consultant') and org.default_theory_consultant:
+                                training.theory_consultant = org.default_theory_consultant
+                            if hasattr(org, 'default_commission_chairman') and org.default_commission_chairman:
+                                training.commission_chairman = org.default_commission_chairman
+                            if hasattr(org, 'default_instructor') and org.default_instructor:
+                                training.instructor = org.default_instructor
+
+                        # save() автоматически рассчитает все даты
+                        training.save()
+                        created_count += 1
+
+                    except Exception as e:
+                        errors.append(f'{employee.full_name_nominative}: {str(e)}')
+
+                # Очищаем сессию
+                if 'assign_training_employee_ids' in request.session:
+                    del request.session['assign_training_employee_ids']
+
+                if created_count > 0:
+                    messages.success(
+                        request,
+                        f'✅ Создано {created_count} карточек обучения'
+                    )
+
+                if errors:
+                    messages.warning(
+                        request,
+                        f'⚠️ Ошибки при создании: {"; ".join(errors[:3])}{"..." if len(errors) > 3 else ""}'
+                    )
+
+                return redirect('admin:production_training_productiontraining_changelist')
+
+        else:
+            form = AssignTrainingForm()
+
+        context.update({
+            'title': 'Назначить обучение на производстве',
+            'form': form,
+            'employees': employees,
+            'employee_ids': ','.join(str(x) for x in employee_ids),
+        })
+
+        return render(request, 'admin/directory/employee/assign_training.html', context)
+
+    def get_urls(self):
+        """🔗 Добавляем кастомные URL для импорта/экспорта и назначения обучения"""
+        urls = super().get_urls()
+        custom_urls = [
+            path('import/', self.admin_site.admin_view(self.import_view), name='directory_employee_import'),
+            path('export/', self.admin_site.admin_view(self.export_view), name='directory_employee_export'),
+            path('assign-training/', self.admin_site.admin_view(self.assign_training_view), name='directory_employee_assign_training'),
+        ]
+        return custom_urls + urls

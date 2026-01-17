@@ -25,7 +25,6 @@ class StructuralSubdivisionForm(OrganizationRestrictionFormMixin, forms.ModelFor
         }
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
         # 🎨 Настройка crispy-forms

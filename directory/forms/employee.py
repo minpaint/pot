@@ -19,8 +19,14 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         model = Employee
         fields = [
             "full_name_nominative",
-            "date_of_birth", "place_of_residence",
+            "full_name_by",
+            "date_of_birth", "place_of_residence", "email",
             "organization", "subdivision", "department", "position",
+            "work_schedule",
+            "education_level",
+            "prior_qualification",
+            "qualification_document_number",
+            "qualification_document_date",
             "height", "clothing_size", "shoe_size",
             "is_contractor"
         ]
@@ -60,10 +66,20 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
                 attrs={"type": "date"},
                 format="%Y-%m-%d"
             ),
+            "qualification_document_date": forms.DateInput(
+                attrs={"type": "date"},
+                format="%Y-%m-%d"
+            ),
             "place_of_residence": forms.TextInput(
                 attrs={
                     "size": "50",
                     "placeholder": "Населенный пункт"
+                }
+            ),
+            "education_level": forms.TextInput(
+                attrs={
+                    "size": "50",
+                    "placeholder": "Например: среднее специальное"
                 }
             ),
         }

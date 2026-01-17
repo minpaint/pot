@@ -50,7 +50,18 @@ class RegistryImportResult:
         self.error_message: Optional[str] = None
 
 
-def parse_subdivision_path(path: str) -> Tuple[str, Optional[str]]:
+def _clean_part(value: str) -> str:
+    return " ".join(str(value).strip().split())
+
+
+def _normalize_key(value: str) -> str:
+    return _clean_part(value).lower()
+
+
+def parse_subdivision_path(
+    path: str,
+    existing_subdivisions: Optional[Dict[str, str]] = None
+) -> Tuple[str, Optional[str]]:
     """
     Парсит путь подразделения
 
@@ -64,15 +75,28 @@ def parse_subdivision_path(path: str) -> Tuple[str, Optional[str]]:
     Returns:
         Tuple[subdivision_name, department_name]
     """
-    parts = [p.strip() for p in path.split('/')]
+    parts = [_clean_part(p) for p in path.split('/')]
+    parts = [p for p in parts if p]
 
     if len(parts) == 1:
         return parts[0], None
-    elif len(parts) == 2:
-        return parts[0], parts[1]
-    else:
-        # Если больше 2 уровней - всё кроме последнего в subdivision
+    if existing_subdivisions:
+        first_key = _normalize_key(parts[0])
+        if first_key in existing_subdivisions:
+            subdivision_name = existing_subdivisions[first_key]
+            department_name = ' / '.join(parts[1:]) if len(parts) > 1 else None
+            return subdivision_name, department_name
+
+        # Нет совпадения - отбрасываем первый элемент и берём остаток
+        parts = parts[1:] if len(parts) > 1 else parts
+        if len(parts) == 1:
+            return parts[0], None
         return parts[0], ' / '.join(parts[1:])
+
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    # Если больше 2 уровней - всё кроме последнего в subdivision
+    return parts[0], ' / '.join(parts[1:])
 
 
 def parse_date(value) -> Optional[date]:
@@ -171,6 +195,23 @@ def parse_registry_file(file_obj, organization_override: Optional[Organization] 
         if not result.header_row:
             raise ValidationError('Не найдена строка с заголовками (должна содержать "ФИО")')
 
+        # Подготавливаем справочник существующих подразделений
+        existing_subdivisions = None
+        organization_for_lookup = organization_override
+        if not organization_for_lookup and result.organization:
+            organization_for_lookup = Organization.objects.filter(
+                short_name_ru=result.organization
+            ).first()
+
+        if organization_for_lookup:
+            existing_subdivisions = {}
+            for name in StructuralSubdivision.objects.filter(
+                organization=organization_for_lookup
+            ).values_list('name', flat=True):
+                key = _normalize_key(name)
+                if key and key not in existing_subdivisions:
+                    existing_subdivisions[key] = name
+
         # Парсим строки
         COL_SUBDIVISION = 3
         COL_POSITION = 4
@@ -193,7 +234,10 @@ def parse_registry_file(file_obj, organization_override: Optional[Organization] 
             # Обновляем контекст подразделения
             if subdivision_raw:
                 subdivision_path = str(subdivision_raw).strip()
-                subdivision_name, department_name = parse_subdivision_path(subdivision_path)
+                subdivision_name, department_name = parse_subdivision_path(
+                    subdivision_path,
+                    existing_subdivisions=existing_subdivisions
+                )
 
                 current_subdivision = subdivision_name
                 current_department = department_name

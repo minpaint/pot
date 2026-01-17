@@ -1,4 +1,6 @@
 # directory/admin/position.py
+import logging
+
 from django.contrib import admin
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.utils.translation import gettext_lazy as _
@@ -6,7 +8,8 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
-from django.db.models import Exists, OuterRef, Count
+from django.db import DatabaseError
+from django.db.models import Exists, OuterRef, Count, Q
 from django.http import HttpResponse
 from tablib import Dataset
 
@@ -19,6 +22,8 @@ from deadline_control.models.medical_examination import HarmfulFactor
 from directory.models.commission import CommissionMember
 from directory.utils.profession_icons import get_profession_icon
 from directory.resources.organization_structure import OrganizationStructureResource
+
+logger = logging.getLogger(__name__)
 
 
 # Обновленный инлайн для СИЗ
@@ -199,6 +204,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
     list_filter = []
     # Очищаем стандартное отображение столбцов
     list_display = []
+    preserve_filters = True
     search_fields = [
         'position_name',
         'safety_instructions_numbers'
@@ -261,59 +267,101 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         Создаём кэш эталонных норм СИЗ и медосмотров ОДИН РАЗ
         перед построением дерева, чтобы избежать N+1 запросов.
         """
-        extra_context = extra_context or {}
+        try:
+            extra_context = extra_context or {}
+            # Получить доступные организации для фильтра
+            from directory.models import Organization, StructuralSubdivision, Department
+            from django.db.models import Count
 
-        # Получить доступные организации для фильтра
-        from directory.models import Organization
-        from django.db.models import Count
+            if request.user.is_superuser:
+                accessible_orgs = Organization.objects.all()
+            elif hasattr(request.user, 'profile'):
+                accessible_orgs = request.user.profile.organizations.all()
+            else:
+                accessible_orgs = Organization.objects.none()
 
-        if request.user.is_superuser:
-            accessible_orgs = Organization.objects.all()
-        elif hasattr(request.user, 'profile'):
-            accessible_orgs = request.user.profile.organizations.all()
-        else:
-            accessible_orgs = Organization.objects.none()
+            # Передаем список всех доступных организаций для dropdown фильтра
+            org_options = accessible_orgs.annotate(
+                position_count=Count('positions')
+            ).filter(position_count__gt=0).order_by('-position_count')
 
-        # Передаем список всех доступных организаций для dropdown фильтра
-        org_options = accessible_orgs.annotate(
-            position_count=Count('positions')
-        ).filter(position_count__gt=0).order_by('-position_count')
+            org_param = request.GET.get('organization__id__exact')
+            selected_org_id = None
+            if org_param and org_param.isdigit():
+                selected_org_id = int(org_param)
 
-        org_param = request.GET.get('organization__id__exact')
-        selected_org_id = None
-        if org_param and org_param.isdigit():
-            selected_org_id = int(org_param)
+            extra_context['org_options'] = org_options
+            extra_context['selected_org_id'] = selected_org_id
 
-        extra_context['org_options'] = org_options
-        extra_context['selected_org_id'] = selected_org_id
+            sub_param = request.GET.get('subdivision__id__exact')
+            selected_sub_id = None
+            if sub_param and sub_param.isdigit():
+                selected_sub_id = int(sub_param)
 
-        # Получить queryset с фильтрами
-        qs = self.get_queryset(request)
+            dept_param = request.GET.get('department__id__exact')
+            selected_dept_id = None
+            if dept_param and dept_param.isdigit():
+                selected_dept_id = int(dept_param)
 
-        # Собрать все уникальные названия должностей
-        position_names = set(qs.values_list('position_name', flat=True))
+            subdivision_options = StructuralSubdivision.objects.none()
+            department_options = Department.objects.none()
 
-        # ===== КЭШ ЭТАЛОННЫХ НОРМ СИЗ =====
-        # Загрузить все эталонные нормы СИЗ из справочника профессий
-        from directory.models.siz import ProfessionSIZNorm
-        profession_names_with_siz = ProfessionSIZNorm.objects.filter(
-            profession_name__in=position_names
-        ).values_list('profession_name', flat=True).distinct()
+            if selected_org_id:
+                subdivision_options = StructuralSubdivision.objects.filter(
+                    organization__in=accessible_orgs,
+                    organization_id=selected_org_id
+                ).order_by('name')
 
-        # Создать словарь для быстрого поиска
-        self._reference_siz_cache = {name: True for name in profession_names_with_siz}
+                if selected_sub_id:
+                    department_options = Department.objects.filter(
+                        organization__in=accessible_orgs,
+                        organization_id=selected_org_id,
+                        subdivision_id=selected_sub_id
+                    ).order_by('name')
 
-        # ===== КЭШ ЭТАЛОННЫХ НОРМ МЕДОСМОТРОВ =====
-        # Загрузить все эталонные нормы медосмотров одним запросом
-        medical_positions_with_norms = MedicalExaminationNorm.objects.filter(
-            position_name__in=position_names
-        ).values_list('position_name', flat=True).distinct()
+            extra_context['subdivision_options'] = subdivision_options
+            extra_context['selected_sub_id'] = selected_sub_id
+            extra_context['department_options'] = department_options
+            extra_context['selected_dept_id'] = selected_dept_id
+            extra_context['no_instructions_selected'] = request.GET.get('no_instructions') == '1'
 
-        # Создать словарь для быстрого поиска
-        self._reference_medical_cache = {name: True for name in medical_positions_with_norms}
+            # Получить queryset с фильтрами
+            qs = self.get_queryset(request)
 
-        # Вызвать родительский метод (TreeViewMixin.changelist_view)
-        return super().changelist_view(request, extra_context)
+            # Собрать все уникальные названия должностей
+            position_names = set(qs.values_list('position_name', flat=True))
+
+            # ===== КЭШ ЭТАЛОННЫХ НОРМ СИЗ =====
+            # Загрузить все эталонные нормы СИЗ из справочника профессий
+            from directory.models.siz import ProfessionSIZNorm
+            profession_names_with_siz = ProfessionSIZNorm.objects.filter(
+                profession_name__in=position_names
+            ).values_list('profession_name', flat=True).distinct()
+
+            # Создать словарь для быстрого поиска
+            self._reference_siz_cache = {name: True for name in profession_names_with_siz}
+
+            # ===== КЭШ ЭТАЛОННЫХ НОРМ МЕДОСМОТРОВ =====
+            # Загрузить все эталонные нормы медосмотров одним запросом
+            medical_positions_with_norms = MedicalExaminationNorm.objects.filter(
+                position_name__in=position_names
+            ).values_list('position_name', flat=True).distinct()
+
+            # Создать словарь для быстрого поиска
+            self._reference_medical_cache = {name: True for name in medical_positions_with_norms}
+
+            # Вызвать родительский метод (TreeViewMixin.changelist_view)
+            return super().changelist_view(request, extra_context)
+        except DatabaseError:
+            logger.exception(
+                "DatabaseError in PositionAdmin.changelist_view",
+                extra={
+                    'path': request.path,
+                    'query_params': dict(request.GET),
+                    'user': getattr(request.user, 'username', None),
+                },
+            )
+            raise
 
     def get_urls(self):
         """🔗 Добавляем кастомные URL для подтягивания норм СИЗ и импорта/экспорта"""
@@ -468,7 +516,106 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         if org_param and org_param.isdigit():
             qs = qs.filter(organization_id=int(org_param))
 
+        sub_param = request.GET.get('subdivision__id__exact')
+        if sub_param and sub_param.isdigit():
+            qs = qs.filter(subdivision_id=int(sub_param))
+
+        dept_param = request.GET.get('department__id__exact')
+        if dept_param and dept_param.isdigit():
+            qs = qs.filter(department_id=int(dept_param))
+
         return qs
+
+    def get_tree_data(self, request):
+        """
+        📊 Формирует иерархическую структуру дерева с учетом фильтра по инструкциям.
+        """
+        qs = self.get_queryset(request)
+        qs = self._optimize_queryset(qs)
+
+        if self.tree_ajax_mode:
+            fields = self.tree_settings['fields']
+            sub_field = fields.get('subdivision_field')
+            dept_field = fields.get('department_field')
+
+            filter_kwargs = {}
+            if sub_field:
+                filter_kwargs[f'{sub_field}__isnull'] = True
+            if dept_field:
+                filter_kwargs[f'{dept_field}__isnull'] = True
+
+            if filter_kwargs:
+                qs = qs.filter(**filter_kwargs)
+
+        no_instructions = request.GET.get('no_instructions') == '1'
+        tree = {}
+        fields = self.tree_settings['fields']
+        org_field = fields.get('organization_field')
+        sub_field = fields.get('subdivision_field')
+        dept_field = fields.get('department_field')
+        name_field = fields.get('name_field')
+
+        for obj in qs:
+            if no_instructions:
+                instructions = (obj.safety_instructions_numbers or '').strip()
+                if instructions or obj.is_responsible_for_safety:
+                    continue
+
+            org = getattr(obj, org_field) if org_field else None
+            if not org:
+                continue
+
+            sub = getattr(obj, sub_field) if sub_field else None
+            dept = getattr(obj, dept_field) if dept_field else None
+
+            if hasattr(obj, 'tree_display_name'):
+                item_name = obj.tree_display_name()
+            else:
+                item_name = getattr(obj, name_field, str(obj)) if name_field else str(obj)
+
+            if hasattr(self, 'get_node_additional_data'):
+                additional_data = self.get_node_additional_data(obj)
+            else:
+                additional_data = {}
+
+            item_data = {
+                'name': item_name,
+                'object': obj,
+                'pk': obj.pk,
+                'additional_data': additional_data
+            }
+
+            if org not in tree:
+                tree[org] = {
+                    'name': getattr(org, 'short_name_ru', str(org)),
+                    'items': [],
+                    'subdivisions': {}
+                }
+
+            if not sub:
+                tree[org]['items'].append(item_data)
+                continue
+
+            if sub not in tree[org]['subdivisions']:
+                tree[org]['subdivisions'][sub] = {
+                    'name': getattr(sub, 'name', str(sub)),
+                    'items': [],
+                    'departments': {}
+                }
+
+            if not dept:
+                tree[org]['subdivisions'][sub]['items'].append(item_data)
+                continue
+
+            if dept not in tree[org]['subdivisions'][sub]['departments']:
+                tree[org]['subdivisions'][sub]['departments'][dept] = {
+                    'name': getattr(dept, 'name', str(dept)),
+                    'items': []
+                }
+
+            tree[org]['subdivisions'][sub]['departments'][dept]['items'].append(item_data)
+
+        return tree
 
     def get_form(self, request, obj=None, **kwargs):
         """

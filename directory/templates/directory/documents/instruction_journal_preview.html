@@ -147,6 +147,7 @@
         padding: 10px;
         background: #fff;
         border-radius: 4px;
+        border: 1px solid #e9ecef;
     }
 
     .recipients-list h4 {
@@ -170,6 +171,29 @@
         background: #e7f3ff;
         border-radius: 3px;
         font-size: 0.9em;
+    }
+
+    .recipient-item {
+        margin: 4px 0;
+        font-size: 0.95em;
+    }
+
+    .recipient-meta {
+        color: #6c757d;
+        font-size: 0.9em;
+        margin-bottom: 6px;
+    }
+
+    .fallback-note {
+        color: #6c757d;
+        font-size: 0.85em;
+        margin-left: 6px;
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
 
     .summary-box {
@@ -308,7 +332,13 @@
             <div class="stat-item">
                 <div>
                     <div class="stat-value">{{ tree_data|length }}</div>
-                    <div class="stat-label">Подразделений</div>
+                    <div class="stat-label">Подразделений с инструкциями</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div>
+                    <div class="stat-value">{{ total_employees|default:0 }}</div>
+                    <div class="stat-label">Сотрудников в выборке</div>
                 </div>
             </div>
             <div class="stat-item">
@@ -318,6 +348,11 @@
                 </div>
             </div>
         </div>
+        {% if total_recipients_shown and total_recipients_shown > total_recipients_count %}
+        <p class="text-muted mb-0" style="margin-top: 10px;">
+            Показано получателей: {{ total_recipients_shown }} (часть адресов повторяется внутри подразделений/отделов)
+        </p>
+        {% endif %}
     </div>
 
     <!-- Дерево организационной структуры -->
@@ -337,30 +372,69 @@
                 </div>
 
                 <div class="subdivision-info">
-                    <span class="info-badge badge-department">
-                        📂 {{ item.department_name }}
-                    </span>
                     <span class="info-badge badge-employees">
-                        👥 Сотрудников: {{ item.employees_count }}
+                        👥 Всего сотрудников: {{ item.total_employees_count }}
                     </span>
                     <span class="info-badge badge-subject">
-                        ✉️ Тема: {{ item.email_subject }}
+                        ✉️ Тема (подразделение): {{ item.subdivision_email_subject }}
                     </span>
                 </div>
 
-                {% if item.has_recipients %}
                 <div class="recipients-list">
-                    <h4>📬 Получатели:</h4>
-                    {% for email in item.recipients %}
-                        <span class="recipient-email">{{ email }}</span>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="recipients-list">
-                    <div class="no-recipients-warning">
-                        ⚠️ Получатели не настроены для этого подразделения
+                    <div class="section-title">
+                        <h4 class="mb-0">🏢 Основное подразделение (без отдела)</h4>
+                        <span class="recipient-meta">👥 {{ item.subdivision_employees_count }} сотрудников · 📧 {{ item.subdivision_recipients_count }} показано · {{ item.subdivision_unique_recipients_count }} уникальных</span>
                     </div>
+                    {% if item.subdivision_has_recipients %}
+                        {% for recipient in item.subdivision_recipients %}
+                        <div class="recipient-item">
+                            {% if recipient.source == 'employee' %}👤{% elif recipient.source == 'subdivision' %}🏭{% else %}🏢{% endif %}
+                            <strong>{{ recipient.full_name|default:"Без имени" }}</strong>
+                            {% if recipient.position %}<span class="text-muted">({{ recipient.position }})</span>{% endif %}
+                            — <span class="text-muted">{{ recipient.email }}</span>
+                            <small class="text-muted ms-1">{{ recipient.source_display }}</small>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-recipients-warning">
+                            ⚠️ Получатели не настроены для основного подразделения
+                        </div>
+                    {% endif %}
                 </div>
+
+                {% if item.departments %}
+                    {% for dept in item.departments %}
+                    <div class="recipients-list mt-2">
+                        <div class="section-title">
+                            <h5 class="mb-0">📂 {{ dept.department_name }}</h5>
+                            {% if dept.fallback_used %}
+                                <span class="fallback-note">(используются получатели подразделения)</span>
+                            {% endif %}
+                        </div>
+                        <div class="recipient-meta">
+                            👥 {{ dept.employees_count }} сотрудников · 📧 {{ dept.recipients_count }} показано · {{ dept.unique_recipients_count }} уникальных · ✉️ {{ dept.email_subject }}
+                        </div>
+
+                        {% if dept.has_recipients %}
+                            {% for recipient in dept.recipients %}
+                            <div class="recipient-item">
+                                {% if recipient.source == 'employee' %}👤{% elif recipient.source == 'subdivision' %}🏭{% else %}🏢{% endif %}
+                                <strong>{{ recipient.full_name|default:"Без имени" }}</strong>
+                                {% if recipient.position %}<span class="text-muted">({{ recipient.position }})</span>{% endif %}
+                                — <span class="text-muted">{{ recipient.email }}</span>
+                                <small class="text-muted ms-1">{{ recipient.source_display }}</small>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="no-recipients-warning">
+                                ⚠️ Получатели не настроены для этого отдела
+                                {% if dept.fallback_used %}
+                                    <span class="fallback-note">(fallback на подразделение)</span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 {% endif %}
             </div>
             {% empty %}
@@ -378,7 +452,7 @@
             <input type="hidden" name="send_emails" value="1">
             <button type="submit" class="btn-send" {% if not has_any_recipients %}disabled{% endif %}>
                 {% if has_any_recipients %}
-                    ✅ Отправить всем ({{ total_recipients_count }} получателей)
+                    ✅ Отправить всем ({{ total_recipients_count }} уникальных email)
                 {% else %}
                     ❌ Отправка невозможна (нет получателей)
                 {% endif %}

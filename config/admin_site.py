@@ -1,8 +1,13 @@
 # config/admin_site.py
 
+import logging
 from collections import OrderedDict
+
 from django.contrib.admin import AdminSite
+from django.db import DatabaseError
 from django.utils.translation import gettext_lazy as _
+
+logger = logging.getLogger(__name__)
 
 class OTAdminSite(AdminSite):
     site_header = "OT-online Администрирование"
@@ -56,6 +61,22 @@ class OTAdminSite(AdminSite):
         (_("📑 Прием на работу"), [
             "EmployeeHiring", "Commission",
         ]),
+        (_("🎓 Обучение на производстве"), [
+            "ProductionTraining",
+            "TrainingType",
+            "TrainingProfession",
+            "TrainingQualificationGrade",
+            "EducationLevel",
+            "TrainingProgram",
+            "TrainingProgramSection",
+            "TrainingProgramEntry",
+            "TrainingEntryType",
+            "TrainingScheduleRule",
+            "TrainingRoleType",
+            "TrainingRoleAssignment",
+            "TrainingDiaryEntry",
+            "TrainingTheoryConsultation",
+        ]),
         (_("📊 Импорт/Экспорт данных"), [
             "ImportExportMenu",
         ]),
@@ -65,7 +86,18 @@ class OTAdminSite(AdminSite):
         """
         Возвращает меню, сгруппированное по логическим блокам.
         """
-        app_list = super().get_app_list(request, app_label)
+        try:
+            app_list = super().get_app_list(request, app_label)
+        except DatabaseError:
+            logger.exception(
+                "DatabaseError in OTAdminSite.get_app_list",
+                extra={
+                    'path': request.path,
+                    'query_params': dict(request.GET),
+                    'user': getattr(request.user, 'username', None),
+                },
+            )
+            raise
 
         # Плоский список всех моделей
         all_models = []

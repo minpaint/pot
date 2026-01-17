@@ -5,7 +5,7 @@ from django.http import JsonResponse, HttpResponse
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q, Subquery, OuterRef, IntegerField
+from django.db.models import Count, Q, Subquery, OuterRef, IntegerField, Value
 from django.db.models.functions import Coalesce
 from directory.models import Employee, SIZIssued
 from directory.models.siz import SIZ, SIZNorm
@@ -252,21 +252,23 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
             self.request.user, self.request
         )
 
-        # Subquery to get the count of employees with SIZ norms for each subdivision.
-        # We define a subquery that looks at the Employee model.
+        # Subquery to count employees with SIZ norms per subdivision.
+        # Учитываем три варианта связи с подразделением: через отдел, через subdivision у должности и напрямую у сотрудника.
         employees_with_norms = Employee.objects.filter(
-            # Then we apply the filter conditions to find employees with SIZ norms.
-            Q(position__siz_norms__isnull=False) |
-            Q(position__position_name__in=Position.objects.filter(
-                siz_norms__isnull=False
-            ).values_list('position_name', flat=True)),
-            # We link each employee to the outer StructuralSubdivision query via their position path.
-            position__department__subdivision=OuterRef('pk')
+            (
+                Q(position__siz_norms__isnull=False) |
+                Q(position__position_name__in=Position.objects.filter(
+                    siz_norms__isnull=False
+                ).values_list('position_name', flat=True))
+            ) &
+            (
+                Q(position__department__subdivision=OuterRef('pk')) |
+                Q(position__subdivision=OuterRef('pk')) |
+                Q(subdivision=OuterRef('pk'))
+            )
         ).order_by().values(
-            # We need to tell the subquery to group by the subdivision to count per subdivision.
-            'position__department__subdivision'
+            dummy=Value(1)
         ).annotate(
-            # We count the unique employees.
             count=Count('id', distinct=True)
         ).values('count')
 
@@ -330,8 +332,14 @@ def generate_siz_cards_bulk(request):
 
                 # Получаем всех сотрудников подразделения, у которых есть нормы СИЗ
                 employees = Employee.objects.filter(
-                    position__department__subdivision=subdivision
-                ).select_related('position', 'position__department')
+                    Q(position__department__subdivision=subdivision) |
+                    Q(position__subdivision=subdivision) |
+                    Q(subdivision=subdivision)
+                ).select_related(
+                    'position',
+                    'position__department',
+                    'position__subdivision'
+                ).distinct()
 
                 for employee in employees:
                     if not employee.position:

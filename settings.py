@@ -56,6 +56,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'directory.apps.DirectoryConfig',  # Наше приложение "directory" 📦
     'deadline_control.apps.DeadlineControlConfig',  # Контроль сроков ⏰
+    'production_training.apps.ProductionTrainingConfig',  # Обучение на производстве 🎓
 ]
 
 # Добавляем debug_toolbar только если не в режиме тестирования и DEBUG=True
@@ -420,19 +421,13 @@ customColorPalette = [
 
 CKEDITOR_5_CONFIGS = {
     'default': {
-        'toolbar': ['heading', '|', 'bold', 'italic', 'link',
-                    'bulletedList', 'numberedList', 'blockQuote', '|',
-                    'fontSize', 'fontFamily', 'fontColor', '|',
-                    'alignment', '|', 'removeFormat', 'undo', 'redo'],
-        'height': 300,
-        'language': 'ru',
-    },
-    'email_template': {
-        'toolbar': ['heading', '|', 'bold', 'italic', 'underline', 'link',
-                    '|', 'bulletedList', 'numberedList',
-                    '|', 'fontSize', 'fontColor',
+        'toolbar': ['heading', '|', 'bold', 'italic', 'underline', 'strikethrough', 'link',
+                    '|', 'bulletedList', 'numberedList', 'indent', 'outdent',
+                    '|', 'fontFamily', 'fontSize', 'fontColor', 'fontBackgroundColor',
+                    '|', 'alignment', 'blockQuote', 'horizontalLine',
+                    '|', 'insertTable', 'subscript', 'superscript',
                     '|', 'removeFormat', 'undo', 'redo'],
-        'height': 250,
+        'height': 400,
         'language': 'ru',
         'fontFamily': {
             'options': [
@@ -448,6 +443,49 @@ CKEDITOR_5_CONFIGS = {
             'supportAllValues': True
         },
         'fontColor': {
+            'columns': 6,
+            'colors': customColorPalette,
+        },
+        'fontBackgroundColor': {
+            'columns': 6,
+            'colors': customColorPalette,
+        },
+        'heading': {
+            'options': [
+                {'model': 'paragraph', 'title': 'Параграф', 'class': 'ck-heading_paragraph'},
+                {'model': 'heading1', 'view': 'h1', 'title': 'Заголовок 1', 'class': 'ck-heading_heading1'},
+                {'model': 'heading2', 'view': 'h2', 'title': 'Заголовок 2', 'class': 'ck-heading_heading2'},
+                {'model': 'heading3', 'view': 'h3', 'title': 'Заголовок 3', 'class': 'ck-heading_heading3'},
+            ]
+        },
+    },
+    'email_template': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'underline', 'strikethrough', 'link',
+                    '|', 'bulletedList', 'numberedList', 'indent', 'outdent',
+                    '|', 'fontFamily', 'fontSize', 'fontColor', 'fontBackgroundColor',
+                    '|', 'alignment', 'blockQuote', 'horizontalLine',
+                    '|', 'insertTable', 'subscript', 'superscript',
+                    '|', 'removeFormat', 'undo', 'redo'],
+        'height': 400,
+        'language': 'ru',
+        'fontFamily': {
+            'options': [
+                'default',
+                'Arial, Helvetica, sans-serif',
+                'Courier New, Courier, monospace',
+                'Georgia, serif',
+                'Times New Roman, Times, serif',
+            ]
+        },
+        'fontSize': {
+            'options': [10, 12, 14, 16, 18, 20, 22],
+            'supportAllValues': True
+        },
+        'fontColor': {
+            'columns': 6,
+            'colors': customColorPalette,
+        },
+        'fontBackgroundColor': {
             'columns': 6,
             'colors': customColorPalette,
         },

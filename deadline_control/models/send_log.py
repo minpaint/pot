@@ -128,10 +128,10 @@ class InstructionJournalSendLog(models.Model):
 
 class InstructionJournalSendDetail(models.Model):
     """
-    📋 Деталь отправки образца журнала для конкретного подразделения.
+    📋 Деталь отправки образца журнала для конкретного подразделения или отдела.
 
     Хранит информацию о конкретной попытке отправки:
-    - Подразделение
+    - Подразделение/отдел
     - Статус (успех/ошибка/пропуск)
     - Получатели
     - Причина пропуска или текст ошибки
@@ -163,6 +163,16 @@ class InstructionJournalSendDetail(models.Model):
         on_delete=models.CASCADE,
         related_name='instruction_send_details',
         verbose_name="Подразделение"
+    )
+
+    department = models.ForeignKey(
+        'directory.Department',
+        on_delete=models.CASCADE,
+        related_name='instruction_send_details',
+        verbose_name="Отдел",
+        null=True,
+        blank=True,
+        help_text="Если не указан - отправка для основного подразделения"
     )
 
     status = models.CharField(
@@ -228,15 +238,17 @@ class InstructionJournalSendDetail(models.Model):
     class Meta:
         verbose_name = "📋 Деталь отправки"
         verbose_name_plural = "📋 Детали отправок"
-        ordering = ['subdivision__name']
+        ordering = ['subdivision__name', 'department__name']
         indexes = [
             models.Index(fields=['send_log', 'status']),
             models.Index(fields=['subdivision']),
+            models.Index(fields=['department']),
         ]
 
     def __str__(self):
         status_icon = dict(self.STATUS_CHOICES).get(self.status, self.status)
-        return f"{self.subdivision.name} - {status_icon}"
+        dept_name = f" / {self.department.name}" if self.department else ""
+        return f"{self.subdivision.name}{dept_name} - {status_icon}"
 
     def get_recipients_list(self):
         """Возвращает список получателей из JSON"""

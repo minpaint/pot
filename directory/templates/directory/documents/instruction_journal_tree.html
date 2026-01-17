@@ -274,6 +274,18 @@
         font-weight: 600;
         font-size: 12px;
     }
+
+    .instruction-recipient {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #e8f5e9;
+        border: 1px solid #81c784;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #2e7d32;
+        font-weight: 500;
+        white-space: nowrap;
+    }
 </style>
 {% endblock %}
 
@@ -436,6 +448,8 @@
                                 <td>
                                     {% if item.has_instructions %}
                                         <small style="color: #666;">{{ item.instructions }}</small>
+                                    {% elif item.employee.position.is_responsible_for_safety %}
+                                        <span class="instruction-recipient" title="Получатель письма - ответственный за охрану труда">📧 Получатель письма</span>
                                     {% else %}
                                         <span class="no-instruction-warning">⚠️ Нет инструкций</span>
                                     {% endif %}
@@ -480,6 +494,8 @@
                                     <td>
                                         {% if item.has_instructions %}
                                             <small style="color: #666;">{{ item.instructions }}</small>
+                                        {% elif item.employee.position.is_responsible_for_safety %}
+                                            <span class="instruction-recipient" title="Получатель письма - ответственный за охрану труда">📧 Получатель письма</span>
                                         {% else %}
                                             <span class="no-instruction-warning">⚠️ Нет инструкций</span>
                                         {% endif %}
@@ -516,6 +532,8 @@
                                         <td>
                                             {% if item.has_instructions %}
                                                 <small style="color: #666;">{{ item.instructions }}</small>
+                                            {% elif item.employee.position.is_responsible_for_safety %}
+                                                <span class="instruction-recipient" title="Получатель письма - ответственный за охрану труда">📧 Получатель письма</span>
                                             {% else %}
                                                 <span class="no-instruction-warning">⚠️ Нет инструкций</span>
                                             {% endif %}

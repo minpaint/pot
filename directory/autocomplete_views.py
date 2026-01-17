@@ -336,6 +336,11 @@ class EmployeeByCommissionAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Employee.objects.filter(is_active=True)
 
+        # Ограничение по организациям пользователя
+        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+            allowed_orgs = self.request.user.profile.organizations.all()
+            qs = qs.filter(organization__in=allowed_orgs)
+
         # Получаем id комиссии из параметра forward
         commission_id = self.forwarded.get('commission', None)
         if commission_id:
@@ -358,6 +363,42 @@ class EmployeeByCommissionAutocomplete(autocomplete.Select2QuerySetView):
             )
 
         return qs.select_related('position', 'organization', 'subdivision', 'department').order_by('full_name_nominative')
+
+
+class EmployeeAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Автодополнение для выбора сотрудников в формах (фильтрация по орг/подразделению/отделу).
+    """
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Employee.objects.none()
+
+        # Активные сотрудники: исключаем кандидатов и уволенных
+        qs = Employee.objects.exclude(status__in=['candidate', 'fired'])
+
+        # 🔒 Ограничение по правам пользователя
+        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+            allowed_orgs = self.request.user.profile.organizations.all()
+            qs = qs.filter(organization__in=allowed_orgs)
+
+        organization_id = self.forwarded.get('organization')
+        subdivision_id = self.forwarded.get('subdivision')
+        department_id = self.forwarded.get('department')
+
+        if organization_id:
+            qs = qs.filter(organization_id=organization_id)
+        else:
+            return Employee.objects.none()
+
+        if department_id:
+            qs = qs.filter(department_id=department_id)
+        elif subdivision_id:
+            qs = qs.filter(subdivision_id=subdivision_id)
+
+        if self.q:
+            qs = qs.filter(full_name_nominative__icontains=self.q)
+
+        return qs.select_related('organization', 'subdivision', 'department', 'position').order_by('full_name_nominative')
 
     def get_result_label(self, result):
         position = result.position.position_name if result.position else "Без должности"
@@ -452,6 +493,72 @@ class CommissionAutocomplete(autocomplete.Select2QuerySetView):
                 Q(subdivision__organization__in=allowed_orgs) |
                 Q(department__organization__in=allowed_orgs)
             )
+
+        # 🔗 Фильтрация по forwarded параметру organization
+        organization_id = self.forwarded.get('organization', None)
+        if organization_id:
+            qs = qs.filter(
+                Q(organization_id=organization_id) |
+                Q(subdivision__organization_id=organization_id) |
+                Q(department__organization_id=organization_id)
+            )
+        else:
+            # Если организация не выбрана, не показываем комиссии
+            return Commission.objects.none()
+
+        # 🎓 Фильтрация по типу комиссии (для обучения - только квалификационные)
+        commission_type = self.forwarded.get('commission_type', None)
+        if commission_type:
+            qs = qs.filter(commission_type=commission_type)
+
+        # Поиск по названию
+        if self.q:
+            qs = qs.filter(name__icontains=self.q)
+
+        return qs.order_by('name')
+
+    def get_result_label(self, item):
+        # Форматируем результат с учетом уровня
+        if item.department:
+            return f"{item.name} ({item.department.name})"
+        elif item.subdivision:
+            return f"{item.name} ({item.subdivision.name})"
+        elif item.organization:
+            return f"{item.name} ({item.organization.short_name_ru})"
+        return item.name
+
+
+class QualificationCommissionAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    🎓 Автодополнение для выбора квалификационных комиссий (для обучения на производстве)
+    """
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Commission.objects.none()
+
+        # Только активные квалификационные комиссии
+        qs = Commission.objects.filter(is_active=True, commission_type='qualification')
+
+        # Фильтрация по организациям пользователя
+        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+            allowed_orgs = self.request.user.profile.organizations.all()
+            qs = qs.filter(
+                Q(organization__in=allowed_orgs) |
+                Q(subdivision__organization__in=allowed_orgs) |
+                Q(department__organization__in=allowed_orgs)
+            )
+
+        # 🔗 Фильтрация по forwarded параметру organization
+        organization_id = self.forwarded.get('organization', None)
+        if organization_id:
+            qs = qs.filter(
+                Q(organization_id=organization_id) |
+                Q(subdivision__organization_id=organization_id) |
+                Q(department__organization_id=organization_id)
+            )
+        else:
+            # Если организация не выбрана, не показываем комиссии
+            return Commission.objects.none()
 
         # Поиск по названию
         if self.q:

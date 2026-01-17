@@ -1,0 +1,58 @@
+{% if employees %}
+    <ul class="employee-items">
+        {% for employee in employees %}
+            <li>
+                <div class="employee-item">
+                    <span class="employee-date">{{ employee.hire_date|date:"d.m.Y"|default:"-" }}</span>
+                    <a href="{% url 'directory:employees:employee_update' employee.id %}" class="employee-name">
+                        {{ employee.full_name_nominative }}
+                    </a>
+                    <span class="text-secondary">— {{ employee.position.position_name }}</span>
+                    <div class="employee-actions">
+                        <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-sm btn-primary" title="Редактировать">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-sm btn-info" title="Документы">
+                            <i class="fas fa-file-alt"></i>
+                        </a>
+                        {% if employee.position.department %}
+                        <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-sm btn-warning" title="Карточка СИЗ">
+                            <i class="fas fa-shield-alt"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{% if subdivisions %}
+    <ul>
+        {% for sub in subdivisions %}
+            <li>
+                <span class="tree-toggle collapsed" data-toggle="collapse" data-target="#sub-{{ sub.id }}" data-parent-type="sub" data-parent-id="{{ sub.id }}">
+                    <i class="fas fa-industry text-success"></i> {{ sub.name }}
+                </span>
+                <div id="sub-{{ sub.id }}" class="collapse" data-lazy-container="true"></div>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{% if departments %}
+    <ul>
+        {% for dept in departments %}
+            <li>
+                <span class="tree-toggle collapsed" data-toggle="collapse" data-target="#dept-{{ dept.id }}" data-parent-type="dept" data-parent-id="{{ dept.id }}">
+                    <i class="fas fa-folder text-warning"></i> {{ dept.name }}
+                </span>
+                <div id="dept-{{ dept.id }}" class="collapse" data-lazy-container="true"></div>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{% if not employees and not subdivisions and not departments %}
+    <div class="text-muted p-2">Нет данных для отображения.</div>
+{% endif %}

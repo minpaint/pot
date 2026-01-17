@@ -1,23 +1,77 @@
 # directory/views/documents/instruction_journal.py
 
-from django import forms
+from collections import defaultdict
+from datetime import date, datetime
+import logging
+from io import BytesIO
+from zipfile import ZipFile
+
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.contrib import messages
-from django.http import HttpResponse
-from django.db.models import Q
-import logging
-from io import BytesIO
-from zipfile import ZipFile
-from datetime import date
+from django.http import HttpResponse, JsonResponse
+from django.utils.html import strip_tags
 
 from directory.models import Employee, Organization
 from directory.utils.permissions import AccessControlHelper
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+
+def has_employee_instructions(emp):
+    """Проверяет наличие хотя бы одного номера инструкции у должности."""
+    position = emp.position
+    return bool(
+        (position.safety_instructions_numbers and position.safety_instructions_numbers.strip()) or
+        (position.contract_safety_instructions and position.contract_safety_instructions.strip()) or
+        (position.company_vehicle_instructions and position.company_vehicle_instructions.strip())
+    )
+
+
+def group_employees_by_department(employees):
+    """
+    Делит сотрудников на основное подразделение и отделы, оставляя только тех, у кого есть инструкции.
+    """
+    subdivision_employees = []
+    departments_employees = defaultdict(list)
+
+    for emp in employees:
+        if not has_employee_instructions(emp):
+            continue
+        if emp.department:
+            departments_employees[emp.department].append(emp)
+        else:
+            subdivision_employees.append(emp)
+
+    return subdivision_employees, departments_employees
+
+
+def extract_unique_emails(recipient_items):
+    """
+    Возвращает уникальные email, сохраняя порядок.
+    recipient_items: список словарей с ключом email.
+    """
+    seen = set()
+    unique = []
+    for item in recipient_items:
+        email_value = (item.get('email') or '').strip().lower()
+        if email_value and email_value not in seen:
+            seen.add(email_value)
+            unique.append(email_value)
+    return unique
+
+
+def format_briefing_date_for_template(briefing_date_value):
+    """Преобразует дату для подстановки в шаблон письма."""
+    if not briefing_date_value:
+        return date.today().strftime('%d.%m.%Y')
+    try:
+        return datetime.strptime(briefing_date_value, '%Y-%m-%d').strftime('%d.%m.%Y')
+    except Exception:
+        return briefing_date_value
 
 
 class InstructionJournalView(LoginRequiredMixin, TemplateView):
@@ -378,10 +432,8 @@ def send_instruction_sample(request, subdivision_id):
     """
     Отправляет образец заполнения журнала инструктажей на email получателей подразделения.
 
-    Использует трёхуровневую систему сбора получателей:
-    1. SubdivisionEmail - email адреса, настроенные для подразделения
-    2. Employee.email - email ответственных за охрану труда
-    3. EmailSettings - общие email адреса организации
+    Отправляет отдельные документы для основного подразделения (без отдела)
+    и для каждого отдела, поддерживая fallback получателей на подразделение.
     """
     from django.shortcuts import get_object_or_404
     from django.core.mail import EmailMultiAlternatives
@@ -389,7 +441,10 @@ def send_instruction_sample(request, subdivision_id):
     from django.utils.safestring import mark_safe
     from django.urls import reverse
     from directory.models import StructuralSubdivision
-    from directory.utils.email_recipients import collect_recipients_for_subdivision
+    from directory.utils.email_recipients import (
+        get_recipients_detailed,
+        get_recipients_for_department,
+    )
     from deadline_control.models import EmailSettings, InstructionJournalSendLog, InstructionJournalSendDetail
     from directory.document_generators.instruction_journal_generator import generate_instruction_journal
     import json
@@ -405,30 +460,25 @@ def send_instruction_sample(request, subdivision_id):
 
     logger.info(f"Начало отправки образца журнала для подразделения '{subdivision.name}'")
 
-    # Получаем сотрудников подразделения с инструкциями
-    employees = Employee.objects.filter(
+    # Получаем всех сотрудников подразделения
+    all_employees = Employee.objects.filter(
         subdivision=subdivision,
         status='active',
         position__isnull=False
     ).select_related('organization', 'subdivision', 'department', 'position')
 
-    # Фильтруем только сотрудников с инструкциями
-    employees_with_instructions = []
-    for emp in employees:
-        position = emp.position
-        has_instructions = bool(
-            (position.safety_instructions_numbers and position.safety_instructions_numbers.strip()) or
-            (position.contract_safety_instructions and position.contract_safety_instructions.strip()) or
-            (position.company_vehicle_instructions and position.company_vehicle_instructions.strip())
-        )
-        if has_instructions:
-            employees_with_instructions.append(emp)
+    subdivision_employees, departments_employees = group_employees_by_department(all_employees)
+    total_groups = (1 if subdivision_employees else 0) + len(departments_employees)
 
     # Получаем вводные данные инструктажа из сессии
     briefing_data = request.session.get('briefing_data', {})
     briefing_date = briefing_data.get('date', date.today().strftime('%Y-%m-%d'))
     briefing_type = briefing_data.get('instruction_type', 'Повторный')
     briefing_reason = briefing_data.get('instruction_reason', '')
+    custom_context = {
+        'instruction_type': briefing_type,
+        'instruction_reason': briefing_reason,
+    }
 
     # Получаем настройки email
     try:
@@ -445,27 +495,27 @@ def send_instruction_sample(request, subdivision_id):
         messages.error(request, f"SMTP сервер не настроен для {organization.short_name_ru}")
         return redirect('directory:documents:instruction_journal')
 
-    # Создаём запись лога отправки (для одного подразделения)
+    # Создаём запись лога отправки (для одного подразделения, но нескольких групп)
     send_log = InstructionJournalSendLog.objects.create(
         organization=organization,
         initiated_by=request.user,
         briefing_date=briefing_date,
         briefing_type=briefing_type,
         briefing_reason=briefing_reason,
-        total_subdivisions=1,  # Одно подразделение
+        total_subdivisions=max(total_groups, 1),
         successful_count=0,
         failed_count=0,
         skipped_count=0,
         status='in_progress'
     )
 
-    logger.info(f"Создан лог отправки ID={send_log.id} для одиночной отправки")
+    logger.info(f"Создан лог отправки ID={send_log.id} (групп отправки: {max(total_groups, 1)})")
 
-    if not employees_with_instructions:
-        # Создаём запись о пропуске
+    if not subdivision_employees and not departments_employees:
         InstructionJournalSendDetail.objects.create(
             send_log=send_log,
             subdivision=subdivision,
+            department=None,
             status='skipped',
             skip_reason='no_employees',
             recipients='[]',
@@ -481,230 +531,293 @@ def send_instruction_sample(request, subdivision_id):
         messages.warning(request, f"В подразделении '{subdivision.name}' нет сотрудников с инструкциями")
         return redirect('directory:documents:instruction_journal')
 
-    logger.info(f"Найдено {len(employees_with_instructions)} сотрудников с инструкциями")
-
-    # Собираем получателей используя трёхуровневую систему
-    # Для журналов инструктажей используем специализированное поле
-    recipients = collect_recipients_for_subdivision(
-        subdivision=subdivision,
-        organization=organization,
-        notification_type='instruction_journal'
-    )
-
-    if not recipients:
-        # Создаём запись о пропуске
+    template_data = email_settings.get_email_template('instruction_journal')
+    if not template_data:
         InstructionJournalSendDetail.objects.create(
             send_log=send_log,
             subdivision=subdivision,
-            status='skipped',
-            skip_reason='no_recipients',
+            department=None,
+            status='failed',
+            skip_reason='template_not_found',
             recipients='[]',
             recipients_count=0,
-            employees_count=len(employees_with_instructions),
+            employees_count=len(subdivision_employees),
             email_subject='',
-            error_message='Не настроены получатели для подразделения'
-        )
-        send_log.skipped_count = 1
-        send_log.status = 'failed'
-        send_log.save()
-
-        messages.error(
-            request,
-            f"Нет получателей для подразделения '{subdivision.name}'. "
-            f"Настройте email в разделе 'Email для уведомлений' или добавьте email ответственным сотрудникам."
-        )
-        return redirect('directory:documents:instruction_journal')
-
-    logger.info(f"Собрано {len(recipients)} получателей: {', '.join(recipients)}")
-
-    # Генерируем документ
-    try:
-        doc = generate_instruction_journal(
-            employees=employees_with_instructions,
-            date_povtorny=briefing_date,
-            user=request.user,
-            grouping_name=subdivision.name
-        )
-
-        if not doc:
-            # Создаём запись об ошибке
-            InstructionJournalSendDetail.objects.create(
-                send_log=send_log,
-                subdivision=subdivision,
-                status='failed',
-                skip_reason='doc_generation_failed',
-                recipients=json.dumps(recipients),
-                recipients_count=len(recipients),
-                employees_count=len(employees_with_instructions),
-                email_subject='',
-                error_message='Не удалось сгенерировать документ'
-            )
-            send_log.failed_count = 1
-            send_log.status = 'failed'
-            send_log.save()
-
-            messages.error(request, "Ошибка при генерации документа")
-            return redirect('directory:documents:instruction_journal')
-
-        logger.info(f"Документ успешно сгенерирован: {doc['filename']}")
-    except Exception as e:
-        # Создаём запись об ошибке
-        InstructionJournalSendDetail.objects.create(
-            send_log=send_log,
-            subdivision=subdivision,
-            status='failed',
-            skip_reason='doc_generation_failed',
-            recipients=json.dumps(recipients),
-            recipients_count=len(recipients),
-            employees_count=len(employees_with_instructions),
-            email_subject='',
-            error_message=str(e)
+            error_message='Шаблон письма не настроен'
         )
         send_log.failed_count = 1
         send_log.status = 'failed'
         send_log.save()
 
-        logger.error(f"Ошибка генерации документа для {subdivision.name}: {str(e)}", exc_info=True)
-        messages.error(request, f"Ошибка генерации документа: {str(e)}")
+        messages.error(request, "Шаблон письма не настроен для этой организации")
         return redirect('directory:documents:instruction_journal')
 
-    # Отправляем email
+    total_sent = 0
+    total_failed = 0
+    total_skipped = 0
+    sent_to_emails = []
+
+    connection = email_settings.get_connection()
     try:
-        connection = email_settings.get_connection()
         from_email = email_settings.default_from_email or email_settings.email_host_user
 
-        # Собираем уникальные отделы сотрудников
-        departments = set()
-        for emp in employees_with_instructions:
-            if emp.department:
-                departments.add(emp.department.name)
-
-        # Формируем название отдела для шаблона
-        if len(departments) == 0:
-            department_name = "Без отдела"
-        elif len(departments) == 1:
-            department_name = list(departments)[0]
-        else:
-            department_name = "Все отделы"
-
-        # Подготовка переменных для шаблона
-        template_vars = {
-            'organization_name': organization.full_name_ru,
-            'subdivision_name': subdivision.name,
-            'department_name': department_name,
-            'date': briefing_data.get('date', date.today().strftime('%d.%m.%Y')),
-            'instruction_type': briefing_type,
-            'instruction_reason': briefing_reason,
-            'employee_count': len(employees_with_instructions),
-        }
-
-        # Получаем шаблон письма из новой системы шаблонов
-        template_data = email_settings.get_email_template('instruction_journal')
-        if not template_data:
-            # Создаём запись об ошибке
-            InstructionJournalSendDetail.objects.create(
-                send_log=send_log,
+        # Обработка основного подразделения (без отдела)
+        if subdivision_employees:
+            recipients_info = get_recipients_detailed(
                 subdivision=subdivision,
-                status='failed',
-                skip_reason='template_not_found',
-                recipients=json.dumps(recipients),
-                recipients_count=len(recipients),
-                employees_count=len(employees_with_instructions),
-                email_subject='',
-                error_message='Шаблон письма не настроен'
+                organization=organization,
+                notification_type='instruction_journal'
             )
-            send_log.failed_count = 1
-            send_log.status = 'failed'
-            send_log.save()
+            unique_recipients = extract_unique_emails(recipients_info['recipients'])
 
-            messages.error(request, "Шаблон письма не настроен для этой организации")
-            return redirect('directory:documents:instruction_journal')
+            if not unique_recipients:
+                InstructionJournalSendDetail.objects.create(
+                    send_log=send_log,
+                    subdivision=subdivision,
+                    department=None,
+                    status='skipped',
+                    skip_reason='no_recipients',
+                    recipients='[]',
+                    recipients_count=0,
+                    employees_count=len(subdivision_employees),
+                    email_subject='',
+                    error_message='Не настроены получатели для основного подразделения'
+                )
+                total_skipped += 1
+            else:
+                try:
+                    doc = generate_instruction_journal(
+                        employees=subdivision_employees,
+                        date_povtorny=briefing_date,
+                        user=request.user,
+                        grouping_name=f"{subdivision.name} (основное подразделение)",
+                        custom_context=custom_context
+                    )
+                except Exception as exc:
+                    InstructionJournalSendDetail.objects.create(
+                        send_log=send_log,
+                        subdivision=subdivision,
+                        department=None,
+                        status='failed',
+                        skip_reason='doc_generation_failed',
+                        recipients=json.dumps(unique_recipients),
+                        recipients_count=len(unique_recipients),
+                        employees_count=len(subdivision_employees),
+                        email_subject='',
+                        error_message=str(exc)
+                    )
+                    logger.error("Ошибка генерации документа для основного подразделения: %s", exc, exc_info=True)
+                    total_failed += 1
+                else:
+                    template_vars = {
+                        'organization_name': organization.full_name_ru,
+                        'subdivision_name': subdivision.name,
+                        'department_name': "Основное подразделение",
+                        'date': format_briefing_date_for_template(briefing_date),
+                        'instruction_type': briefing_type,
+                        'instruction_reason': briefing_reason,
+                        'employee_count': len(subdivision_employees),
+                    }
 
-        # Форматируем тему и текст письма с использованием переменных
-        subject = template_data[0].format(**template_vars)
-        html_message = template_data[1].format(**template_vars)
+                    subject = template_data[0].format(**template_vars)
+                    html_message = template_data[1].format(**template_vars)
+                    text_message = strip_tags(html_message)
 
-        # Создаем текстовую версию (для клиентов без HTML)
-        from django.utils.html import strip_tags
-        text_message = strip_tags(html_message)
+                    try:
+                        email = EmailMultiAlternatives(
+                            subject=subject,
+                            body=text_message,
+                            from_email=from_email,
+                            to=unique_recipients,
+                            connection=connection
+                        )
+                        email.attach_alternative(html_message, "text/html")
+                        email.attach(
+                            doc['filename'],
+                            doc['content'],
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                        )
+                        email.send(fail_silently=False)
 
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=text_message,
-            from_email=from_email,
-            to=recipients,
-            connection=connection
-        )
+                        InstructionJournalSendDetail.objects.create(
+                            send_log=send_log,
+                            subdivision=subdivision,
+                            department=None,
+                            status='success',
+                            recipients=json.dumps(unique_recipients),
+                            recipients_count=len(unique_recipients),
+                            employees_count=len(subdivision_employees),
+                            email_subject=subject,
+                            sent_at=timezone.now()
+                        )
+                        total_sent += 1
+                        sent_to_emails.extend(unique_recipients)
+                    except Exception as exc:
+                        InstructionJournalSendDetail.objects.create(
+                            send_log=send_log,
+                            subdivision=subdivision,
+                            department=None,
+                            status='failed',
+                            skip_reason='email_send_failed',
+                            recipients=json.dumps(unique_recipients),
+                            recipients_count=len(unique_recipients),
+                            employees_count=len(subdivision_employees),
+                            email_subject=subject,
+                            error_message=str(exc)
+                        )
+                        logger.error("Ошибка отправки email для основного подразделения: %s", exc, exc_info=True)
+                        total_failed += 1
 
-        # Прикрепляем HTML версию
-        email.attach_alternative(html_message, "text/html")
+        # Обработка отделов
+        for department, dept_employees in departments_employees.items():
+            recipients_info = get_recipients_for_department(
+                department=department,
+                subdivision=subdivision,
+                organization=organization,
+                notification_type='instruction_journal'
+            )
+            unique_recipients = extract_unique_emails(recipients_info['recipients'])
 
-        # Прикрепляем документ
-        email.attach(
-            doc['filename'],
-            doc['content'],
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
+            if not unique_recipients:
+                InstructionJournalSendDetail.objects.create(
+                    send_log=send_log,
+                    subdivision=subdivision,
+                    department=department,
+                    status='skipped',
+                    skip_reason='no_recipients',
+                    recipients='[]',
+                    recipients_count=0,
+                    employees_count=len(dept_employees),
+                    email_subject='',
+                    error_message='Не настроены получатели для отдела'
+                )
+                total_skipped += 1
+                continue
 
-        email.send(fail_silently=False)
+            try:
+                doc = generate_instruction_journal(
+                    employees=dept_employees,
+                    date_povtorny=briefing_date,
+                    user=request.user,
+                    grouping_name=f"{subdivision.name} - {department.name}",
+                    custom_context=custom_context
+                )
+            except Exception as exc:
+                InstructionJournalSendDetail.objects.create(
+                    send_log=send_log,
+                    subdivision=subdivision,
+                    department=department,
+                    status='failed',
+                    skip_reason='doc_generation_failed',
+                    recipients=json.dumps(unique_recipients),
+                    recipients_count=len(unique_recipients),
+                    employees_count=len(dept_employees),
+                    email_subject='',
+                    error_message=str(exc)
+                )
+                logger.error("Ошибка генерации документа для отдела %s: %s", department.name, exc, exc_info=True)
+                total_failed += 1
+                continue
 
-        # Создаём запись об успехе
-        InstructionJournalSendDetail.objects.create(
-            send_log=send_log,
-            subdivision=subdivision,
-            status='success',
-            recipients=json.dumps(recipients),
-            recipients_count=len(recipients),
-            employees_count=len(employees_with_instructions),
-            email_subject=subject,
-            sent_at=timezone.now()
-        )
+            template_vars = {
+                'organization_name': organization.full_name_ru,
+                'subdivision_name': subdivision.name,
+                'department_name': department.name,
+                'date': format_briefing_date_for_template(briefing_date),
+                'instruction_type': briefing_type,
+                'instruction_reason': briefing_reason,
+                'employee_count': len(dept_employees),
+            }
 
-        send_log.successful_count = 1
+            subject = template_data[0].format(**template_vars)
+            html_message = template_data[1].format(**template_vars)
+            text_message = strip_tags(html_message)
+
+            try:
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_message,
+                    from_email=from_email,
+                    to=unique_recipients,
+                    connection=connection
+                )
+                email.attach_alternative(html_message, "text/html")
+                email.attach(
+                    doc['filename'],
+                    doc['content'],
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+                email.send(fail_silently=False)
+
+                InstructionJournalSendDetail.objects.create(
+                    send_log=send_log,
+                    subdivision=subdivision,
+                    department=department,
+                    status='success',
+                    recipients=json.dumps(unique_recipients),
+                    recipients_count=len(unique_recipients),
+                    employees_count=len(dept_employees),
+                    email_subject=subject,
+                    sent_at=timezone.now()
+                )
+
+                fallback_msg = " (fallback на подразделение)" if recipients_info.get('fallback_used') else ""
+                logger.info("✅ Отдел '%s': отправлено на %s email%s", department.name, len(unique_recipients), fallback_msg)
+
+                total_sent += 1
+                sent_to_emails.extend(unique_recipients)
+            except Exception as exc:
+                InstructionJournalSendDetail.objects.create(
+                    send_log=send_log,
+                    subdivision=subdivision,
+                    department=department,
+                    status='failed',
+                    skip_reason='email_send_failed',
+                    recipients=json.dumps(unique_recipients),
+                    recipients_count=len(unique_recipients),
+                    employees_count=len(dept_employees),
+                    email_subject=subject,
+                    error_message=str(exc)
+                )
+                logger.error("Ошибка отправки email для отдела %s: %s", department.name, exc, exc_info=True)
+                total_failed += 1
+    finally:
+        try:
+            connection.close()
+        except Exception:
+            pass
+
+    send_log.successful_count = total_sent
+    send_log.failed_count = total_failed
+    send_log.skipped_count = total_skipped
+
+    if total_sent > 0 and total_failed == 0 and total_skipped == 0:
         send_log.status = 'completed'
-        send_log.save()
+    elif total_sent > 0:
+        send_log.status = 'partial'
+    else:
+        send_log.status = 'failed'
 
-        logger.info(
-            f"Образец журнала отправлен для {subdivision.name}. "
-            f"Получатели: {', '.join(recipients)}. "
-            f"Сотрудников: {len(employees_with_instructions)}"
-        )
+    send_log.save()
 
-        # Итоговое сообщение с ссылкой на лог
-        log_url = reverse('admin:deadline_control_instructionjournalsendlog_change', args=[send_log.pk])
+    unique_emails = list(set(sent_to_emails))
+    log_url = reverse('admin:deadline_control_instructionjournalsendlog_change', args=[send_log.pk])
+
+    if total_sent > 0:
         messages.success(
             request,
             mark_safe(
-                f"✅ Образец журнала успешно отправлен на {len(recipients)} адрес(ов): {', '.join(recipients)}<br>"
+                f"✅ Отправлено {total_sent} образцов журнала на {len(unique_emails)} уникальных email адресов<br>"
+                f"<small>Успешно: {total_sent}, Ошибок: {total_failed}, Пропущено: {total_skipped}</small><br>"
                 f"<a href='{log_url}' target='_blank' style='color:#0066cc;'>📊 Посмотреть детали отправки</a>"
             )
         )
-
-    except Exception as e:
-        # Создаём запись об ошибке отправки email
-        InstructionJournalSendDetail.objects.create(
-            send_log=send_log,
-            subdivision=subdivision,
-            status='failed',
-            skip_reason='email_send_failed',
-            recipients=json.dumps(recipients),
-            recipients_count=len(recipients),
-            employees_count=len(employees_with_instructions),
-            email_subject=subject if 'subject' in locals() else '',
-            error_message=str(e)
-        )
-        send_log.failed_count = 1
-        send_log.status = 'failed'
-        send_log.save()
-
-        logger.error(f"Ошибка отправки email для {subdivision.name}: {str(e)}", exc_info=True)
-
-        log_url = reverse('admin:deadline_control_instructionjournalsendlog_change', args=[send_log.pk])
+    else:
         messages.error(
             request,
             mark_safe(
-                f"❌ Ошибка отправки email: {str(e)}<br>"
-                f"<a href='{log_url}' target='_blank'>📊 Посмотреть детали ошибки</a>"
+                f"❌ Не удалось отправить образцы журнала<br>"
+                f"<a href='{log_url}' target='_blank'>📊 Посмотреть детали</a>"
             )
         )
 
@@ -716,15 +829,10 @@ def send_instruction_samples_for_organization(request, organization_id):
     Отправляет образцы заполнения журнала инструктажей для ВСЕХ подразделений организации.
 
     Для каждого подразделения:
-    - Собирает сотрудников с инструкциями
-    - Генерирует документ
-    - Собирает получателей через трёхуровневую систему
-    - Отправляет email с вложением
-
-    Использует BulkEmailSender для оптимизированной отправки:
-    - Connection pooling (одно SMTP соединение для всех писем)
-    - Rate limiting (задержка между письмами)
-    - Retry механизм (повторные попытки при временных ошибках)
+    - Делит сотрудников на основное подразделение и отделы
+    - Генерирует отдельный документ для каждой группы
+    - Собирает получателей с поддержкой fallback на подразделение
+    - Отправляет email с вложением и логирует результат
     """
     from django.shortcuts import get_object_or_404
     from django.utils import timezone
@@ -732,7 +840,10 @@ def send_instruction_samples_for_organization(request, organization_id):
     from django.utils.html import strip_tags
     from django.urls import reverse
     from directory.models import Organization, StructuralSubdivision
-    from directory.utils.email_recipients import collect_recipients_for_subdivision
+    from directory.utils.email_recipients import (
+        get_recipients_detailed,
+        get_recipients_for_department,
+    )
     from directory.utils.bulk_email_sender import BulkEmailSender
     from deadline_control.models import EmailSettings, InstructionJournalSendLog, InstructionJournalSendDetail
     from directory.document_generators.instruction_journal_generator import generate_instruction_journal
@@ -779,6 +890,11 @@ def send_instruction_samples_for_organization(request, organization_id):
         messages.error(request, f"SMTP сервер не настроен для {organization.short_name_ru}")
         return redirect('directory:documents:instruction_journal')
 
+    template_data = email_settings.get_email_template('instruction_journal')
+    if not template_data:
+        messages.error(request, "Шаблон письма не настроен для этой организации")
+        return redirect('directory:documents:instruction_journal')
+
     # Получаем все подразделения организации
     subdivisions = StructuralSubdivision.objects.filter(organization=organization)
 
@@ -793,7 +909,7 @@ def send_instruction_samples_for_organization(request, organization_id):
         briefing_date=briefing_data['date'],
         briefing_type=briefing_data.get('instruction_type', 'Повторный'),
         briefing_reason=briefing_data.get('instruction_reason', ''),
-        total_subdivisions=subdivisions.count(),
+        total_subdivisions=0,
         successful_count=0,
         failed_count=0,
         skipped_count=0,
@@ -803,7 +919,7 @@ def send_instruction_samples_for_organization(request, organization_id):
     logger.info(f"Создан лог рассылки ID={send_log.id}")
 
     # Статистика отправки
-    total_subdivisions = 0
+    total_groups = 0
     successful_sent = 0
     failed_sent = 0
     skipped_count = 0
@@ -831,30 +947,19 @@ def send_instruction_samples_for_organization(request, organization_id):
         for subdivision in subdivisions:
             logger.info(f"Обработка подразделения: {subdivision.name}")
 
-            # Получаем сотрудников подразделения с инструкциями
             employees = Employee.objects.filter(
                 subdivision=subdivision,
                 status='active',
                 position__isnull=False
             ).select_related('organization', 'subdivision', 'department', 'position')
 
-            # Фильтруем только сотрудников с инструкциями
-            employees_with_instructions = []
-            for emp in employees:
-                position = emp.position
-                has_instructions = bool(
-                    (position.safety_instructions_numbers and position.safety_instructions_numbers.strip()) or
-                    (position.contract_safety_instructions and position.contract_safety_instructions.strip()) or
-                    (position.company_vehicle_instructions and position.company_vehicle_instructions.strip())
-                )
-                if has_instructions:
-                    employees_with_instructions.append(emp)
+            subdivision_employees, departments_employees = group_employees_by_department(employees)
 
-            if not employees_with_instructions:
-                # Создаём запись о пропуске
+            if not subdivision_employees and not departments_employees:
                 InstructionJournalSendDetail.objects.create(
                     send_log=send_log,
                     subdivision=subdivision,
+                    department=None,
                     status='skipped',
                     skip_reason='no_employees',
                     recipients='[]',
@@ -864,192 +969,235 @@ def send_instruction_samples_for_organization(request, organization_id):
                     error_message='Нет сотрудников с инструкциями'
                 )
                 skipped_count += 1
-                logger.info(f"Подразделение '{subdivision.name}': нет сотрудников с инструкциями, пропускаем")
+                total_groups += 1
+                logger.info("Подразделение '%s': нет сотрудников с инструкциями, пропускаем", subdivision.name)
                 continue
 
-            total_subdivisions += 1
-            logger.info(f"Найдено {len(employees_with_instructions)} сотрудников с инструкциями")
+            custom_context = {
+                'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
+                'instruction_reason': briefing_data.get('instruction_reason', ''),
+            }
 
-            # Собираем получателей для журналов инструктажей
-            recipients = collect_recipients_for_subdivision(
-                subdivision=subdivision,
-                organization=organization,
-                notification_type='instruction_journal'
-            )
-
-            if not recipients:
-                # Создаём запись о пропуске
-                InstructionJournalSendDetail.objects.create(
-                    send_log=send_log,
+            # Обрабатываем основное подразделение
+            if subdivision_employees:
+                total_groups += 1
+                recipients_info = get_recipients_detailed(
                     subdivision=subdivision,
-                    status='skipped',
-                    skip_reason='no_recipients',
-                    recipients='[]',
-                    recipients_count=0,
-                    employees_count=len(employees_with_instructions),
-                    email_subject='',
-                    error_message='Не настроены получатели для подразделения'
+                    organization=organization,
+                    notification_type='instruction_journal'
                 )
-                skipped_count += 1
-                logger.warning(f"Подразделение '{subdivision.name}': нет получателей, пропускаем")
-                continue
+                unique_recipients = extract_unique_emails(recipients_info['recipients'])
 
-            logger.info(f"Собрано {len(recipients)} получателей: {', '.join(recipients)}")
-            total_recipients.update(recipients)
-
-            # Генерируем документ
-            try:
-                # Формируем дополнительный контекст с данными инструктажа
-                custom_context = {
-                    'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
-                    'instruction_reason': briefing_data.get('instruction_reason', ''),
-                }
-
-                doc = generate_instruction_journal(
-                    employees=employees_with_instructions,
-                    date_povtorny=briefing_data['date'],
-                    user=request.user,
-                    grouping_name=subdivision.name,
-                    custom_context=custom_context
-                )
-
-                if not doc:
-                    # Создаём запись об ошибке
+                if not unique_recipients:
                     InstructionJournalSendDetail.objects.create(
                         send_log=send_log,
                         subdivision=subdivision,
-                        status='failed',
-                        skip_reason='doc_generation_failed',
-                        recipients=json.dumps(recipients),
-                        recipients_count=len(recipients),
-                        employees_count=len(employees_with_instructions),
+                        department=None,
+                        status='skipped',
+                        skip_reason='no_recipients',
+                        recipients='[]',
+                        recipients_count=0,
+                        employees_count=len(subdivision_employees),
                         email_subject='',
-                        error_message='Не удалось сгенерировать документ'
+                        error_message='Не настроены получатели для основного подразделения'
                     )
-                    failed_sent += 1
-                    logger.error(f"Не удалось сгенерировать документ для {subdivision.name}")
+                    skipped_count += 1
+                else:
+                    try:
+                        doc = generate_instruction_journal(
+                            employees=subdivision_employees,
+                            date_povtorny=briefing_data['date'],
+                            user=request.user,
+                            grouping_name=f"{subdivision.name} (основное подразделение)",
+                            custom_context=custom_context
+                        )
+                    except Exception as exc:
+                        InstructionJournalSendDetail.objects.create(
+                            send_log=send_log,
+                            subdivision=subdivision,
+                            department=None,
+                            status='failed',
+                            skip_reason='doc_generation_failed',
+                            recipients=json.dumps(unique_recipients),
+                            recipients_count=len(unique_recipients),
+                            employees_count=len(subdivision_employees),
+                            email_subject='',
+                            error_message=str(exc)
+                        )
+                        failed_sent += 1
+                        logger.error("Ошибка генерации документа для %s: %s", subdivision.name, exc, exc_info=True)
+                    else:
+                        template_vars = {
+                            'organization_name': organization.full_name_ru,
+                            'subdivision_name': subdivision.name,
+                            'department_name': "Основное подразделение",
+                            'date': format_briefing_date_for_template(briefing_data.get('date')),
+                            'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
+                            'instruction_reason': briefing_data.get('instruction_reason', ''),
+                            'employee_count': len(subdivision_employees),
+                        }
+
+                        subject = template_data[0].format(**template_vars)
+                        html_message = template_data[1].format(**template_vars)
+                        text_message = strip_tags(html_message)
+
+                        success, error = bulk_sender.send_email(
+                            subject=subject,
+                            body_text=text_message,
+                            to_emails=unique_recipients,
+                            body_html=html_message,
+                            attachment_name=doc['filename'],
+                            attachment_content=doc['content'],
+                            attachment_mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                        )
+
+                        if success:
+                            InstructionJournalSendDetail.objects.create(
+                                send_log=send_log,
+                                subdivision=subdivision,
+                                department=None,
+                                status='success',
+                                recipients=json.dumps(unique_recipients),
+                                recipients_count=len(unique_recipients),
+                                employees_count=len(subdivision_employees),
+                                email_subject=subject,
+                                sent_at=timezone.now()
+                            )
+                            successful_sent += 1
+                            total_employees += len(subdivision_employees)
+                            total_recipients.update(unique_recipients)
+                        else:
+                            InstructionJournalSendDetail.objects.create(
+                                send_log=send_log,
+                                subdivision=subdivision,
+                                department=None,
+                                status='failed',
+                                skip_reason='email_send_failed',
+                                recipients=json.dumps(unique_recipients),
+                                recipients_count=len(unique_recipients),
+                                employees_count=len(subdivision_employees),
+                                email_subject=subject,
+                                error_message=error or 'Неизвестная ошибка отправки'
+                            )
+                            failed_sent += 1
+                            logger.error("❌ Ошибка отправки email для %s: %s", subdivision.name, error)
+
+            # Обрабатываем отделы
+            for department, dept_employees in departments_employees.items():
+                total_groups += 1
+                recipients_info = get_recipients_for_department(
+                    department=department,
+                    subdivision=subdivision,
+                    organization=organization,
+                    notification_type='instruction_journal'
+                )
+                unique_recipients = extract_unique_emails(recipients_info['recipients'])
+
+                if not unique_recipients:
+                    InstructionJournalSendDetail.objects.create(
+                        send_log=send_log,
+                        subdivision=subdivision,
+                        department=department,
+                        status='skipped',
+                        skip_reason='no_recipients',
+                        recipients='[]',
+                        recipients_count=0,
+                        employees_count=len(dept_employees),
+                        email_subject='',
+                        error_message='Не настроены получатели для отдела'
+                    )
+                    skipped_count += 1
                     continue
 
-                logger.info(f"Документ успешно сгенерирован: {doc['filename']}")
-            except Exception as e:
-                # Создаём запись об ошибке
-                InstructionJournalSendDetail.objects.create(
-                    send_log=send_log,
-                    subdivision=subdivision,
-                    status='failed',
-                    skip_reason='doc_generation_failed',
-                    recipients=json.dumps(recipients),
-                    recipients_count=len(recipients),
-                    employees_count=len(employees_with_instructions),
-                    email_subject='',
-                    error_message=str(e)
-                )
-                failed_sent += 1
-                logger.error(f"Ошибка генерации документа для {subdivision.name}: {str(e)}", exc_info=True)
-                continue
+                try:
+                    doc = generate_instruction_journal(
+                        employees=dept_employees,
+                        date_povtorny=briefing_data['date'],
+                        user=request.user,
+                        grouping_name=f"{subdivision.name} - {department.name}",
+                        custom_context=custom_context
+                    )
+                except Exception as exc:
+                    InstructionJournalSendDetail.objects.create(
+                        send_log=send_log,
+                        subdivision=subdivision,
+                        department=department,
+                        status='failed',
+                        skip_reason='doc_generation_failed',
+                        recipients=json.dumps(unique_recipients),
+                        recipients_count=len(unique_recipients),
+                        employees_count=len(dept_employees),
+                        email_subject='',
+                        error_message=str(exc)
+                    )
+                    failed_sent += 1
+                    logger.error("Ошибка генерации документа для отдела %s: %s", department.name, exc, exc_info=True)
+                    continue
 
-            # Подготовка email сообщения
-            # Собираем уникальные отделы сотрудников
-            departments = set()
-            for emp in employees_with_instructions:
-                if emp.department:
-                    departments.add(emp.department.name)
+                template_vars = {
+                    'organization_name': organization.full_name_ru,
+                    'subdivision_name': subdivision.name,
+                    'department_name': department.name,
+                    'date': format_briefing_date_for_template(briefing_data.get('date')),
+                    'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
+                    'instruction_reason': briefing_data.get('instruction_reason', ''),
+                    'employee_count': len(dept_employees),
+                }
 
-            # Формируем название отдела для шаблона
-            if len(departments) == 0:
-                department_name = "Без отдела"
-            elif len(departments) == 1:
-                department_name = list(departments)[0]
-            else:
-                department_name = "Все отделы"
+                subject = template_data[0].format(**template_vars)
+                html_message = template_data[1].format(**template_vars)
+                text_message = strip_tags(html_message)
 
-            # Подготовка переменных для шаблона
-            template_vars = {
-                'organization_name': organization.full_name_ru,
-                'subdivision_name': subdivision.name,
-                'department_name': department_name,
-                'date': briefing_data.get('date', date.today().strftime('%d.%m.%Y')),
-                'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
-                'instruction_reason': briefing_data.get('instruction_reason', ''),
-                'employee_count': len(employees_with_instructions),
-            }
-
-            # Получаем шаблон письма из новой системы шаблонов
-            template_data = email_settings.get_email_template('instruction_journal')
-            if not template_data:
-                # Создаём запись об ошибке
-                InstructionJournalSendDetail.objects.create(
-                    send_log=send_log,
-                    subdivision=subdivision,
-                    status='failed',
-                    skip_reason='template_not_found',
-                    recipients=json.dumps(recipients),
-                    recipients_count=len(recipients),
-                    employees_count=len(employees_with_instructions),
-                    email_subject='',
-                    error_message='Шаблон письма не настроен'
-                )
-                failed_sent += 1
-                logger.error(f"Шаблон письма не настроен для {subdivision.name}")
-                continue
-
-            # Форматируем тему и текст письма
-            subject = template_data[0].format(**template_vars)
-            html_message = template_data[1].format(**template_vars)
-            text_message = strip_tags(html_message)
-
-            # Отправляем email через BulkEmailSender (с connection pooling и retry)
-            success, error = bulk_sender.send_email(
-                subject=subject,
-                body_text=text_message,
-                to_emails=recipients,
-                body_html=html_message,
-                attachment_name=doc['filename'],
-                attachment_content=doc['content'],
-                attachment_mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            )
-
-            if success:
-                # Создаём запись об успехе
-                InstructionJournalSendDetail.objects.create(
-                    send_log=send_log,
-                    subdivision=subdivision,
-                    status='success',
-                    recipients=json.dumps(recipients),
-                    recipients_count=len(recipients),
-                    employees_count=len(employees_with_instructions),
-                    email_subject=subject,
-                    sent_at=timezone.now()
+                success, error = bulk_sender.send_email(
+                    subject=subject,
+                    body_text=text_message,
+                    to_emails=unique_recipients,
+                    body_html=html_message,
+                    attachment_name=doc['filename'],
+                    attachment_content=doc['content'],
+                    attachment_mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 )
 
-                logger.info(
-                    f"✅ Образец отправлен для {subdivision.name}. "
-                    f"Получатели: {', '.join(recipients)}. "
-                    f"Сотрудников: {len(employees_with_instructions)}"
-                )
+                if success:
+                    InstructionJournalSendDetail.objects.create(
+                        send_log=send_log,
+                        subdivision=subdivision,
+                        department=department,
+                        status='success',
+                        recipients=json.dumps(unique_recipients),
+                        recipients_count=len(unique_recipients),
+                        employees_count=len(dept_employees),
+                        email_subject=subject,
+                        sent_at=timezone.now()
+                    )
 
-                successful_sent += 1
-                total_employees += len(employees_with_instructions)
-            else:
-                # Создаём запись об ошибке отправки email
-                InstructionJournalSendDetail.objects.create(
-                    send_log=send_log,
-                    subdivision=subdivision,
-                    status='failed',
-                    skip_reason='email_send_failed',
-                    recipients=json.dumps(recipients),
-                    recipients_count=len(recipients),
-                    employees_count=len(employees_with_instructions),
-                    email_subject=subject,
-                    error_message=error or 'Неизвестная ошибка отправки'
-                )
-                failed_sent += 1
-                logger.error(f"❌ Ошибка отправки email для {subdivision.name}: {error}")
+                    successful_sent += 1
+                    total_employees += len(dept_employees)
+                    total_recipients.update(unique_recipients)
+
+                    fallback_msg = " (fallback на подразделение)" if recipients_info.get('fallback_used') else ""
+                    logger.info("✅ Отдел '%s': отправлено на %s email%s", department.name, len(unique_recipients), fallback_msg)
+                else:
+                    InstructionJournalSendDetail.objects.create(
+                        send_log=send_log,
+                        subdivision=subdivision,
+                        department=department,
+                        status='failed',
+                        skip_reason='email_send_failed',
+                        recipients=json.dumps(unique_recipients),
+                        recipients_count=len(unique_recipients),
+                        employees_count=len(dept_employees),
+                        email_subject=subject,
+                        error_message=error or 'Неизвестная ошибка отправки'
+                    )
+                    failed_sent += 1
+                    logger.error("❌ Ошибка отправки email для отдела %s: %s", department.name, error)
 
     # Обновляем итоговую статистику лога
     send_log.successful_count = successful_sent
     send_log.failed_count = failed_sent
     send_log.skipped_count = skipped_count
+    send_log.total_subdivisions = max(total_groups, subdivisions.count())
 
     # Определяем финальный статус
     if successful_sent > 0 and failed_sent == 0 and skipped_count == 0:
@@ -1110,6 +1258,10 @@ def preview_mass_send_instruction_samples(request, organization_id):
     с информацией о получателях перед массовой отправкой.
     """
     from directory.models import Organization, StructuralSubdivision, Employee
+    from directory.utils.email_recipients import (
+        get_recipients_detailed,
+        get_recipients_for_department,
+    )
     from deadline_control.models import EmailSettings
 
     try:
@@ -1160,8 +1312,15 @@ def preview_mass_send_instruction_samples(request, organization_id):
     ).order_by('name')
 
     tree_data = []
-    total_recipients = set()
+    unique_recipients = set()
+    total_recipients_shown = 0
+    total_employees = 0
     has_any_recipients = False
+
+    template_data = email_settings.get_email_template('instruction_journal')
+    if not template_data:
+        messages.error(request, "Шаблон письма не настроен для этой организации")
+        return redirect('directory:documents:instruction_journal')
 
     for subdivision in subdivisions:
         # Получаем сотрудников с инструкциями
@@ -1172,89 +1331,99 @@ def preview_mass_send_instruction_samples(request, organization_id):
             position__isnull=False
         ).select_related('position', 'department')
 
-        # Фильтруем только сотрудников с инструкциями (проверяем все типы инструкций)
-        employees_with_instructions = []
-        for emp in employees:
-            position = emp.position
-            if position:
-                has_instructions = bool(
-                    (position.safety_instructions_numbers and position.safety_instructions_numbers.strip()) or
-                    (position.contract_safety_instructions and position.contract_safety_instructions.strip()) or
-                    (position.company_vehicle_instructions and position.company_vehicle_instructions.strip())
-                )
-                if has_instructions:
-                    employees_with_instructions.append(emp)
+        subdivision_employees, departments_employees = group_employees_by_department(employees)
+        employees_total = len(subdivision_employees) + sum(len(emp_list) for emp_list in departments_employees.values())
 
-        if not employees_with_instructions:
+        if employees_total == 0:
             continue
 
-        # Собираем информацию о получателях для этого подразделения
-        from directory.utils.email_recipients import collect_recipients_for_subdivision
-        recipients = collect_recipients_for_subdivision(
-            subdivision,
-            organization,
+        total_employees += employees_total
+
+        # Получатели основного подразделения (без отдела)
+        subdivision_recipients_data = get_recipients_detailed(
+            subdivision=subdivision,
+            organization=organization,
             notification_type='instruction_journal'
         )
+        subdivision_unique_emails = extract_unique_emails(subdivision_recipients_data['recipients'])
+        unique_recipients.update(subdivision_unique_emails)
+        total_recipients_shown += subdivision_recipients_data['total_count']
+        subdivision_has_recipients = subdivision_recipients_data['has_recipients']
+        has_any_recipients = has_any_recipients or subdivision_has_recipients
 
-        # Собираем уникальные отделы сотрудников
-        departments_in_subdivision = {}
-        for emp in employees_with_instructions:
-            dept_name = emp.department.name if emp.department else "Без отдела"
-            if dept_name not in departments_in_subdivision:
-                departments_in_subdivision[dept_name] = []
-            departments_in_subdivision[dept_name].append(emp)
-
-        # Определяем название отдела для шаблона
-        if len(departments_in_subdivision) == 0:
-            department_name = "Без отдела"
-        elif len(departments_in_subdivision) == 1:
-            department_name = list(departments_in_subdivision.keys())[0]
-        else:
-            department_name = "Все отделы"
-
-        # Добавляем получателей в общий список
-        total_recipients.update(recipients)
-        has_recipients = len(recipients) > 0
-        if has_recipients:
-            has_any_recipients = True
-
-        # Формируем переменные для подстановки в шаблон
-        template_vars = {
+        subdivision_subject_vars = {
             'organization_name': organization.full_name_ru,
             'subdivision_name': subdivision.name,
-            'department_name': department_name,
-            'employee_count': len(employees_with_instructions),
-            'date': briefing_data.get('date', date.today().strftime('%d.%m.%Y')),
+            'department_name': "Основное подразделение (без отдела)",
+            'employee_count': len(subdivision_employees),
+            'date': format_briefing_date_for_template(briefing_data.get('date')),
             'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
             'instruction_reason': briefing_data.get('instruction_reason', ''),
         }
+        subdivision_subject = template_data[0].format(**subdivision_subject_vars)
 
-        # Получаем шаблон письма из новой системы шаблонов
-        template_data = email_settings.get_email_template('instruction_journal')
-        if template_data:
-            subject = template_data[0].format(**template_vars)
-        else:
-            subject = "Шаблон не настроен"
+        # Получатели по отделам
+        departments_data = []
+        for department, dept_employees in departments_employees.items():
+            dept_recipients_data = get_recipients_for_department(
+                department=department,
+                subdivision=subdivision,
+                organization=organization,
+                notification_type='instruction_journal'
+            )
+            dept_unique_emails = extract_unique_emails(dept_recipients_data['recipients'])
+            unique_recipients.update(dept_unique_emails)
+            total_recipients_shown += dept_recipients_data['total_count']
+            has_any_recipients = has_any_recipients or dept_recipients_data['has_recipients']
+
+            dept_subject_vars = {
+                'organization_name': organization.full_name_ru,
+                'subdivision_name': subdivision.name,
+                'department_name': department.name,
+                'employee_count': len(dept_employees),
+                'date': format_briefing_date_for_template(briefing_data.get('date')),
+                'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
+                'instruction_reason': briefing_data.get('instruction_reason', ''),
+            }
+            dept_subject = template_data[0].format(**dept_subject_vars)
+
+            departments_data.append({
+                'department': department,
+                'department_name': department.name,
+                'employees_count': len(dept_employees),
+                'recipients': dept_recipients_data['recipients'],
+                'recipients_count': dept_recipients_data['total_count'],
+                'unique_recipients_count': dept_recipients_data['unique_emails_count'],
+                'has_recipients': dept_recipients_data['has_recipients'],
+                'fallback_used': dept_recipients_data.get('fallback_used', False),
+                'email_subject': dept_subject,
+            })
+
+        subdivision_any_recipients = subdivision_has_recipients or any(
+            dept['has_recipients'] for dept in departments_data
+        )
 
         tree_data.append({
             'subdivision': subdivision,
-            'department_name': department_name,
-            'departments': departments_in_subdivision,
-            'employees_count': len(employees_with_instructions),
-            'recipients': recipients,
-            'has_recipients': has_recipients,
-            'email_subject': subject,
+            'subdivision_employees_count': len(subdivision_employees),
+            'subdivision_recipients': subdivision_recipients_data['recipients'],
+            'subdivision_recipients_count': subdivision_recipients_data['total_count'],
+            'subdivision_unique_recipients_count': subdivision_recipients_data['unique_emails_count'],
+            'subdivision_has_recipients': subdivision_has_recipients,
+            'subdivision_email_subject': subdivision_subject,
+            'departments': departments_data,
+            'total_employees_count': employees_total,
+            'has_recipients': subdivision_any_recipients,
         })
 
     # Форматируем текст письма с примером (берём первое подразделение)
-    template_data = email_settings.get_email_template('instruction_journal')
     if tree_data and template_data:
         example_vars = {
             'organization_name': organization.full_name_ru,
             'subdivision_name': tree_data[0]['subdivision'].name,
-            'department_name': tree_data[0]['department_name'],
-            'employee_count': tree_data[0]['employees_count'],
-            'date': briefing_data.get('date', date.today().strftime('%d.%m.%Y')),
+            'department_name': "Основное подразделение (без отдела)",
+            'employee_count': tree_data[0].get('total_employees_count', 0),
+            'date': format_briefing_date_for_template(briefing_data.get('date')),
             'instruction_type': briefing_data.get('instruction_type', 'Повторный'),
             'instruction_reason': briefing_data.get('instruction_reason', ''),
         }
@@ -1267,8 +1436,9 @@ def preview_mass_send_instruction_samples(request, organization_id):
     context = {
         'organization': organization,
         'tree_data': tree_data,
-        'total_recipients': total_recipients,
-        'total_recipients_count': len(total_recipients),
+        'total_recipients_count': len(unique_recipients),
+        'total_recipients_shown': total_recipients_shown,
+        'total_employees': total_employees,
         'briefing_data': briefing_data,
         'email_body_preview': email_body_preview,
         'has_any_recipients': has_any_recipients,

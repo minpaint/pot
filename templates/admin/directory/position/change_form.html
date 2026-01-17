@@ -43,4 +43,42 @@
         }
     </style>
     {% endif %}
+
+    {# JavaScript для перемещения секций переопределения к соответствующим инлайнам #}
+    <script>
+    (function() {
+        'use strict';
+
+        function moveOverrideSections() {
+            // Перемещаем секцию переопределения СИЗ перед инлайном СИЗ
+            var sizOverrideFieldset = document.querySelector('.siz-override-section');
+            var sizInline = document.querySelector('#siz_norms-group');
+
+            if (sizOverrideFieldset && sizInline) {
+                var sizModule = sizOverrideFieldset.closest('.module');
+                if (sizModule) {
+                    sizInline.parentNode.insertBefore(sizModule, sizInline);
+                }
+            }
+
+            // Перемещаем секцию переопределения медосмотров перед инлайном медосмотров
+            var medicalOverrideFieldset = document.querySelector('.medical-override-section');
+            var medicalInline = document.querySelector('#medical_factors-group');
+
+            if (medicalOverrideFieldset && medicalInline) {
+                var medicalModule = medicalOverrideFieldset.closest('.module');
+                if (medicalModule) {
+                    medicalInline.parentNode.insertBefore(medicalModule, medicalInline);
+                }
+            }
+        }
+
+        // Выполняем после полной загрузки DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', moveOverrideSections);
+        } else {
+            moveOverrideSections();
+        }
+    })();
+    </script>
 {% endblock %}

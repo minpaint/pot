@@ -403,8 +403,9 @@ def prepare_internship_context(employee, context=None):
         if leader_position:
             leader_position = leader_position[0].lower() + leader_position[1:]
 
-        # Получаем инициалы
-        leader_name_initials = get_initials_from_name(leader_name)
+        # Получаем инициалы в формате "И.О. Фамилия"
+        from directory.utils.declension import get_initials_before_surname
+        leader_name_initials = get_initials_before_surname(leader_name)
 
         # Склоняем имя и должность во всех падежах для гибкости использования
         # Именительный (nomn) - уже есть
@@ -493,8 +494,9 @@ def prepare_director_context(employee, context=None):
         signer_position = signer.position.position_name if signer.position else ""
         signer_name = signer.full_name_nominative
 
-        # Получаем инициалы
-        signer_name_initials = get_initials_from_name(signer_name)
+        # Получаем инициалы в формате "И.О. Фамилия"
+        from directory.utils.declension import get_initials_before_surname
+        signer_name_initials = get_initials_before_surname(signer_name)
 
         # Склоняем имя и должность во всех падежах
         # Именительный (nomn) - уже есть

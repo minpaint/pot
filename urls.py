@@ -68,6 +68,9 @@ urlpatterns = [
     # ⏰ URL приложения deadline_control (Контроль сроков)
     path('deadline-control/', include('deadline_control.urls')),
 
+    # 🎓 Обучение на производстве
+    path('production-training/', include('production_training.urls')),
+
     # ✍️ CKEditor 5 URL
     path('ckeditor5/', include('django_ckeditor_5.urls')),
 

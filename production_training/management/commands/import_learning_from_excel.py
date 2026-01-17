@@ -17,7 +17,6 @@ from production_training.models import (
     TrainingType,
     TrainingQualificationGrade,
     TrainingProfession,
-    EducationLevel,
     TrainingProgram,
     TrainingProgramSection,
     TrainingEntryType,
@@ -132,7 +131,6 @@ class Command(BaseCommand):
         self._import_professions(base_rows)
 
         base_rows = parse_sheet(z, base_path, shared)
-        self._import_education_levels(base_rows)
 
         role_rows = parse_sheet(z, roles_path, shared)
         self._import_role_types(role_rows)
@@ -194,18 +192,6 @@ class Command(BaseCommand):
             if was_created:
                 created += 1
         self.stdout.write(f'Профессии обучения: создано {created}')
-
-    def _import_education_levels(self, rows):
-        created = 0
-        for r, value in iter_column(rows, 'G'):
-            if value and value.lower() != 'образование':
-                obj, was_created = EducationLevel.objects.get_or_create(
-                    name_ru=value,
-                    defaults={'is_active': True}
-                )
-                if was_created:
-                    created += 1
-        self.stdout.write(f'Уровни образования: создано {created}')
 
     def _import_role_types(self, rows):
         role_names = set()
@@ -360,6 +346,11 @@ class Command(BaseCommand):
             training_type = TrainingType.objects.filter(code=training_type_code).first()
             profession = TrainingProfession.objects.first()
 
+            education_level_name = str(rows.get(r, {}).get('G', '')).strip()
+            if education_level_name and not employee.education_level:
+                employee.education_level = education_level_name
+                employee.save(update_fields=['education_level'])
+
             start_date = excel_serial_to_date(rows.get(r, {}).get('R'))
             if not start_date:
                 start_date = excel_serial_to_date(rows.get(r, {}).get('B'))
@@ -374,7 +365,6 @@ class Command(BaseCommand):
                     'subdivision': employee.subdivision,
                     'department': employee.department,
                     'current_position': employee.position,
-                    'education_level': EducationLevel.objects.filter(name_ru=rows.get(r, {}).get('G', '')).first(),
                     'prior_qualification': prior_qualification,
                     'start_date': start_date,
                     'end_date': end_date,

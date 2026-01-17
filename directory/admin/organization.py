@@ -16,6 +16,31 @@ class OrganizationAdmin(admin.ModelAdmin):
     list_display = ['full_name_ru', 'short_name_ru', 'full_name_by', 'short_name_by', 'location']
     search_fields = ['full_name_ru', 'short_name_ru', 'full_name_by', 'short_name_by', 'location']
 
+    fieldsets = (
+        ('Основная информация', {
+            'fields': (
+                'full_name_ru',
+                'short_name_ru',
+                'full_name_by',
+                'short_name_by',
+                'location',
+            )
+        }),
+        ('Реквизиты', {
+            'fields': ('requisites_ru', 'requisites_by')
+        }),
+        ('🎓 Эталонные роли для обучения', {
+            'fields': (
+                'default_theory_consultant',
+                'default_commission_chairman',
+                'default_instructor',
+            ),
+            'classes': ('collapse',),
+            'description': 'Эти роли будут подставляться по умолчанию при создании карточки обучения. '
+                          'Их можно переопределить для конкретного обучения.'
+        }),
+    )
+
     def get_form(self, request, obj=None, **kwargs):
         """
         Обычно Organization видят все админы, но если хотите, можно фильтровать.

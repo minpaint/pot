@@ -10,7 +10,6 @@
 """
 import logging
 from typing import List, Optional, Set, Dict
-from django.db.models import QuerySet
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +270,220 @@ def _clean_email_list(emails: List[str]) -> List[str]:
             if cleaned_email:  # Проверяем, что не пустая строка после очистки
                 cleaned.append(cleaned_email)
     return cleaned
+
+
+def get_recipients_detailed(
+    subdivision: Optional['StructuralSubdivision'],
+    organization: 'Organization',
+    notification_type: str = 'general'
+) -> Dict[str, any]:
+    """
+    Возвращает детальный список получателей без дедупликации для отображения в UI.
+
+    Источники:
+    1. SubdivisionEmail — активные email подразделения
+    2. Employee.email — ответственные за ОТ БЕЗ отдела (department__isnull=True)
+    3. EmailSettings — получатели организации (по типу уведомления)
+
+    Возвращает словарь со всеми получателями (включая дубликаты) и статистикой.
+    """
+    from directory.models import Employee
+
+    recipients_data: List[Dict[str, str]] = []
+    unique_emails: Set[str] = set()
+
+    # Источник 1: email подразделения
+    if subdivision:
+        try:
+            subdivision_emails_qs = subdivision.notification_emails.filter(
+                is_active=True
+            ).values_list('email', flat=True)
+
+            for email in subdivision_emails_qs:
+                if not email:
+                    continue
+                email_clean = email.strip().lower()
+                if not email_clean:
+                    continue
+                recipients_data.append({
+                    'email': email_clean,
+                    'full_name': subdivision.name,
+                    'position': '',
+                    'source': 'subdivision',
+                    'source_display': 'Email подразделения',
+                })
+                unique_emails.add(email_clean)
+        except Exception as exc:
+            logger.warning("Не удалось получить email подразделения: %s", exc)
+
+    # Источник 2: ответственные за ОТ без отдела
+    if subdivision:
+        try:
+            responsible_employees_qs = Employee.objects.filter(
+                subdivision=subdivision,
+                department__isnull=True,
+                status='active',
+                position__is_responsible_for_safety=True,
+                email__isnull=False
+            ).exclude(email='')
+
+            for employee in responsible_employees_qs:
+                email_clean = employee.email.strip().lower()
+                if not email_clean:
+                    continue
+                recipients_data.append({
+                    'email': email_clean,
+                    'full_name': employee.full_name_nominative or employee.full_name,
+                    'position': employee.position.position_name if employee.position else '',
+                    'source': 'employee',
+                    'source_display': 'Ответственный за охрану труда (подразделение)',
+                })
+                unique_emails.add(email_clean)
+        except Exception as exc:
+            logger.warning("Не удалось получить ответственных за ОТ: %s", exc)
+
+    # Источник 3: email организации
+    try:
+        email_settings = organization.email_settings
+        if email_settings.is_active:
+            if notification_type == 'instruction_journal':
+                org_emails = email_settings.get_instruction_journal_recipients()
+            else:
+                org_emails = email_settings.get_recipient_list()
+
+            for email in org_emails:
+                if not email:
+                    continue
+                email_clean = email.strip().lower()
+                if not email_clean:
+                    continue
+                recipients_data.append({
+                    'email': email_clean,
+                    'full_name': organization.short_name_ru,
+                    'position': '',
+                    'source': 'organization',
+                    'source_display': 'Email организации',
+                })
+                unique_emails.add(email_clean)
+    except Exception as exc:
+        logger.warning("Не удалось получить EmailSettings организации: %s", exc)
+
+    return {
+        'recipients': recipients_data,
+        'total_count': len(recipients_data),
+        'unique_emails_count': len(unique_emails),
+        'has_recipients': len(recipients_data) > 0,
+    }
+
+
+def get_recipients_for_department(
+    department: 'Department',
+    subdivision: 'StructuralSubdivision',
+    organization: 'Organization',
+    notification_type: str = 'general'
+) -> Dict[str, any]:
+    """
+    Получает получателей для конкретного отдела с fallback на подразделение.
+
+    Логика:
+    1. Email подразделения (у отдела своих нет)
+    2. Ответственные в отделе. Если нет — fallback на ответственных подразделения.
+    3. Email организации из EmailSettings
+    """
+    from directory.models import Employee
+
+    recipients_data: List[Dict[str, str]] = []
+    unique_emails: Set[str] = set()
+    fallback_used = False
+
+    # Источник 1: email подразделения
+    try:
+        subdivision_emails_qs = subdivision.notification_emails.filter(
+            is_active=True
+        ).values_list('email', flat=True)
+
+        for email in subdivision_emails_qs:
+            if not email:
+                continue
+            email_clean = email.strip().lower()
+            if not email_clean:
+                continue
+            recipients_data.append({
+                'email': email_clean,
+                'full_name': subdivision.name,
+                'position': '',
+                'source': 'subdivision',
+                'source_display': 'Email подразделения',
+            })
+            unique_emails.add(email_clean)
+    except Exception as exc:
+        logger.warning("Не удалось получить email подразделения: %s", exc)
+
+    # Источник 2: ответственные за ОТ
+    responsible_qs = Employee.objects.filter(
+        subdivision=subdivision,
+        department=department,
+        status='active',
+        position__is_responsible_for_safety=True,
+        email__isnull=False
+    ).exclude(email='')
+
+    if not responsible_qs.exists():
+        fallback_used = True
+        responsible_qs = Employee.objects.filter(
+            subdivision=subdivision,
+            department__isnull=True,
+            status='active',
+            position__is_responsible_for_safety=True,
+            email__isnull=False
+        ).exclude(email='')
+
+    for employee in responsible_qs:
+        email_clean = employee.email.strip().lower()
+        if not email_clean:
+            continue
+        recipients_data.append({
+            'email': email_clean,
+            'full_name': employee.full_name_nominative or employee.full_name,
+            'position': employee.position.position_name if employee.position else '',
+            'source': 'employee',
+            'source_display': 'Ответственный за охрану труда (отдел)' if not fallback_used else 'Ответственный за охрану труда (подразделение)',
+        })
+        unique_emails.add(email_clean)
+
+    # Источник 3: email организации
+    try:
+        email_settings = organization.email_settings
+        if email_settings.is_active:
+            if notification_type == 'instruction_journal':
+                org_emails = email_settings.get_instruction_journal_recipients()
+            else:
+                org_emails = email_settings.get_recipient_list()
+
+            for email in org_emails:
+                if not email:
+                    continue
+                email_clean = email.strip().lower()
+                if not email_clean:
+                    continue
+                recipients_data.append({
+                    'email': email_clean,
+                    'full_name': organization.short_name_ru,
+                    'position': '',
+                    'source': 'organization',
+                    'source_display': 'Email организации',
+                })
+                unique_emails.add(email_clean)
+    except Exception as exc:
+        logger.warning("Не удалось получить EmailSettings организации: %s", exc)
+
+    return {
+        'recipients': recipients_data,
+        'total_count': len(recipients_data),
+        'unique_emails_count': len(unique_emails),
+        'has_recipients': len(recipients_data) > 0,
+        'fallback_used': fallback_used,
+    }
 
 
 def get_recipients_summary(

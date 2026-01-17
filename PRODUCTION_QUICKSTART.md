@@ -52,13 +52,14 @@ git pull
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Применить миграции
-python manage.py migrate --settings=settings_prod
+# 3. Применить миграции (всегда с переменными из .env)
+set -a && source .env && set +a
+./venv/bin/python manage.py migrate --settings=settings_prod
 
 # 4. Собрать статику
 python manage.py collectstatic --noinput --settings=settings_prod
 
-# 5. Перезапустить сервер (graceful reload)
+# 5. Перезапустить Gunicorn (graceful reload после миграций/деплоя)
 ./reload_gunicorn.sh
 ```
 

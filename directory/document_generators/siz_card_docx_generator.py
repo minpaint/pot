@@ -272,7 +272,10 @@ def process_siz_card_tables(doc, context):
             processed_front = False
             for i, table in enumerate(docx_document.tables):
                 logger.info(f"Проверка таблицы #{i} на наличие NORMS_TABLE_MARKER")
-                row_idx, cell_idx = _find_marker_in_table(table, "NORMS_TABLE_MARKER")
+                row_idx, cell_idx = _find_marker_in_table(
+                    table,
+                    ["NORMS_TABLE_MARKER", "NORMS_TABLE"]
+                )
                 if row_idx is not None:
                     logger.info(f"Маркер NORMS_TABLE_MARKER найден в таблице #{i}, строка {row_idx}, ячейка {cell_idx}")
                     # Обработка таблицы лицевой стороны
@@ -298,7 +301,10 @@ def process_siz_card_tables(doc, context):
             processed_back = False
             for i, table in enumerate(docx_document.tables):
                 logger.info(f"Проверка таблицы #{i} на наличие ISSUED_TABLE_MARKER")
-                row_idx, cell_idx = _find_marker_in_table(table, "ISSUED_TABLE_MARKER")
+                row_idx, cell_idx = _find_marker_in_table(
+                    table,
+                    ["ISSUED_TABLE_MARKER", "ISSUED_TABLE"]
+                )
                 if row_idx is not None:
                     logger.info(f"Маркер ISSUED_TABLE_MARKER найден в таблице #{i}, строка {row_idx}, ячейка {cell_idx}")
                     # Обработка таблицы оборотной стороны
@@ -601,33 +607,39 @@ def _format_header_row(header_row):
         logger.error(f"Ошибка при форматировании заголовков: {str(e)}")
 
 
-def _find_marker_in_table(table, marker):
+def _find_marker_in_table(table, markers):
     """Находит маркер в таблице и возвращает координаты ячейки.
 
     Проверяет как полный текст параграфа (paragraph.text), так и текст каждого run,
     чтобы найти маркер даже если он разбит на несколько run'ов в XML.
     """
+    if isinstance(markers, str):
+        markers = [markers]
+
     for r_idx, row in enumerate(table.rows):
         for c_idx, cell in enumerate(row.cells):
             # Проверяем весь текст ячейки
             cell_full_text = cell.text
-            if marker in cell_full_text:
-                logger.debug(f"Маркер '{marker}' найден в cell.text: '{cell_full_text[:100]}'")
-                return r_idx, c_idx
+            for marker in markers:
+                if marker in cell_full_text:
+                    logger.debug(f"Маркер '{marker}' найден в cell.text: '{cell_full_text[:100]}'")
+                    return r_idx, c_idx
 
             # Дополнительная проверка по параграфам
             for paragraph in cell.paragraphs:
-                if marker in paragraph.text:
-                    logger.debug(f"Маркер '{marker}' найден в paragraph.text: '{paragraph.text[:100]}'")
-                    return r_idx, c_idx
+                for marker in markers:
+                    if marker in paragraph.text:
+                        logger.debug(f"Маркер '{marker}' найден в paragraph.text: '{paragraph.text[:100]}'")
+                        return r_idx, c_idx
 
                 # Проверяем каждый run отдельно (на случай если маркер разбит)
                 full_run_text = ''.join(run.text for run in paragraph.runs)
-                if marker in full_run_text:
-                    logger.debug(f"Маркер '{marker}' найден в объединённых runs: '{full_run_text[:100]}'")
-                    return r_idx, c_idx
+                for marker in markers:
+                    if marker in full_run_text:
+                        logger.debug(f"Маркер '{marker}' найден в объединённых runs: '{full_run_text[:100]}'")
+                        return r_idx, c_idx
 
-    logger.debug(f"Маркер '{marker}' не найден ни в одной ячейке таблицы")
+    logger.debug(f"Маркеры '{markers}' не найдены ни в одной ячейке таблицы")
     return None, None
 
 

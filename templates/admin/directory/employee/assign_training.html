@@ -1,0 +1,245 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:directory_employee_changelist' %}">Сотрудники</a>
+    &rsaquo; Назначить обучение
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>🎓 Назначить обучение на производстве</h1>
+
+<div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+    <h3 style="margin-top: 0;">Выбранные сотрудники ({{ employees|length }}):</h3>
+    <ul style="margin-bottom: 0;">
+        {% for emp in employees %}
+        <li>
+            <strong>{{ emp.full_name_nominative }}</strong>
+            {% if emp.position %} — {{ emp.position.position_name }}{% endif %}
+            <small style="color: #666;">({{ emp.organization.short_name_ru }})</small>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <fieldset class="module aligned">
+        <h2>Данные сотрудника (опционально)</h2>
+
+        <div class="form-row">
+            <div>
+                <label for="id_full_name_by">ФИО (бел.):</label>
+                {{ form.full_name_by }}
+                {% if form.full_name_by.errors %}
+                <ul class="errorlist">
+                    {% for error in form.full_name_by.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_education_level">Образование:</label>
+                {{ form.education_level }}
+                {% if form.education_level.errors %}
+                <ul class="errorlist">
+                    {% for error in form.education_level.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_prior_qualification">Имеющаяся квалификация:</label>
+                {{ form.prior_qualification }}
+                {% if form.prior_qualification.errors %}
+                <ul class="errorlist">
+                    {% for error in form.prior_qualification.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_qualification_document_number">Номер диплома/свидетельства:</label>
+                {{ form.qualification_document_number }}
+                {% if form.qualification_document_number.errors %}
+                <ul class="errorlist">
+                    {% for error in form.qualification_document_number.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_qualification_document_date">Дата диплома/свидетельства:</label>
+                {{ form.qualification_document_date }}
+                {% if form.qualification_document_date.errors %}
+                <ul class="errorlist">
+                    {% for error in form.qualification_document_date.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <p class="help" style="margin-top: 10px;">
+            Поля выше заполняются для всех выбранных сотрудников, если указаны.
+        </p>
+    </fieldset>
+
+    <fieldset class="module aligned">
+        <h2>Параметры обучения</h2>
+
+        <div class="form-row">
+            <div>
+                <label for="id_training_type" class="required">Тип обучения:</label>
+                {{ form.training_type }}
+                {% if form.training_type.help_text %}
+                <p class="help">{{ form.training_type.help_text }}</p>
+                {% endif %}
+                {% if form.training_type.errors %}
+                <ul class="errorlist">
+                    {% for error in form.training_type.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_profession" class="required">Профессия обучения:</label>
+                {{ form.profession }}
+                {% if form.profession.help_text %}
+                <p class="help">{{ form.profession.help_text }}</p>
+                {% endif %}
+                {% if form.profession.errors %}
+                <ul class="errorlist">
+                    {% for error in form.profession.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_program">Программа обучения:</label>
+                {{ form.program }}
+                {% if form.program.help_text %}
+                <p class="help">{{ form.program.help_text }}</p>
+                {% endif %}
+                {% if form.program.errors %}
+                <ul class="errorlist">
+                    {% for error in form.program.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_qualification_grade">Разряд квалификации:</label>
+                {{ form.qualification_grade }}
+                {% if form.qualification_grade.help_text %}
+                <p class="help">{{ form.qualification_grade.help_text }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="id_start_date" class="required">Дата начала обучения:</label>
+                {{ form.start_date }}
+                {% if form.start_date.help_text %}
+                <p class="help">{{ form.start_date.help_text }}</p>
+                {% endif %}
+                {% if form.start_date.errors %}
+                <ul class="errorlist">
+                    {% for error in form.start_date.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+    </fieldset>
+
+    <div style="margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+        <h4 style="margin-top: 0; color: #2e7d32;">📅 Автоматический расчёт дат:</h4>
+        <p style="margin-bottom: 0; color: #555;">
+            При сохранении будут автоматически рассчитаны:
+        </p>
+        <ul style="margin-bottom: 0; color: #555;">
+            <li><strong>Дата окончания</strong> — по типу обучения и графику работы (5/2 или 2/2)</li>
+            <li><strong>Дата экзамена</strong> — совпадает с датой окончания</li>
+            <li><strong>Дата пробной работы</strong> — за 1 рабочий день до экзамена</li>
+            <li><strong>Дата протокола</strong> — на следующий день после пробной работы</li>
+        </ul>
+    </div>
+
+    <div class="submit-row" style="margin-top: 20px;">
+        <input type="hidden" name="employee_ids" value="{{ employee_ids }}">
+        <input type="submit" value="🎓 Назначить обучение" class="default" style="padding: 10px 20px; font-size: 14px;">
+        <a href="{% url 'admin:directory_employee_changelist' %}" class="button" style="padding: 10px 20px; background: #999; color: white; text-decoration: none; border-radius: 4px;">Отмена</a>
+    </div>
+</form>
+
+<style>
+    .form-row {
+        padding: 10px 0;
+    }
+    .form-row label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .form-row label.required::after {
+        content: " *";
+        color: #c00;
+    }
+    .form-row select,
+    .form-row input[type="date"],
+    .form-row input[type="text"],
+    .form-row textarea {
+        width: 100%;
+        max-width: 400px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .form-row .help {
+        font-size: 11px;
+        color: #666;
+        margin-top: 3px;
+    }
+    .errorlist {
+        color: #c00;
+        margin: 5px 0;
+        padding-left: 20px;
+    }
+</style>
+{% endblock %}

@@ -17,6 +17,7 @@ class InstructionJournalSendDetailInline(admin.TabularInline):
 
     fields = [
         'subdivision',
+        'department',
         'status_badge',
         'recipients_display',
         'employees_count',
@@ -25,6 +26,7 @@ class InstructionJournalSendDetailInline(admin.TabularInline):
     ]
     readonly_fields = [
         'subdivision',
+        'department',
         'status_badge',
         'recipients_display',
         'employees_count',

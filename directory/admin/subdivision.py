@@ -91,6 +91,16 @@ class StructuralSubdivisionAdmin(TreeViewMixin, admin.ModelAdmin):
     list_filter = ['organization']
     search_fields = ['name', 'short_name']
 
+    def get_form(self, request, obj=None, **kwargs):
+        Form = super().get_form(request, obj, **kwargs)
+
+        class FormWithUser(Form):
+            def __init__(self2, *args, **inner_kwargs):
+                inner_kwargs['user'] = request.user
+                super().__init__(*args, **inner_kwargs)
+
+        return FormWithUser
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if not request.user.is_superuser and hasattr(request.user, 'profile'):

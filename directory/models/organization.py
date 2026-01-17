@@ -17,6 +17,35 @@ class Organization(models.Model):
                               default="г. Минск", blank=True,
                               help_text="Например: г. Минск, г. Брест и т.д.")
 
+    # Эталонные роли для обучения на производстве
+    default_theory_consultant = models.ForeignKey(
+        'Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='org_default_theory_consultant',
+        verbose_name="Эталонный консультант теоретического обучения",
+        help_text="Будет подставляться по умолчанию при создании обучения"
+    )
+    default_commission_chairman = models.ForeignKey(
+        'Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='org_default_commission_chairman',
+        verbose_name="Эталонный руководитель производственного обучения",
+        help_text="Будет подставляться по умолчанию при создании обучения"
+    )
+    default_instructor = models.ForeignKey(
+        'Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='org_default_instructor',
+        verbose_name="Эталонный инструктор производственного обучения",
+        help_text="Будет подставляться по умолчанию при создании обучения"
+    )
+
     class Meta:
         verbose_name = "🏢 Организация"
         verbose_name_plural = "🏢 Организации"

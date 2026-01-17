@@ -15,7 +15,22 @@
         <div class="card-body">
             <form method="get" class="form-inline">
                 <div class="row">
-                    <div class="col-md-4 mb-2">
+                    {% if org_options|length >= 1 %}
+                    <div class="col-md-3 mb-2">
+                        <label for="org">Организация:</label>
+                        <select name="org" id="org" class="form-control" {% if org_options|length == 1 %}disabled{% endif %}>
+                            {% if org_options|length > 1 %}
+                            <option value="">Все организации</option>
+                            {% endif %}
+                            {% for org in org_options %}
+                                <option value="{{ org.id }}" {% if org.id == selected_org_id %}selected{% endif %}>
+                                    {{ org.short_name_ru }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-3 mb-2">
                         <label for="position">Должность:</label>
                         <select name="position" id="position" class="form-control">
                             <option value="">Все должности</option>
@@ -26,11 +41,11 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-4 mb-2">
+                    <div class="col-md-3 mb-2">
                         <label for="search">Поиск:</label>
                         <input type="text" name="search" id="search" class="form-control" value="{{ search_query }}" placeholder="ФИО сотрудника...">
                     </div>
-                    <div class="col-md-4 mb-2 d-flex align-items-end">
+                    <div class="col-md-3 mb-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary mr-2">
                             <i class="fas fa-search"></i> Применить
                         </button>
@@ -65,132 +80,14 @@
         </div>
         <div class="card-body p-0">
             {% if tree_data %}
-                <div class="tree-container">
+                <div class="tree-container" data-tree-children-url="{% url 'directory:employees:employee_tree_children' 'org' 0 %}">
                     <ul class="tree">
                         {% for org in tree_data %}
                             <li>
-                                <span class="tree-toggle" data-toggle="collapse" data-target="#org-{{ org.id }}">
+                                <span class="tree-toggle collapsed" data-toggle="collapse" data-target="#org-{{ org.id }}" data-parent-type="org" data-parent-id="{{ org.id }}">
                                     <i class="fas fa-building text-primary"></i> {{ org.name }}
                                 </span>
-                                <div id="org-{{ org.id }}" class="collapse show">
-                                    <!-- Сотрудники на уровне организации -->
-                                    {% if org.employees %}
-                                        <ul class="employee-items">
-                                            {% for employee in org.employees %}
-                                                <li>
-                                                    <div class="employee-item">
-                                                        <span class="employee-date">{{ employee.hire_date|date:"d.m.Y"|default:"-" }}</span>
-                                                        <a href="{% url 'directory:employees:employee_update' employee.id %}" class="employee-name">
-                                                            {{ employee.full_name_nominative }}
-                                                        </a>
-                                                        <span class="text-secondary">— {{ employee.position.position_name }}</span>
-                                                        <div class="employee-actions">
-                                                            <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-sm btn-primary" title="Редактировать">
-                                                                <i class="fas fa-edit"></i>
-                                                            </a>
-                                                            <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-sm btn-info" title="Документы">
-                                                                <i class="fas fa-file-alt"></i>
-                                                            </a>
-                                                            {% if employee.position.department %}
-                                                            <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-sm btn-warning" title="Карточка СИЗ">
-                                                                <i class="fas fa-shield-alt"></i>
-                                                            </a>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% endif %}
-
-                                    <!-- Подразделения -->
-                                    {% if org.subdivisions %}
-                                        <ul>
-                                            {% for sub in org.subdivisions %}
-                                                <li>
-                                                    <span class="tree-toggle" data-toggle="collapse" data-target="#sub-{{ sub.id }}">
-                                                        <i class="fas fa-industry text-success"></i> {{ sub.name }}
-                                                    </span>
-                                                    <div id="sub-{{ sub.id }}" class="collapse show">
-                                                        <!-- Сотрудники на уровне подразделения -->
-                                                        {% if sub.employees %}
-                                                            <ul class="employee-items">
-                                                                {% for employee in sub.employees %}
-                                                                    <li>
-                                                                        <div class="employee-item">
-                                                                            <span class="employee-date">{{ employee.hire_date|date:"d.m.Y"|default:"-" }}</span>
-                                                                            <a href="{% url 'directory:employees:employee_update' employee.id %}" class="employee-name">
-                                                                                {{ employee.full_name_nominative }}
-                                                                            </a>
-                                                                            <span class="text-secondary">— {{ employee.position.position_name }}</span>
-                                                                            <div class="employee-actions">
-                                                                                <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-sm btn-primary" title="Редактировать">
-                                                                                    <i class="fas fa-edit"></i>
-                                                                                </a>
-                                                                                <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-sm btn-info" title="Документы">
-                                                                                    <i class="fas fa-file-alt"></i>
-                                                                                </a>
-                                                                                {% if employee.position.department %}
-                                                                                <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-sm btn-warning" title="Карточка СИЗ">
-                                                                                    <i class="fas fa-shield-alt"></i>
-                                                                                </a>
-                                                                                {% endif %}
-                                                                            </div>
-                                                                        </div>
-                                                                    </li>
-                                                                {% endfor %}
-                                                            </ul>
-                                                        {% endif %}
-
-                                                        <!-- Отделы -->
-                                                        {% if sub.departments %}
-                                                            <ul>
-                                                                {% for dept in sub.departments %}
-                                                                    <li>
-                                                                        <span class="tree-toggle" data-toggle="collapse" data-target="#dept-{{ dept.id }}">
-                                                                            <i class="fas fa-folder text-warning"></i> {{ dept.name }}
-                                                                        </span>
-                                                                        <div id="dept-{{ dept.id }}" class="collapse show">
-                                                                            <!-- Сотрудники на уровне отдела -->
-                                                                            {% if dept.employees %}
-                                                                                <ul class="employee-items">
-                                                                                    {% for employee in dept.employees %}
-                                                                                        <li>
-                                                                                            <div class="employee-item">
-                                                                                                <span class="employee-date">{{ employee.hire_date|date:"d.m.Y"|default:"-" }}</span>
-                                                                                                <a href="{% url 'directory:employees:employee_update' employee.id %}" class="employee-name">
-                                                                                                    {{ employee.full_name_nominative }}
-                                                                                                </a>
-                                                                                                <span class="text-secondary">— {{ employee.position.position_name }}</span>
-                                                                                                <div class="employee-actions">
-                                                                                                    <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-sm btn-primary" title="Редактировать">
-                                                                                                        <i class="fas fa-edit"></i>
-                                                                                                    </a>
-                                                                                                    <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-sm btn-info" title="Документы">
-                                                                                                        <i class="fas fa-file-alt"></i>
-                                                                                                    </a>
-                                                                                                    {% if employee.position.department %}
-                                                                                                    <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-sm btn-warning" title="Карточка СИЗ">
-                                                                                                        <i class="fas fa-shield-alt"></i>
-                                                                                                    </a>
-                                                                                                    {% endif %}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        </li>
-                                                                                    {% endfor %}
-                                                                                </ul>
-                                                                            {% endif %}
-                                                                        </div>
-                                                                    </li>
-                                                                {% endfor %}
-                                                            </ul>
-                                                        {% endif %}
-                                                    </div>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% endif %}
-                                </div>
+                                <div id="org-{{ org.id }}" class="collapse" data-lazy-container="true"></div>
                             </li>
                         {% endfor %}
                     </ul>
@@ -319,6 +216,14 @@
         padding: 20px;
     }
 
+    .tree-container .collapse {
+        display: none;
+    }
+
+    .tree-container .collapse.show {
+        display: block;
+    }
+
     /* Анимация collapse */
     .collapse {
         transition: height 0.3s ease;
@@ -329,21 +234,71 @@
 {% block extra_js %}
 <script>
     $(document).ready(function() {
-        // Переключение вложенных элементов
-        $('.tree-toggle').click(function() {
+        $('.tree-toggle').addClass('collapsed');
+
+        if ($.fn.collapse) {
+            $('.tree-container .collapse').collapse('hide');
+        }
+
+        function buildChildrenUrl(parentType, parentId) {
+            var baseUrl = $('.tree-container').data('tree-children-url');
+            if (!baseUrl) {
+                return null;
+            }
+            var url = baseUrl.replace('/org/0/', '/' + parentType + '/' + parentId + '/');
+            if (window.location.search) {
+                url += window.location.search;
+            }
+            return url;
+        }
+
+        function loadChildren(toggle) {
+            var $toggle = $(toggle);
+            var target = $toggle.data('target');
+            if (!target) {
+                return;
+            }
+            var $target = $(target);
+            if (!$target.length || $target.data('loaded') || $target.data('loading')) {
+                return;
+            }
+
+            var parentType = $toggle.data('parent-type');
+            var parentId = $toggle.data('parent-id');
+            var url = buildChildrenUrl(parentType, parentId);
+            if (!url) {
+                return;
+            }
+
+            $target.data('loading', true);
+            $target.html('<div class="text-muted p-2">Загрузка...</div>');
+
+            $.getJSON(url)
+                .done(function(data) {
+                    if (data && data.success) {
+                        $target.html(data.html);
+                        $target.data('loaded', true);
+                    } else {
+                        $target.html('<div class="text-danger p-2">Не удалось загрузить данные.</div>');
+                    }
+                })
+                .fail(function() {
+                    $target.html('<div class="text-danger p-2">Не удалось загрузить данные.</div>');
+                })
+                .always(function() {
+                    $target.data('loading', false);
+                });
+        }
+
+        // Переключение вложенных элементов + подгрузка
+        $('.tree-container').on('click', '.tree-toggle', function() {
             var toggle = $(this);
             var target = $(this).data('target');
 
-            // Переключаем состояние collapse
+            loadChildren(this);
             $(target).collapse('toggle');
-
-            // Переключаем класс collapsed для изменения иконки +/-
             toggle.toggleClass('collapsed');
         });
-
-        // Инициализация: все элементы развернуты по умолчанию
-        // Убираем класс collapsed со всех toggle при загрузке
-        $('.tree-toggle').removeClass('collapsed');
     });
 </script>
 {% endblock %}

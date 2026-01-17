@@ -111,6 +111,24 @@ class Command(BaseCommand):
         else:
             skipped_count += 1
 
+        # 1.4 Обучение на производстве
+        training_item, created = MenuItem.objects.get_or_create(
+            name='Обучение на производстве',
+            url_name='production_training:training_list',
+            location='sidebar',
+            defaults={
+                'icon': '🎓',
+                'order': 14,
+                'is_active': True,
+                'requires_auth': True,
+            }
+        )
+        if created:
+            created_count += 1
+            self.stdout.write(f'  OK: Создан пункт: {training_item.name}')
+        else:
+            skipped_count += 1
+
         # 2. Контроль сроков (раздел-заголовок)
         separator_deadlines, created = MenuItem.objects.get_or_create(
             name='Контроль сроков',

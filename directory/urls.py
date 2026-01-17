@@ -28,7 +28,7 @@ from .views.documents.siz_integration import generate_siz_card_docx_view
 
 from deadline_control.views import medical_examination  # 🏥 Импортируем модуль с представлениями медосмотров
 
-from directory.views.employees import EmployeeTreeView
+from directory.views.employees import EmployeeTreeView, employee_tree_children
 
 from directory.views import quiz_views  # 📝 Импортируем модуль с представлениями экзаменов
 from directory.views import quiz_import_views  # 📥 Импорт вопросов
@@ -55,8 +55,10 @@ from directory.autocomplete_views import (
     EquipmentAutocomplete,
     SIZAutocomplete,
     EmployeeByCommissionAutocomplete,
+    EmployeeAutocomplete,
     EmployeeForCommissionAutocomplete,
     CommissionAutocomplete,
+    QualificationCommissionAutocomplete,
 )
 
 from directory.views.hiring import (
@@ -82,15 +84,18 @@ autocomplete_patterns = [
     path('document/', DocumentAutocomplete.as_view(), name='document-autocomplete'),
     path('equipment/', EquipmentAutocomplete.as_view(), name='equipment-autocomplete'),
     path('siz/', SIZAutocomplete.as_view(), name='siz-autocomplete'),
-    path('employee/', EmployeeByCommissionAutocomplete.as_view(), name='employee-autocomplete'),
+    path('employee/', EmployeeAutocomplete.as_view(), name='employee-autocomplete'),
+    path('employee-by-commission/', EmployeeByCommissionAutocomplete.as_view(), name='employee-by-commission-autocomplete'),
     path('employee-for-commission/', EmployeeForCommissionAutocomplete.as_view(),
          name='employee-for-commission-autocomplete'),
     path('commission/', CommissionAutocomplete.as_view(), name='commission-autocomplete'),
+    path('qualification-commission/', QualificationCommissionAutocomplete.as_view(), name='qualification-commission-autocomplete'),
 ]
 
 # 👥 Сотрудники
 employee_patterns = [
     path('', EmployeeTreeView.as_view(), name='employee_list'),  # 🌳 Древовидное представление по умолчанию
+    path('tree-children/<str:parent_type>/<int:parent_id>/', employee_tree_children, name='employee_tree_children'),
     path('table/', EmployeeListView.as_view(), name='employee_list_table'),  # 📋 Табличное представление
     path('create/', EmployeeCreateView.as_view(), name='employee_create'),
     path('hire/', EmployeeHiringView.as_view(), name='employee_hire'),

@@ -16,6 +16,7 @@ from django.core.files.base import ContentFile
 
 from directory.models.document_template import DocumentTemplate, GeneratedDocument
 from directory.utils.declension import decline_full_name, decline_phrase, get_initials_from_name, format_days
+from directory.utils.docx_vml import replace_vml_text_in_docx
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -342,7 +343,8 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
 
 def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, Any],
                                 employee, user=None, post_processor: Optional[Callable] = None,
-                                raise_on_error: bool = False) -> Optional[Dict[str, Any]]:
+                                raise_on_error: bool = False,
+                                vml_replacements: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """
     Генерирует документ DOCX на основе шаблона и контекста данных.
     Не сохраняет в базу данных, возвращает содержимое файла.
@@ -353,6 +355,7 @@ def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, A
         employee: Объект модели Employee
         user: Пользователь, создающий документ (опционально)
         post_processor: Функция пост-обработки документа (например, для обработки таблиц)
+        vml_replacements: Словарь для замены текста в VML WordArt по имени shape
     Returns:
         Optional[Dict]: Словарь с 'content' (байты файла) и 'filename' или None при ошибке
     """
@@ -413,6 +416,8 @@ def generate_docx_from_template(template: DocumentTemplate, context: Dict[str, A
         docx_buffer.seek(0)
 
         file_content = docx_buffer.getvalue()
+        if vml_replacements:
+            file_content = replace_vml_text_in_docx(file_content, vml_replacements)
         if len(file_content) == 0:
             logger.error(f"Создан пустой DOCX файл для {filename}")
             raise ValueError("Создан пустой DOCX файл")

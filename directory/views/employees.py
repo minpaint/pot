@@ -5,12 +5,13 @@ from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_GET
+from django.template.loader import render_to_string
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db.models import Q
 
-from directory.models import Employee, StructuralSubdivision, Position, Organization
+from directory.models import Employee, StructuralSubdivision, Position, Organization, Department
 from directory.forms import EmployeeForm
 from directory.forms.employee_hiring import EmployeeHiringForm
 from directory.utils.declension import decline_full_name
@@ -198,6 +199,72 @@ class EmployeeTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
 class EmployeeCreateView(LoginRequiredMixin, CreateView):
     model = Employee
     form_class = EmployeeForm
+
+
+@login_required
+@require_GET
+def employee_tree_children(request, parent_type, parent_id):
+    """
+    AJAX endpoint для подгрузки дочерних узлов дерева сотрудников.
+    """
+    employees_qs = Employee.objects.all()
+    employees_qs = AccessControlHelper.filter_queryset(employees_qs, request.user, request)
+
+    if not request.GET.get('status'):
+        employees_qs = employees_qs.tree_visible()
+
+    position_id = request.GET.get('position')
+    if position_id:
+        employees_qs = employees_qs.filter(position_id=position_id)
+
+    search = request.GET.get('search')
+    if search:
+        employees_qs = employees_qs.filter(full_name_nominative__icontains=search)
+
+    subdivisions = StructuralSubdivision.objects.none()
+    departments = Department.objects.none()
+    employees = Employee.objects.none()
+
+    allowed_subdivisions = AccessControlHelper.get_accessible_subdivisions(
+        request.user, request
+    )
+    allowed_departments = AccessControlHelper.get_accessible_departments(
+        request.user, request
+    )
+
+    if parent_type == 'org':
+        employees = employees_qs.filter(
+            organization_id=parent_id,
+            subdivision__isnull=True,
+            department__isnull=True
+        )
+        subdivisions = allowed_subdivisions.filter(organization_id=parent_id)
+        departments = allowed_departments.filter(
+            organization_id=parent_id,
+            subdivision__isnull=True
+        )
+    elif parent_type == 'sub':
+        employees = employees_qs.filter(
+            subdivision_id=parent_id,
+            department__isnull=True
+        )
+        departments = allowed_departments.filter(subdivision_id=parent_id)
+    elif parent_type == 'dept':
+        employees = employees_qs.filter(department_id=parent_id)
+    else:
+        return JsonResponse({'success': False, 'html': 'Неверный тип узла.'}, status=400)
+
+    html = render_to_string(
+        'directory/employees/_tree_children.html',
+        {
+            'employees': employees.select_related('position'),
+            'subdivisions': subdivisions,
+            'departments': departments,
+        },
+        request=request
+    )
+
+    return JsonResponse({'success': True, 'html': html})
     template_name = 'directory/employees/form.html'
     success_url = reverse_lazy('directory:employees:employee_list')
 

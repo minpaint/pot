@@ -29,6 +29,38 @@
         align-items: center;
     }
 
+    .action-section {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 12px 14px 6px;
+        margin-bottom: 12px;
+    }
+
+    .action-sections-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: stretch;
+    }
+
+    .action-section {
+        flex: 1 1 320px;
+    }
+
+    .action-section-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #6c757d;
+        margin-bottom: 8px;
+    }
+
+    .action-buttons.compact {
+        margin-bottom: 4px;
+    }
+
     .selected-info {
         color: #666;
         font-size: 14px;
@@ -228,16 +260,85 @@
         </p>
     </div>
 
+    <!-- 🏢 Фильтр по организации -->
+    {% if org_options|length >= 1 %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" action="" class="row g-2 align-items-end">
+                <div class="col-md-8 col-lg-6">
+                    <label for="orgSelect" class="form-label fw-bold">
+                        🏢 {% if org_options|length == 1 %}Организация:{% else %}Выберите организацию:{% endif %}
+                    </label>
+                    <select name="org" id="orgSelect" class="form-select" {% if org_options|length > 1 %}required{% endif %} {% if org_options|length == 1 %}disabled{% endif %}>
+                        {% if org_options|length > 1 %}
+                        <option value="">-- Выберите организацию --</option>
+                        {% endif %}
+                        {% for org in org_options %}
+                        <option value="{{ org.id }}" {% if org.id == selected_org_id %}selected{% endif %}>
+                            {{ org.short_name_ru }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if org_options|length > 1 %}
+                <div class="col-md-4 col-lg-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter"></i> Показать
+                    </button>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not show_tree %}
+    <div class="alert alert-info" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-info-circle"></i> Информация
+        </h5>
+        {% if org_options|length == 0 %}
+        <p class="mb-0">У вас нет доступных организаций. Обратитесь к администратору для настройки прав доступа.</p>
+        {% elif org_options|length > 1 %}
+        <p class="mb-0">Пожалуйста, выберите организацию из списка выше для формирования протокола.</p>
+        {% endif %}
+    </div>
+    {% else %}
+
     <form method="post" id="periodicProtocolForm">
         {% csrf_token %}
 
+        <input type="hidden" name="action" id="actionField" value="">
+        <input type="hidden" name="scope_type" id="scopeTypeField" value="">
+        <input type="hidden" name="scope_id" id="scopeIdField" value="">
+
+        <div class="action-sections-row">
+            <div class="action-section">
+                <div class="action-section-title">Протоколы</div>
+                <div class="action-buttons compact">
+                    <button type="button" data-action="download_single" class="btn btn-primary btn-sm action-submit">
+                        <i class="fas fa-download"></i> Скачать общий протокол
+                    </button>
+                    <button type="button" data-action="download_by_subdivision" class="btn btn-outline-primary btn-sm action-submit">
+                        <i class="fas fa-folder"></i> Скачать по подразделениям (zip)
+                    </button>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <div class="action-section-title">Удостоверения</div>
+                <div class="action-buttons compact">
+                    <button type="button" data-action="certificates_org" class="btn btn-success btn-sm action-submit">
+                        <i class="fas fa-id-card"></i> Удостоверения по организации
+                    </button>
+                    <button type="button" data-action="certificates_by_subdivision" class="btn btn-outline-success btn-sm action-submit">
+                        <i class="fas fa-folder-open"></i> Удостоверения по подразделениям
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="action-buttons">
-            <button type="submit" name="action" value="download_single" class="btn btn-primary btn-sm">
-                <i class="fas fa-download"></i> Скачать общий протокол
-            </button>
-            <button type="submit" name="action" value="download_by_subdivision" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-folder"></i> Скачать по подразделениям (zip)
-            </button>
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="checkbox" id="selectAll" checked>
                 <label class="form-check-label" for="selectAll">Выбрать всех</label>
@@ -277,7 +378,23 @@
                                 <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
                                 <strong>{{ org_data.name }}</strong>
                             </td>
-                            <td colspan="2"></td>
+                            <td></td>
+                            <td class="column-badge">
+                                <button type="button"
+                                        class="btn btn-outline-primary btn-sm scope-action"
+                                        data-action="scope_protocol"
+                                        data-scope-type="org"
+                                        data-scope-id="{{ org.id }}">
+                                    Протокол
+                                </button>
+                                <button type="button"
+                                        class="btn btn-outline-success btn-sm scope-action"
+                                        data-action="scope_certificates"
+                                        data-scope-type="org"
+                                        data-scope-id="{{ org.id }}">
+                                    Удостоверения
+                                </button>
+                            </td>
                         </tr>
 
                         {# Сотрудники без подразделения #}
@@ -312,7 +429,23 @@
                                     <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
                                     {{ sub_data.name }}
                                 </td>
-                                <td colspan="2"></td>
+                                <td></td>
+                                <td class="column-badge">
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm scope-action"
+                                            data-action="scope_protocol"
+                                            data-scope-type="sub"
+                                            data-scope-id="{{ sub.id }}">
+                                        Протокол
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-success btn-sm scope-action"
+                                            data-action="scope_certificates"
+                                            data-scope-type="sub"
+                                            data-scope-id="{{ sub.id }}">
+                                        Удостоверения
+                                    </button>
+                                </td>
                             </tr>
 
                             {# Сотрудники без отдела #}
@@ -347,7 +480,23 @@
                                         <span class="tree-icon">{{ tree_settings.icons.department }}</span>
                                         {{ dept_data.name }}
                                     </td>
-                                    <td colspan="2"></td>
+                                    <td></td>
+                                    <td class="column-badge">
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm scope-action"
+                                                data-action="scope_protocol"
+                                                data-scope-type="dept"
+                                                data-scope-id="{{ dept.id }}">
+                                            Протокол
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-success btn-sm scope-action"
+                                                data-action="scope_certificates"
+                                                data-scope-type="dept"
+                                                data-scope-id="{{ dept.id }}">
+                                            Удостоверения
+                                        </button>
+                                    </td>
                                 </tr>
 
                                 {# Сотрудники в отделе #}
@@ -385,6 +534,8 @@
             </table>
         </div>
     </form>
+
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -439,6 +590,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('periodicProtocolForm');
     if (form) {
         form.addEventListener('submit', function(e) {
+            const scopeType = document.getElementById('scopeTypeField');
+            if (scopeType && scopeType.value) {
+                return true;
+            }
             const selected = checkboxes.filter(cb => cb.checked).length;
             if (selected === 0) {
                 e.preventDefault();
@@ -447,6 +602,44 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    const actionField = document.getElementById('actionField');
+    const scopeTypeField = document.getElementById('scopeTypeField');
+    const scopeIdField = document.getElementById('scopeIdField');
+
+    function submitWithAction(action, scopeType, scopeId) {
+        if (!actionField || !form) return;
+        actionField.value = action || '';
+        if (scopeTypeField) scopeTypeField.value = scopeType || '';
+        if (scopeIdField) scopeIdField.value = scopeId || '';
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+            return;
+        }
+
+        const selected = checkboxes.filter(cb => cb.checked).length;
+        if (selected === 0 && !scopeType) {
+            alert('Пожалуйста, выберите хотя бы одного сотрудника.');
+            return;
+        }
+        form.submit();
+    }
+
+    document.querySelectorAll('.action-submit').forEach(button => {
+        button.addEventListener('click', function() {
+            submitWithAction(this.getAttribute('data-action'), '', '');
+        });
+    });
+
+    document.querySelectorAll('.scope-action').forEach(button => {
+        button.addEventListener('click', function() {
+            submitWithAction(
+                this.getAttribute('data-action'),
+                this.getAttribute('data-scope-type'),
+                this.getAttribute('data-scope-id')
+            );
+        });
+    });
 });
 </script>
 {% endblock %}

@@ -88,8 +88,6 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'fields': (
                 'education_level',
                 'prior_qualification',
-                'qualification_document_number',
-                'qualification_document_date',
             ),
             'classes': ('collapse',)
         }),
@@ -216,7 +214,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'candidate': '📝',
             'active': '✅',
             'maternity_leave': '👶',
-            'part_time': '⌛',
+            'part_time': '💤',
             'fired': '🚫',
         }
         return status_emojis.get(status, '❓')
@@ -368,7 +366,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         View для формы назначения обучения.
         """
         from production_training.forms import AssignTrainingForm
-        from production_training.models import ProductionTraining
+        from production_training.models import ProductionTraining, TrainingAssignment
 
         context = self.admin_site.each_context(request)
 
@@ -401,11 +399,10 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 full_name_by = form.cleaned_data.get('full_name_by')
                 education_level = form.cleaned_data.get('education_level')
                 prior_qualification = form.cleaned_data.get('prior_qualification')
-                qualification_document_number = form.cleaned_data.get('qualification_document_number')
-                qualification_document_date = form.cleaned_data.get('qualification_document_date')
 
                 created_count = 0
                 errors = []
+                course_cache = {}
 
                 for employee in employees:
                     try:
@@ -419,42 +416,41 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                         if prior_qualification:
                             employee.prior_qualification = prior_qualification
                             update_fields.append('prior_qualification')
-                        if qualification_document_number:
-                            employee.qualification_document_number = qualification_document_number
-                            update_fields.append('qualification_document_number')
-                        if qualification_document_date:
-                            employee.qualification_document_date = qualification_document_date
-                            update_fields.append('qualification_document_date')
                         if update_fields:
                             employee.save(update_fields=update_fields)
 
-                        # Создаём карточку обучения для каждого сотрудника
-                        training = ProductionTraining(
-                            organization=employee.organization,
-                            employee=employee,
-                            subdivision=employee.subdivision,
-                            department=employee.department,
-                            current_position=employee.position,
-                            training_type=training_type,
-                            profession=profession,
-                            program=program,
-                            qualification_grade=qualification_grade,
-                            start_date=start_date,
-                            status='draft',
+                        key = (
+                            employee.organization_id,
+                            employee.subdivision_id,
+                            employee.department_id,
+                            training_type.id,
+                            profession.id,
+                            getattr(program, 'id', None),
+                            getattr(qualification_grade, 'id', None),
                         )
+                        training = course_cache.get(key)
+                        if not training:
+                            training = ProductionTraining(
+                                organization=employee.organization,
+                                subdivision=employee.subdivision,
+                                department=employee.department,
+                                training_type=training_type,
+                                profession=profession,
+                                program=program,
+                                qualification_grade=qualification_grade,
+                            )
 
-                        # Подставляем эталонные роли из организации
-                        if employee.organization:
-                            org = employee.organization
-                            if hasattr(org, 'default_theory_consultant') and org.default_theory_consultant:
-                                training.theory_consultant = org.default_theory_consultant
-                            if hasattr(org, 'default_commission_chairman') and org.default_commission_chairman:
-                                training.commission_chairman = org.default_commission_chairman
-                            if hasattr(org, 'default_instructor') and org.default_instructor:
-                                training.instructor = org.default_instructor
+                            training.save()
+                            course_cache[key] = training
 
-                        # save() автоматически рассчитает все даты
-                        training.save()
+                        assignment = TrainingAssignment(
+                            training=training,
+                            employee=employee,
+                            current_position=employee.position,
+                            prior_qualification=prior_qualification or employee.prior_qualification,
+                            start_date=start_date,
+                        )
+                        assignment.save()
                         created_count += 1
 
                     except Exception as e:
@@ -467,7 +463,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 if created_count > 0:
                     messages.success(
                         request,
-                        f'✅ Создано {created_count} карточек обучения'
+                        f'✅ Создано {created_count} назначений на обучение'
                     )
 
                 if errors:
@@ -476,7 +472,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                         f'⚠️ Ошибки при создании: {"; ".join(errors[:3])}{"..." if len(errors) > 3 else ""}'
                     )
 
-                return redirect('admin:production_training_productiontraining_changelist')
+                return redirect('admin:production_training_trainingassignment_changelist')
 
         else:
             form = AssignTrainingForm()

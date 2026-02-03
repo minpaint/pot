@@ -46,7 +46,7 @@ class MedicalNotificationSendDetailInline(admin.TabularInline):
         icons = {
             'success': '✅',
             'failed': '❌',
-            'skipped': '⏭️',
+            'skipped': '⏩',
         }
 
         color = colors.get(obj.status, '#9e9e9e')
@@ -87,7 +87,7 @@ class MedicalNotificationSendDetailInline(admin.TabularInline):
             '📊 Всего: <strong>{}</strong><br>'
             '📋 Без даты: <span style="color:#2196f3;">{}</span><br>'
             '🚨 Просроченные: <span style="color:#f44336;">{}</span><br>'
-            '⏰ Предстоящие: <span style="color:#ff9800;">{}</span>'
+            '🕐 Предстоящие: <span style="color:#ff9800;">{}</span>'
             '</div>',
             obj.employees_total,
             obj.no_date_count,
@@ -228,7 +228,7 @@ class MedicalNotificationSendLogAdmin(admin.ModelAdmin):
         }
 
         icons = {
-            'scheduled': '⏰',
+            'scheduled': '🕐',
             'manual': '👤',
         }
 
@@ -250,7 +250,7 @@ class MedicalNotificationSendLogAdmin(admin.ModelAdmin):
             '<div style="font-size:11px;">'
             '<span style="background:#2196f3;color:white;padding:2px 6px;border-radius:3px;margin-right:2px;">📋 {}</span>'
             '<span style="background:#f44336;color:white;padding:2px 6px;border-radius:3px;margin-right:2px;">🚨 {}</span>'
-            '<span style="background:#ff9800;color:white;padding:2px 6px;border-radius:3px;">⏰ {}</span>'
+            '<span style="background:#ff9800;color:white;padding:2px 6px;border-radius:3px;">🕐 {}</span>'
             '</div>',
             obj.no_date_count,
             obj.expired_count,
@@ -269,7 +269,7 @@ class MedicalNotificationSendLogAdmin(admin.ModelAdmin):
         }
 
         icons = {
-            'in_progress': '⏳',
+            'in_progress': '🔄',
             'completed': '✅',
             'partial': '⚠️',
             'failed': '❌',
@@ -308,7 +308,7 @@ class MedicalNotificationSendLogAdmin(admin.ModelAdmin):
             '📊 Всего: {} сотрудников<br>'\
             '📋 Без даты МО: <span style="color:#2196f3;font-weight:600;">{}</span><br>'\
             '🚨 Просроченные МО: <span style="color:#f44336;font-weight:600;">{}</span><br>'\
-            '⏰ Предстоящие МО: <span style="color:#ff9800;font-weight:600;">{}</span><br>'\
+            '🕐 Предстоящие МО: <span style="color:#ff9800;font-weight:600;">{}</span><br>'\
             '<br>'\
             '<strong>Отправки:</strong><br>'\
             'Всего обработано: {}<br>'\

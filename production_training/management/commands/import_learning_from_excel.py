@@ -8,7 +8,6 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.utils.text import slugify
 
 from directory.models import Employee, Organization
 from directory.utils.declension import decline_phrase
@@ -18,11 +17,8 @@ from production_training.models import (
     TrainingQualificationGrade,
     TrainingProfession,
     TrainingProgram,
-    TrainingProgramSection,
-    TrainingEntryType,
-    TrainingProgramEntry,
-    TrainingRoleType,
     ProductionTraining,
+    TrainingAssignment,
 )
 
 logger = logging.getLogger(__name__)
@@ -132,20 +128,17 @@ class Command(BaseCommand):
 
         base_rows = parse_sheet(z, base_path, shared)
 
-        role_rows = parse_sheet(z, roles_path, shared)
-        self._import_role_types(role_rows)
+        # Роли в упрощённой модели не импортируем
+        _ = parse_sheet(z, roles_path, shared)
 
         retrain_type = self._get_or_create_training_type('retraining', 'Переподготовка')
         prepare_type = self._get_or_create_training_type('preparation', 'Подготовка')
-
-        entry_type = self._get_or_create_entry_type('practice', 'Производственное обучение')
 
         if diary_retrain_path:
             retrain_rows = parse_sheet(z, diary_retrain_path, shared)
             self._import_program_from_diary(
                 retrain_rows,
                 retrain_type,
-                entry_type,
                 'Дневник (переподготовка)'
             )
 
@@ -154,7 +147,6 @@ class Command(BaseCommand):
             self._import_program_from_diary(
                 prepare_rows,
                 prepare_type,
-                entry_type,
                 'Дневник (подготовка)'
             )
 
@@ -166,13 +158,6 @@ class Command(BaseCommand):
         obj, _ = TrainingType.objects.get_or_create(
             code=code,
             defaults={'name_ru': name_ru, 'is_active': True}
-        )
-        return obj
-
-    def _get_or_create_entry_type(self, code, name):
-        obj, _ = TrainingEntryType.objects.get_or_create(
-            code=code,
-            defaults={'name': name, 'is_active': True}
         )
         return obj
 
@@ -192,26 +177,6 @@ class Command(BaseCommand):
             if was_created:
                 created += 1
         self.stdout.write(f'Профессии обучения: создано {created}')
-
-    def _import_role_types(self, rows):
-        role_names = set()
-        for cell in ('A2', 'A3', 'C7', 'G7', 'I7'):
-            col = ''.join([c for c in cell if c.isalpha()])
-            row = int(''.join([c for c in cell if c.isdigit()]))
-            val = rows.get(row, {}).get(col, '').strip()
-            if val:
-                role_names.add(val)
-
-        created = 0
-        for name in sorted(role_names):
-            code = slugify(name)
-            obj, was_created = TrainingRoleType.objects.get_or_create(
-                code=code,
-                defaults={'name': name, 'is_active': True}
-            )
-            if was_created:
-                created += 1
-        self.stdout.write(f'Роли обучения: создано {created}')
 
     def _extract_profession_from_rows(self, rows):
         for row in rows.values():
@@ -234,7 +199,7 @@ class Command(BaseCommand):
         )
         return obj
 
-    def _import_program_from_diary(self, rows, training_type, entry_type, program_title):
+    def _import_program_from_diary(self, rows, training_type, program_title):
         profession_name = self._extract_profession_from_rows(rows)
         profession = self._get_or_create_profession(profession_name)
 
@@ -250,17 +215,11 @@ class Command(BaseCommand):
             }
         )
 
-        section, _ = TrainingProgramSection.objects.get_or_create(
-            program=program,
-            title=program_title,
-            defaults={'order': 1}
-        )
-
         header_row = self._find_header_row(rows)
         if not header_row:
             return
 
-        order = 1
+        entries = []
         for r in range(header_row + 1, max(rows.keys()) + 1):
             row = rows.get(r, {})
             texts = self._extract_topic_texts(row)
@@ -269,15 +228,20 @@ class Command(BaseCommand):
 
             hours = self._parse_hours(row.get('D'))
             for text in texts:
-                TrainingProgramEntry.objects.get_or_create(
-                    section=section,
-                    entry_type=entry_type,
-                    topic=text,
-                    defaults={'hours': hours, 'order': order}
-                )
-                order += 1
+                entries.append({
+                    'topic': text,
+                    'hours': float(hours),
+                })
 
-        self.stdout.write(f'Программа {program_title}: записей {order - 1}')
+        program.content = {
+            'sections': [{
+                'title': program_title,
+                'entries': entries,
+            }]
+        }
+        program.save(update_fields=['content'])
+
+        self.stdout.write(f'Программа {program_title}: записей {len(entries)}')
 
     def _find_header_row(self, rows):
         for r, cols in rows.items():
@@ -356,25 +320,25 @@ class Command(BaseCommand):
                 start_date = excel_serial_to_date(rows.get(r, {}).get('B'))
             end_date = excel_serial_to_date(rows.get(r, {}).get('T'))
 
-            training, was_created = ProductionTraining.objects.get_or_create(
-                employee=employee,
+            training = ProductionTraining.objects.create(
                 organization=employee.organization,
+                subdivision=employee.subdivision,
+                department=employee.department,
                 profession=profession,
                 training_type=training_type,
-                defaults={
-                    'subdivision': employee.subdivision,
-                    'department': employee.department,
-                    'current_position': employee.position,
-                    'prior_qualification': prior_qualification,
-                    'start_date': start_date,
-                    'end_date': end_date,
-                    'registration_number': str(rows.get(r, {}).get('K', '')).strip(),
-                    'protocol_number': str(rows.get(r, {}).get('L', '')).strip(),
-                    'issue_date': excel_serial_to_date(rows.get(r, {}).get('M')),
-                    'status': 'draft',
-                }
             )
-            if was_created:
-                created += 1
+
+            TrainingAssignment.objects.create(
+                training=training,
+                employee=employee,
+                current_position=employee.position,
+                prior_qualification=prior_qualification,
+                start_date=start_date,
+                end_date=end_date,
+                registration_number=str(rows.get(r, {}).get('K', '')).strip(),
+                protocol_number=str(rows.get(r, {}).get('L', '')).strip(),
+                issue_date=excel_serial_to_date(rows.get(r, {}).get('M')),
+            )
+            created += 1
 
         self.stdout.write(f'Карточки обучения: создано {created}')

@@ -140,7 +140,7 @@ class InstructionJournalSendDetail(models.Model):
     STATUS_CHOICES = [
         ('success', '✅ Отправлено'),
         ('failed', '❌ Ошибка'),
-        ('skipped', '⏭️ Пропущено'),
+        ('skipped', '⏩ Пропущено'),
     ]
 
     SKIP_REASON_CHOICES = [

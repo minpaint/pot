@@ -45,7 +45,7 @@ class OTAdminSite(AdminSite):
             "MedicalExaminationNorm",
             "MedicalReferral",
         ]),
-        (_("\u23f1️ Контроль сроков"), [
+        (_("🕐 Контроль сроков"), [
             "Equipment",
             "EquipmentType",
             "KeyDeadlineCategory",
@@ -63,19 +63,12 @@ class OTAdminSite(AdminSite):
         ]),
         (_("🎓 Обучение на производстве"), [
             "ProductionTraining",
+            "TrainingAssignment",
             "TrainingType",
             "TrainingProfession",
             "TrainingQualificationGrade",
             "EducationLevel",
             "TrainingProgram",
-            "TrainingProgramSection",
-            "TrainingProgramEntry",
-            "TrainingEntryType",
-            "TrainingScheduleRule",
-            "TrainingRoleType",
-            "TrainingRoleAssignment",
-            "TrainingDiaryEntry",
-            "TrainingTheoryConsultation",
         ]),
         (_("📊 Импорт/Экспорт данных"), [
             "ImportExportMenu",

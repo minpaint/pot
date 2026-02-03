@@ -134,7 +134,7 @@ class Command(BaseCommand):
             name='Контроль сроков',
             location='sidebar',
             defaults={
-                'icon': '⏱️',
+                'icon': '🕐',
                 'is_separator': True,
                 'order': 20,
                 'is_active': True,

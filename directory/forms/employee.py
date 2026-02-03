@@ -25,8 +25,6 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             "work_schedule",
             "education_level",
             "prior_qualification",
-            "qualification_document_number",
-            "qualification_document_date",
             "height", "clothing_size", "shoe_size",
             "is_contractor"
         ]
@@ -66,10 +64,6 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
                 attrs={"type": "date"},
                 format="%Y-%m-%d"
             ),
-            "qualification_document_date": forms.DateInput(
-                attrs={"type": "date"},
-                format="%Y-%m-%d"
-            ),
             "place_of_residence": forms.TextInput(
                 attrs={
                     "size": "50",
@@ -85,7 +79,6 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
         # 🎨 Настройка crispy-forms
@@ -97,22 +90,68 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         self.fields["subdivision"].required = False
         self.fields["department"].required = False
 
-        # Ограничиваем выбор организаций по профилю пользователя 🔒
-        if self.user and hasattr(self.user, "profile"):
-            user_orgs = self.user.profile.organizations.all()
-            self.fields["organization"].queryset = user_orgs
-
-            # Если у пользователя одна организация – ставим её по умолчанию
-            if user_orgs.count() == 1:
-                org = user_orgs.first()
-                self.initial["organization"] = org.id
-                self.fields["subdivision"].queryset = StructuralSubdivision.objects.filter(organization=org)
+        def _get_selected_id(field_name):
+            if self.is_bound:
+                value = self.data.get(field_name)
             else:
-                self.fields["subdivision"].queryset = StructuralSubdivision.objects.none()
+                value = None
+            if not value:
+                value = self.initial.get(field_name)
+            if not value:
+                current_obj = getattr(self.instance, field_name, None)
+                value = getattr(current_obj, "pk", None)
+            if value in (None, "", "None"):
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return value
 
-            # Очищаем зависимые поля
-            self.fields["department"].queryset = Department.objects.none()
-            self.fields["position"].queryset = Position.objects.none()
+        def _ensure_in_queryset(field_name, qs):
+            current_obj = getattr(self.instance, field_name, None)
+            current_id = getattr(current_obj, "pk", None)
+            if current_id and not qs.filter(pk=current_id).exists():
+                qs = qs | qs.model.objects.filter(pk=current_id)
+            self.fields[field_name].queryset = qs
+
+        allowed_orgs = self.fields["organization"].queryset
+
+        # Если у пользователя одна организация – ставим её по умолчанию
+        if not self.is_bound and allowed_orgs.count() == 1 and not self.initial.get("organization"):
+            self.initial["organization"] = allowed_orgs.first().pk
+
+        organization_id = _get_selected_id("organization")
+        subdivision_id = _get_selected_id("subdivision")
+        department_id = _get_selected_id("department")
+
+        if organization_id:
+            subdivision_qs = StructuralSubdivision.objects.filter(
+                organization_id=organization_id,
+                organization__in=allowed_orgs
+            )
+        else:
+            subdivision_qs = StructuralSubdivision.objects.none()
+        _ensure_in_queryset("subdivision", subdivision_qs)
+
+        if subdivision_id:
+            department_qs = Department.objects.filter(subdivision_id=subdivision_id)
+            if organization_id:
+                department_qs = department_qs.filter(organization_id=organization_id)
+        else:
+            department_qs = Department.objects.none()
+        _ensure_in_queryset("department", department_qs)
+
+        if organization_id:
+            position_qs = Position.objects.filter(organization_id=organization_id)
+            if department_id:
+                position_qs = position_qs.filter(department_id=department_id)
+            elif subdivision_id:
+                position_qs = position_qs.filter(subdivision_id=subdivision_id)
+            else:
+                position_qs = position_qs.filter(subdivision__isnull=True)
+        else:
+            position_qs = Position.objects.none()
+        _ensure_in_queryset("position", position_qs)
 
     def clean(self):
         """

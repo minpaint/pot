@@ -58,6 +58,7 @@ fonttools==4.60.0
 freetype-py==2.5.1
 gunicorn==23.0.0
 html5lib==1.1
+holidays==0.60
 idna==3.10
 Jinja2==3.1.6
 laces==0.1.2

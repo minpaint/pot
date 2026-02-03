@@ -45,7 +45,7 @@ class InstructionJournalSendDetailInline(admin.TabularInline):
         icons = {
             'success': '✅',
             'failed': '❌',
-            'skipped': '⏭️',
+            'skipped': '⏩',
         }
 
         color = colors.get(obj.status, '#9e9e9e')
@@ -207,7 +207,7 @@ class InstructionJournalSendLogAdmin(admin.ModelAdmin):
         return format_html(
             '<span style="background:#4caf50;color:white;padding:4px 8px;border-radius:4px;margin-right:4px;">✅ {}</span>'
             '<span style="background:#f44336;color:white;padding:4px 8px;border-radius:4px;margin-right:4px;">❌ {}</span>'
-            '<span style="background:#ff9800;color:white;padding:4px 8px;border-radius:4px;">⏭️ {}</span>',
+            '<span style="background:#ff9800;color:white;padding:4px 8px;border-radius:4px;">⏩ {}</span>',
             obj.successful_count,
             obj.failed_count,
             obj.skipped_count
@@ -225,7 +225,7 @@ class InstructionJournalSendLogAdmin(admin.ModelAdmin):
         }
 
         icons = {
-            'in_progress': '⏳',
+            'in_progress': '🔄',
             'completed': '✅',
             'partial': '⚠️',
             'failed': '❌',

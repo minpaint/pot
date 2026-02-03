@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('hiring_date', models.DateField(help_text='Дата приема на работу', verbose_name='Дата приема')),
                 ('start_date', models.DateField(help_text='Дата фактического начала работы', verbose_name='Дата начала работы')),
-                ('hiring_type', models.CharField(choices=[('new', '🆕 Новый сотрудник'), ('transfer', '↔️ Перевод'), ('return', '↩️ Возврат из отпуска'), ('contractor', '📄 Договор подряда'), ('part_time', '⌛ Совместительство')], default='new', max_length=20, verbose_name='Вид приема')),
+                ('hiring_type', models.CharField(choices=[('new', '🆕 Новый сотрудник'), ('transfer', '↔️ Перевод'), ('return', '↩️ Возврат из отпуска'), ('contractor', '📄 Договор подряда'), ('part_time', '🔄 Совместительство')], default='new', max_length=20, verbose_name='Вид приема')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Дата обновления')),
                 ('notes', models.TextField(blank=True, verbose_name='Примечания')),

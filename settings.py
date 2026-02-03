@@ -55,7 +55,7 @@ THIRD_PARTY_APPS = [
 # 🏠 Локальные приложения
 LOCAL_APPS = [
     'directory.apps.DirectoryConfig',  # Наше приложение "directory" 📦
-    'deadline_control.apps.DeadlineControlConfig',  # Контроль сроков ⏰
+    'deadline_control.apps.DeadlineControlConfig',  # Контроль сроков 🕐
     'production_training.apps.ProductionTrainingConfig',  # Обучение на производстве 🎓
 ]
 

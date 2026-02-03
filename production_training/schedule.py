@@ -14,6 +14,12 @@ from __future__ import annotations
 import datetime
 from typing import Dict, Iterable, List, Optional, Tuple
 
+# Optional Belarus holidays calendar.
+try:
+    import holidays as holidays_lib
+except ImportError:  # pragma: no cover - optional dependency
+    holidays_lib = None
+
 # Код типов обучения → недельные часы
 WEEKLY_HOURS_BY_TYPE: Dict[str, List[int]] = {
     'retraining': [40, 40, 40, 40, 32],      # переподготовка
@@ -22,6 +28,19 @@ WEEKLY_HOURS_BY_TYPE: Dict[str, List[int]] = {
 
 DEFAULT_DAY_HOURS = 8
 DEFAULT_WORK_SCHEDULE = '5/2'
+
+_HOLIDAY_CACHE: Dict[int, object] = {}
+
+
+def _get_holidays_for_year(year: int):
+    if not holidays_lib:
+        return None
+    if year not in _HOLIDAY_CACHE:
+        if hasattr(holidays_lib, 'country_holidays'):
+            _HOLIDAY_CACHE[year] = holidays_lib.country_holidays('BY', years=[year])
+        else:
+            _HOLIDAY_CACHE[year] = holidays_lib.BY(years=[year])
+    return _HOLIDAY_CACHE[year]
 
 
 def normalize_work_schedule(work_schedule: Optional[str]) -> str:
@@ -35,6 +54,9 @@ def is_workday(
     schedule_start: Optional[datetime.date] = None
 ) -> bool:
     """Проверить, является ли день рабочим для графика."""
+    holidays_for_year = _get_holidays_for_year(date.year)
+    if holidays_for_year and date in holidays_for_year:
+        return False
     work_schedule = normalize_work_schedule(work_schedule)
     if work_schedule == '2/2':
         schedule_start = schedule_start or date
@@ -90,7 +112,15 @@ def get_weekly_hours(training_type_code: Optional[str]) -> Optional[List[int]]:
     """Получить недельные часы для типа обучения (case-insensitive)."""
     if not training_type_code:
         return None
-    return WEEKLY_HOURS_BY_TYPE.get(training_type_code.lower())
+    normalized = str(training_type_code).strip().lower()
+    weeks = WEEKLY_HOURS_BY_TYPE.get(normalized)
+    if weeks:
+        return weeks
+    if 'переподготов' in normalized or 'retraining' in normalized:
+        return WEEKLY_HOURS_BY_TYPE.get('retraining')
+    if 'подготов' in normalized or 'preparation' in normalized:
+        return WEEKLY_HOURS_BY_TYPE.get('preparation')
+    return None
 
 
 def build_workday_schedule(

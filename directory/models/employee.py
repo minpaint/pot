@@ -258,7 +258,7 @@ class Employee(models.Model):
             'candidate': '📝',
             'active': '✅',
             'maternity_leave': '👶',
-            'part_time': '⌛',
+            'part_time': '💤',
             'fired': '🚫',
         }
         emoji = status_emojis.get(self.status, '')

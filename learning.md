@@ -139,3 +139,143 @@
 4) Импортировать Excel.
 5) Реализовать генераторы документов и шаблоны.
 6) Добавить пользовательские формы (по необходимости).
+
+
+## 6. Проверка заглушек в шаблонах документов (обучение)
+
+### Источник
+- `media/document_templates/learning/*.docx`
+
+### Итоги
+- Заглушки есть в: `1.Заявление.docx`, `2. Приказ о назначении обучения.docx`, `3. Карточка теория.docx`, `5. Завление на квалификационный экзамен.docx`, `6. Заключение на пробную работу.docx`, `7. Представление на квалификационную работу.docx`, `8. Протокол квалификационной комиссии.docx`.
+- Заглушек нет в: `4.1.diary_podgotovka_voditel_pogruzchika*.docx`, `4.diary_perepodgotovka_voditel_pogruzchika*.docx`, `макет.docx`.
+- Особенности: в `2. Приказ о назначении обучения.docx` есть и `{{ familiarization_list }}` и цикл `{% for person in familiarization_list %}`; в `7. Представление на квалификационную работу.docx` используется `{{ submission_number|default("___") }}`.
+
+### 1.Заявление.docx
+- `{{ application_date }}`
+- `{{ application_date|default("") }}`
+- `{{ director.full_name_dative }}`
+- `{{ director.position_dative }}`
+- `{{ education_level.name_ru }}`
+- `{{ employee.birth_date }}`
+- `{{ employee.birth_date|default("") }}`
+- `{{ employee.full_name_genitive }}`
+- `{{ employee.full_name_nominative }}`
+- `{{ employee.position_genitive }}`
+- `{{ employee.short_name }}`
+- `{{ organization.full_name_ru }}`
+- `{{ prior_qualification }}`
+- `{{ profession.name_ru_nominative }}`
+- `{{ qualification_grade.label_ru }}`
+- `{{ training_type.name_ru_accusative }}`
+
+### 2. Приказ о назначении обучения.docx
+- `{{ director.position_nominative }}`
+- `{{ director.short_name }}`
+- `{{ employee.full_name_genitive }}`
+- `{{ employee.position_genitive }}`
+- `{{ employee.short_name_genitive }}`
+- `{{ end_date|default("") }}`
+- `{{ familiarization_list }}`
+- `{{ instructor.position_nominative }}`
+- `{{ instructor.short_name }}`
+- `{{ order_date }}`
+- `{{ order_date|default("") }}`
+- `{{ order_number }}`
+- `{{ organization.full_name_ru }}`
+- `{{ person.position_nominative }}`
+- `{{ person.short_name }}`
+- `{{ profession.name_ru_nominative }}`
+- `{{ qualification_grade.label_ru_genitive }}`
+- `{{ responsible_person.full_name_accusative }}`
+- `{{ responsible_person.position_accusative }}`
+- `{{ start_date|default("") }}`
+- `{{ theory_consultant.position_nominative }}`
+- `{{ theory_consultant.short_name }}`
+- `{{ training_supervisor.position_nominative }}`
+- `{{ training_supervisor.short_name }}`
+- `{{ training_type.name_ru_genitive }}`
+- `{% for person in familiarization_list %} ... {% endfor %}`
+
+### 3. Карточка теория.docx
+- `{{ consultant.full_name_nominative }}`
+- `{{ consultant.position_nominative }}`
+- `{{ consultant.short_name }}`
+- `{{ consultation_end_date|default("") }}`
+- `{{ consultation_start_date|default("") }}`
+- `{{ employee.full_name_nominative }}`
+- `{{ employee.short_name }}`
+- `{{ organization.legal_form }}`
+- `{{ organization.short_name_ru }}`
+- `{{ profession.name_ru_nominative }}`
+- `{{ qualification_grade.label_ru }}`
+- `{{ session.consultant_initials }}`
+- `{{ session.date }}`
+- `{{ session.hours }}`
+- `{{ total_consultation_hours }}`
+- `{{ training_type.name_ru }}`
+- `{% for consultant in theory_consultants %} ... {% endfor %}`
+- `{% for session in consultation_sessions %} ... {% endfor %}`
+
+### 5. Завление на квалификационный экзамен.docx
+- `{{ commission_chairman.full_name_dative }}`
+- `{{ employee.short_name }}`
+- `{{ exam_application_date|default("") }}`
+- `{{ organization.full_name_ru }}`
+- `{{ profession.name_ru_nominative }}`
+- `{{ qualification_grade.label_ru }}`
+- `{{ training_type.name_ru_genitive }}`
+
+### 6. Заключение на пробную работу.docx
+- `{{ actual_time_hours }}`
+- `{{ director.position_nominative }}`
+- `{{ director.short_name }}`
+- `{{ employee.full_name_nominative }}`
+- `{{ organization.full_name_ru }}`
+- `{{ practical_score }}`
+- `{{ practical_score_word }}`
+- `{{ practical_work_topic }}`
+- `{{ profession.name_ru_nominative }}`
+- `{{ qualification_grade.label_ru }}`
+- `{{ report_date|default("") }}`
+- `{{ time_norm_hours }}`
+- `{{ training_supervisor.position_nominative }}`
+- `{{ training_supervisor.short_name }}`
+
+### 7. Представление на квалификационную работу.docx
+- `{{ commission_chairman.full_name_dative }}`
+- `{{ employee.full_name_nominative }}`
+- `{{ organization.full_name_ru }}`
+- `{{ profession.name_ru_nominative }}`
+- `{{ qualification_grade.label_ru_genitive }}`
+- `{{ start_date|default("") }}`
+- `{{ submission_date|default("") }}`
+- `{{ submission_number|default("___") }}`
+- `{{ training_supervisor.position_nominative }}`
+- `{{ training_supervisor.short_name }}`
+- `{{ training_type.name_ru_accusative }}`
+- `{{ training_type.name_ru_genitive }}`
+
+### 8. Протокол квалификационной комиссии.docx
+- `{{ commission_chairman.position_nominative }}`
+- `{{ commission_chairman.short_name }}`
+- `{{ loop.index }}`
+- `{{ member.position_nominative }}`
+- `{{ member.short_name }}`
+- `{{ organization.full_name_ru }}`
+- `{{ protocol_date }}`
+- `{{ protocol_number }}`
+- `{{ student.birth_year }}`
+- `{{ student.education_level }}`
+- `{{ student.exam_score }}`
+- `{{ student.exam_score_word }}`
+- `{{ student.full_name_nominative }}`
+- `{{ student.note|default("") }}`
+- `{{ student.practical_score }}`
+- `{{ student.practical_score_word }}`
+- `{{ student.profession }}`
+- `{{ student.rank }}`
+- `{{ student.theory_score }}`
+- `{{ student.theory_score_word }}`
+- `{% for member in commission_members %} ... {% endfor %}`
+- `{% for student in exam_candidates %} ... {% endfor %}`

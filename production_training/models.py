@@ -2,8 +2,8 @@
 """
 Упрощённые модели для модуля "Обучение на производстве"
 
-Изменения по сравнению с production_training/models.py:
-- 14 моделей → 5 моделей (-64%)
+Изменения:
+- 14 моделей → 6 моделей
 - TrainingProgram: содержание программы в JSON вместо Section+Entry
 - ProductionTraining: роли как прямые поля вместо отдельной модели
 - Удалены: TrainingEntryType, TrainingScheduleRule, TrainingProgramSection,
@@ -203,6 +203,17 @@ class TrainingProgram(models.Model):
         verbose_name="Всего часов",
         help_text="Общее количество часов программы"
     )
+    practical_work_topic = models.TextField(
+        blank=True,
+        verbose_name="Тема пробной работы",
+        help_text="Стандартная тема пробной работы для программы"
+    )
+    practical_work_hours = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Часов на пробную работу",
+        help_text="Норматив часов на пробную работу"
+    )
     weeks_distribution = models.JSONField(
         default=list,
         blank=True,
@@ -311,31 +322,16 @@ class TrainingProgram(models.Model):
 
 class ProductionTraining(models.Model):
     """
-    Карточка обучения сотрудника на производстве.
+    Курс обучения на производстве.
 
-    УПРОЩЕНИЯ:
-    1. Роли (инструктор, консультант, комиссия) — прямые поля вместо
-       отдельных моделей TrainingRoleType + TrainingRoleAssignment
-    2. Удалено поле schedule_rule (YAGNI)
-    3. Добавлены поля для форм собственности организации
-    4. Добавлены недостающие поля из Excel (prior_qualification, workplace)
+    Общие данные курса:
+    - Организация, подразделение, отдел
+    - Программа обучения (тип, профессия, разряд)
+    - Роли и комиссия
+    - Место проведения
     """
 
-    STATUS_CHOICES = [
-        ('draft', 'Черновик'),
-        ('active', 'В процессе'),
-        ('completed', 'Завершено'),
-    ]
-
     # === ОСНОВНЫЕ ДАННЫЕ ===
-    employee = models.ForeignKey(
-        'directory.Employee',
-        on_delete=models.PROTECT,
-        related_name='production_trainings',
-        verbose_name="Сотрудник",
-        null=True,
-        blank=True,
-    )
     organization = models.ForeignKey(
         'directory.Organization',
         on_delete=models.PROTECT,
@@ -389,68 +385,7 @@ class ProductionTraining(models.Model):
         verbose_name="Разряд"
     )
 
-    # === ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ СОТРУДНИКА ===
-    current_position = models.ForeignKey(
-        'directory.Position',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='production_trainings',
-        verbose_name="Профессия на предприятии"
-    )
-    prior_qualification = models.TextField(
-        blank=True,
-        verbose_name="Имеющаяся квалификация",
-        help_text="Например: автослесарь, А№0584083 от 09.02.2009"
-    )
-    workplace = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name="Место работы",
-        help_text="Например: склад, цех №1"
-    )
-
-    # === ДАТЫ ===
-    start_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Дата начала обучения"
-    )
-    end_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Дата окончания обучения"
-    )
-
-    # === ЭКЗАМЕН ===
-    exam_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Дата экзамена"
-    )
-    exam_score = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name="Отметка за экзамен"
-    )
-
-    # === ПРОБНАЯ РАБОТА ===
-    practical_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Дата пробной работы"
-    )
-    practical_score = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name="Отметка за пробную работу"
-    )
-    practical_work_topic = models.TextField(
-        blank=True,
-        verbose_name="Тема пробной работы"
-    )
-
-    # === РОЛИ (УПРОЩЕНИЕ: прямые поля вместо отдельной модели) ===
+    # === РОЛИ ===
     instructor = models.ForeignKey(
         'directory.Employee',
         on_delete=models.SET_NULL,
@@ -458,6 +393,14 @@ class ProductionTraining(models.Model):
         blank=True,
         related_name='training_as_instructor',
         verbose_name="Инструктор производственного обучения"
+    )
+    responsible_person = models.ForeignKey(
+        'directory.Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='training_as_responsible',
+        verbose_name="Ответственный за обучение"
     )
     theory_consultant = models.ForeignKey(
         'directory.Employee',
@@ -491,6 +434,185 @@ class ProductionTraining(models.Model):
         limit_choices_to={'commission_type': 'qualification'}
     )
 
+    # === МЕСТО ПРОВЕДЕНИЯ ===
+    training_city_ru = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Место проведения (рус)"
+    )
+    training_city_by = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Место проведения (бел)"
+    )
+
+    # === МЕТАДАННЫЕ ===
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Примечания"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Создано"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Обновлено"
+    )
+
+    class Meta:
+        verbose_name = "📘 Курс обучения"
+        verbose_name_plural = "📘 Курсы обучения"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['organization'], name='pt_org_idx'),
+        ]
+
+    def __str__(self):
+        grade = f" ({self.qualification_grade.label_ru})" if self.qualification_grade else ""
+        return f"{self.profession.name_ru_nominative}{grade}"
+
+    def clean(self):
+        """Валидация полей."""
+        super().clean()
+
+        if self.department and self.department.organization != self.organization:
+            raise ValidationError({
+                'department': 'Отдел должен принадлежать выбранной организации'
+            })
+        if self.subdivision and self.subdivision.organization != self.organization:
+            raise ValidationError({
+                'subdivision': 'Подразделение должно принадлежать выбранной организации'
+            })
+
+    def get_instructor_name(self):
+        """ФИО инструктора."""
+        return self.instructor.full_name_nominative if self.instructor else ''
+
+    def get_consultant_name(self):
+        """ФИО консультанта."""
+        return self.theory_consultant.full_name_nominative if self.theory_consultant else ''
+
+    def get_chairman_name(self):
+        """ФИО председателя комиссии."""
+        return self.commission_chairman.full_name_nominative if self.commission_chairman else ''
+
+    def get_commission_members_list(self):
+        """Список членов комиссии через запятую."""
+        return ', '.join([
+            member.full_name_nominative
+            for member in self.commission_members.all()
+        ])
+
+    def get_assignments_count(self):
+        """Количество назначенных сотрудников."""
+        return self.assignments.count()
+
+    def get_active_assignments_count(self):
+        """Количество сотрудников в процессе обучения."""
+        from django.utils import timezone
+        today = timezone.localdate()
+        return self.assignments.filter(
+            start_date__lte=today,
+            end_date__gte=today
+        ).count()
+
+
+# ============================================================================
+# НАЗНАЧЕНИЕ СОТРУДНИКА НА ОБУЧЕНИЕ
+# ============================================================================
+
+class TrainingAssignment(models.Model):
+    """
+    Назначение сотрудника на курс обучения.
+
+    Содержит индивидуальные данные:
+    - Сотрудник и его текущая должность
+    - Даты обучения (индивидуальные для каждого)
+    - Оценки за экзамен и пробную работу
+    - Документы (номера протоколов, удостоверений)
+    """
+
+    # === СВЯЗИ ===
+    training = models.ForeignKey(
+        ProductionTraining,
+        on_delete=models.CASCADE,
+        related_name='assignments',
+        verbose_name="Курс обучения"
+    )
+    employee = models.ForeignKey(
+        'directory.Employee',
+        on_delete=models.PROTECT,
+        related_name='training_assignments',
+        verbose_name="Сотрудник"
+    )
+
+    # === ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ СОТРУДНИКА ===
+    current_position = models.ForeignKey(
+        'directory.Position',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='training_assignments',
+        verbose_name="Профессия на предприятии"
+    )
+    prior_qualification = models.TextField(
+        blank=True,
+        verbose_name="Имеющаяся квалификация",
+        help_text="Например: автослесарь, А№0584083 от 09.02.2009"
+    )
+    workplace = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Место работы",
+        help_text="Например: склад, цех №1"
+    )
+
+    # === ДАТЫ ===
+    start_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата начала обучения"
+    )
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата окончания обучения"
+    )
+
+    # === ЭКЗАМЕН ===
+    exam_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата экзамена"
+    )
+    theory_score = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Отметка за теоретический экзамен"
+    )
+    exam_score = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Отметка за экзамен"
+    )
+
+    # === ПРОБНАЯ РАБОТА ===
+    practical_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата пробной работы"
+    )
+    practical_score = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Отметка за пробную работу"
+    )
+    practical_work_topic = models.TextField(
+        blank=True,
+        verbose_name="Тема пробной работы"
+    )
+
     # === ДОКУМЕНТЫ ===
     registration_number = models.CharField(
         max_length=100,
@@ -513,18 +635,6 @@ class ProductionTraining(models.Model):
         verbose_name="Дата выдачи удостоверения"
     )
 
-    # === МЕСТО ПРОВЕДЕНИЯ ===
-    training_city_ru = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name="Место проведения (рус)"
-    )
-    training_city_by = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name="Место проведения (бел)"
-    )
-
     # === ЧАСЫ (опционально) ===
     planned_hours = models.DecimalField(
         max_digits=6,
@@ -542,12 +652,6 @@ class ProductionTraining(models.Model):
     )
 
     # === МЕТАДАННЫЕ ===
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='draft',
-        verbose_name="Статус"
-    )
     notes = models.TextField(
         blank=True,
         verbose_name="Примечания"
@@ -562,18 +666,17 @@ class ProductionTraining(models.Model):
     )
 
     class Meta:
-        verbose_name = "📒 Обучение на производстве"
-        verbose_name_plural = "📒 Обучение на производстве"
-        ordering = ['-created_at']
+        verbose_name = "👤 Сотрудник на обучении"
+        verbose_name_plural = "👥 Сотрудники на обучении"
+        ordering = ['-start_date', 'employee__full_name_nominative']
         indexes = [
-            models.Index(fields=['organization', 'employee'], name='pt_org_emp_idx'),
-            models.Index(fields=['start_date', 'end_date'], name='pt_dates_idx'),
-            models.Index(fields=['status'], name='pt_status_idx'),
+            models.Index(fields=['training', 'employee'], name='ta_training_emp_idx'),
+            models.Index(fields=['start_date', 'end_date'], name='ta_dates_idx'),
         ]
+        unique_together = ['training', 'employee']
 
     def __str__(self):
-        employee_name = self.employee.full_name_nominative if self.employee else "Без сотрудника"
-        return f"{employee_name} — {self.profession.name_ru_nominative}"
+        return f"{self.employee.full_name_nominative} — {self.training}"
 
     def clean(self):
         """Валидация полей."""
@@ -586,65 +689,56 @@ class ProductionTraining(models.Model):
                     'end_date': 'Дата окончания не может быть раньше даты начала'
                 })
 
-        # Проверка иерархии организации
-        if self.department:
-            if self.department.organization != self.organization:
-                raise ValidationError({
-                    'department': 'Отдел должен принадлежать выбранной организации'
-                })
-        if self.subdivision:
-            if self.subdivision.organization != self.organization:
-                raise ValidationError({
-                    'subdivision': 'Подразделение должно принадлежать выбранной организации'
-                })
-
     def save(self, *args, **kwargs):
-        """
-        Автоподстановка дат при установке start_date:
-        - end_date: по недельному плану (количество рабочих дней)
-        - exam_date: = end_date (экзамен в последний день обучения)
-        - practical_date: = exam_date - 1 рабочий день (пробная работа за день до экзамена)
-        - protocol_date: = practical_date + 1 день (= exam_date)
-        """
-        weekly_hours = self._resolve_weekly_hours()
-        work_schedule = self._resolve_work_schedule()
-        schedule_start = self._resolve_schedule_start(work_schedule)
+        """Автоподстановка дат при установке start_date."""
+        if not self.practical_work_topic:
+            program = getattr(self.training, 'program', None)
+            program_topic = getattr(program, 'practical_work_topic', '') if program else ''
+            if program_topic:
+                self.practical_work_topic = program_topic
+        if self.planned_hours is None:
+            program = getattr(self.training, 'program', None)
+            program_hours = getattr(program, 'practical_work_hours', None) if program else None
+            if program_hours is not None:
+                self.planned_hours = program_hours
 
-        # Полный пересчёт всех дат при установке start_date
-        if self.start_date and weekly_hours:
-            dates = schedule.compute_all_dates(
-                self.start_date,
-                weekly_hours,
-                work_schedule=work_schedule,
-                schedule_start=schedule_start,
-            )
+        if self.start_date:
+            weekly_hours = self._resolve_weekly_hours()
+            work_schedule = self._resolve_work_schedule()
+            schedule_start = self._resolve_schedule_start(work_schedule)
 
-            if not self.end_date:
-                self.end_date = dates['end_date']
-            if not self.exam_date:
-                self.exam_date = dates['exam_date']
-            if not self.practical_date:
-                self.practical_date = dates['practical_date']
-            if not self.protocol_date:
-                self.protocol_date = dates['protocol_date']
+            if weekly_hours:
+                dates = schedule.compute_all_dates(
+                    self.start_date,
+                    weekly_hours,
+                    work_schedule=work_schedule,
+                    schedule_start=schedule_start,
+                )
 
-        # Если practical_date задан вручную, пересчитать protocol_date
-        elif self.practical_date and not self.protocol_date:
-            self.protocol_date = schedule.compute_protocol_date(self.practical_date)
+                if not self.end_date:
+                    self.end_date = dates['end_date']
+                if not self.exam_date:
+                    self.exam_date = dates['exam_date']
+                if not self.practical_date:
+                    self.practical_date = dates['practical_date']
+                if not self.protocol_date:
+                    self.protocol_date = dates['protocol_date']
 
         super().save(*args, **kwargs)
 
-    def recalculate_dates(self, force: bool = False):
-        """
-        Пересчитать все даты по дате начала.
+    def recalculate_dates(self, force=False):
+        """Пересчитать все даты на основе start_date и программы."""
+        if not self.start_date:
+            return
 
-        Args:
-            force: если True, перезаписать даже уже заполненные даты
-        """
+        if not force and self.end_date:
+            return
+
         weekly_hours = self._resolve_weekly_hours()
         work_schedule = self._resolve_work_schedule()
         schedule_start = self._resolve_schedule_start(work_schedule)
-        if not self.start_date or not weekly_hours:
+
+        if not weekly_hours:
             return
 
         dates = schedule.compute_all_dates(
@@ -663,26 +757,107 @@ class ProductionTraining(models.Model):
         if force or not self.protocol_date:
             self.protocol_date = dates['protocol_date']
 
+    # === ВЫЧИСЛЯЕМЫЕ СВОЙСТВА (из курса) ===
+
+    @property
+    def organization(self):
+        """Организация (из курса обучения)."""
+        return self.training.organization if self.training else None
+
+    @property
+    def program(self):
+        """Программа обучения (из курса)."""
+        return self.training.program if self.training else None
+
+    @property
+    def profession(self):
+        """Профессия обучения (из курса)."""
+        return self.training.profession if self.training else None
+
+    @property
+    def training_type(self):
+        """Тип обучения (из курса)."""
+        return self.training.training_type if self.training else None
+
+    @property
+    def qualification_grade(self):
+        """Разряд (из курса)."""
+        return self.training.qualification_grade if self.training else None
+
+    @property
+    def instructor(self):
+        """Инструктор (из курса)."""
+        return self.training.instructor if self.training else None
+
+    @property
+    def responsible_person(self):
+        """Ответственный за обучение (из курса)."""
+        return self.training.responsible_person if self.training else None
+
+    @property
+    def theory_consultant(self):
+        """Консультант по теории (из курса)."""
+        return self.training.theory_consultant if self.training else None
+
+    @property
+    def commission_chairman(self):
+        """Председатель комиссии (из курса)."""
+        return self.training.commission_chairman if self.training else None
+
+    @property
+    def commission(self):
+        """Квалификационная комиссия (из курса)."""
+        return self.training.commission if self.training else None
+
+    @property
+    def commission_members(self):
+        """Члены комиссии (из курса)."""
+        return self.training.commission_members if self.training else None
+
+    @property
+    def training_city_ru(self):
+        """Место проведения рус (из курса)."""
+        return self.training.training_city_ru if self.training else ''
+
+    @property
+    def training_city_by(self):
+        """Место проведения бел (из курса)."""
+        return self.training.training_city_by if self.training else ''
+
+    # === ВЫЧИСЛЯЕМЫЕ МЕТОДЫ ===
+
+    def get_status(self):
+        """Вычисляемый статус на основе дат."""
+        from django.utils import timezone
+        today = timezone.localdate()
+
+        if not self.start_date:
+            return 'draft'
+        if self.start_date > today:
+            return 'scheduled'
+        if self.end_date and self.end_date < today:
+            return 'completed'
+        return 'active'
+
+    def get_status_display(self):
+        """Отображение статуса."""
+        status_labels = {
+            'draft': 'Черновик',
+            'scheduled': 'Запланировано',
+            'active': 'В процессе',
+            'completed': 'Завершено',
+        }
+        return status_labels.get(self.get_status(), 'Неизвестно')
+
+    def get_days_left(self):
+        """Количество дней до окончания обучения."""
+        if not self.end_date:
+            return None
+        from django.utils import timezone
+        today = timezone.localdate()
+        return (self.end_date - today).days
+
     # === МЕТОДЫ ДЛЯ ГЕНЕРАЦИИ ДОКУМЕНТОВ ===
-
-    def get_instructor_name(self):
-        """ФИО инструктора."""
-        return self.instructor.full_name_nominative if self.instructor else ''
-
-    def get_consultant_name(self):
-        """ФИО консультанта."""
-        return self.theory_consultant.full_name_nominative if self.theory_consultant else ''
-
-    def get_chairman_name(self):
-        """ФИО председателя комиссии."""
-        return self.commission_chairman.full_name_nominative if self.commission_chairman else ''
-
-    def get_commission_members_list(self):
-        """Список членов комиссии через запятую."""
-        return ', '.join([
-            member.full_name_nominative
-            for member in self.commission_members.all()
-        ])
 
     def get_exam_date_formatted(self, language='ru'):
         """Дата экзамена в формате: '5 января 2025 г.'"""
@@ -696,34 +871,19 @@ class ProductionTraining(models.Model):
             return ''
         return self._format_date(self.practical_date, language)
 
-    def get_period(self):
-        """Кортеж (start_date, end_date) с учетом автоподстановки."""
-        weekly_hours = self._resolve_weekly_hours()
-        work_schedule = self._resolve_work_schedule()
-        schedule_start = self._resolve_schedule_start(work_schedule)
-        if self.start_date and weekly_hours:
-            end_date = self.end_date or schedule.compute_end_date(
-                self.start_date,
-                weekly_hours,
-                work_schedule=work_schedule,
-                schedule_start=schedule_start,
-            )
-            return self.start_date, end_date
-        return self.start_date, self.end_date
-
     def get_period_str(self, language='ru'):
-        """Строка периода 'с 01.02.2025 по 15.03.2025'."""
-        start, end = self.get_period()
-        if not start or not end:
+        """Период обучения в формате: 'с 01.02.2025 по 15.03.2025'."""
+        if not self.start_date or not self.end_date:
             return ''
-        fmt = "%d.%m.%Y"
-        prefix = "с" if language == 'ru' else "з"
-        return f"{prefix} {start.strftime(fmt)} по {end.strftime(fmt)}"
+        start_fmt = self.start_date.strftime('%d.%m.%Y')
+        end_fmt = self.end_date.strftime('%d.%m.%Y')
+        if language == 'ru':
+            return f"с {start_fmt} по {end_fmt}"
+        else:
+            return f"з {start_fmt} па {end_fmt}"
 
     def get_theory_dates(self):
-        """
-        Две рабочие даты для карточки теории (детерминированно вместо RANDBETWEEN).
-        """
+        """Даты теоретических консультаций (2 даты)."""
         if not self.start_date:
             return []
         work_schedule = self._resolve_work_schedule()
@@ -735,11 +895,7 @@ class ProductionTraining(models.Model):
         )
 
     def get_diary_entries(self):
-        """
-        Автогенерация дневника:
-        - рабочие дни по недельному плану (8 ч/день);
-        - темы последовательно из program.content (если есть).
-        """
+        """Записи дневника обучения."""
         if not self.start_date:
             return []
         program_content = None
@@ -756,22 +912,48 @@ class ProductionTraining(models.Model):
             schedule_start=schedule_start,
         )
 
-    def _resolve_weekly_hours(self):
-        """
-        Отдать недельный план: приоритет у программы, иначе дефолт по типу обучения.
+    def get_diary_template_path(self):
+        """Путь к DOCX-шаблону дневника."""
+        if self.program and self.program.diary_template:
+            return self.program.diary_template.path
 
-        Возвращает список часов по неделям, например: [40, 40, 40, 40, 32]
-        """
+        base = Path(settings.MEDIA_ROOT) / 'document_templates' / 'learning'
+        if self.training_type and getattr(self.training_type, 'code', '').lower() == 'retraining':
+            candidate = base / '4.diary_perepodgotovka_voditel_pogruzchika.docx'
+        else:
+            candidate = base / '4.1.diary_podgotovka_voditel_pogruzchika.docx'
+
+        return str(candidate) if candidate.exists() else None
+
+    # === ВНУТРЕННИЕ МЕТОДЫ ===
+
+    def _resolve_weekly_hours(self):
+        """Отдать недельный план из программы курса."""
+        training_type = getattr(self, 'training_type', None)
+        program_type = getattr(self.program, 'training_type', None) if self.program else None
+
         if self.program:
             weeks = self.program.get_weeks_distribution()
             if weeks:
-                return weeks
-        return schedule.get_weekly_hours(
-            getattr(self.training_type, 'code', None) if self.training_type else None
+                # Если типы курса и программы не совпадают, предпочитаем тип курса.
+                if training_type and program_type and training_type != program_type:
+                    weeks = None
+                else:
+                    return weeks
+
+        weeks = schedule.get_weekly_hours(
+            getattr(training_type, 'code', None) if training_type else None
         )
+        if not weeks and training_type:
+            weeks = schedule.get_weekly_hours(getattr(training_type, 'name_ru', None))
+        if not weeks and program_type:
+            weeks = schedule.get_weekly_hours(getattr(program_type, 'code', None))
+        if not weeks and program_type:
+            weeks = schedule.get_weekly_hours(getattr(program_type, 'name_ru', None))
+        return weeks
 
     def _resolve_work_schedule(self):
-        """Получить график работы сотрудника для расчета дат."""
+        """Получить график работы сотрудника."""
         if self.employee and getattr(self.employee, 'work_schedule', None):
             return self.employee.work_schedule
         return schedule.DEFAULT_WORK_SCHEDULE
@@ -781,25 +963,6 @@ class ProductionTraining(models.Model):
         if work_schedule == '2/2' and self.employee:
             return self.employee.start_date or self.employee.hire_date or self.start_date
         return self.start_date
-
-    def get_diary_template_path(self):
-        """
-        Вернуть путь к DOCX-шаблону дневника:
-        1) Если у программы указан свой шаблон — используем его.
-        2) Иначе — дефолт по типу обучения (подготовка/переподготовка).
-        """
-        if self.program and self.program.diary_template:
-            return self.program.diary_template.path
-
-        base = Path(settings.MEDIA_ROOT) / 'document_templates' / 'learning'
-        if self.training_type and getattr(self.training_type, 'code', '').lower() == 'retraining':
-            # Переподготовка
-            candidate = base / '4.diary_perepodgotovka_voditel_pogruzchika.docx'
-        else:
-            # Подготовка
-            candidate = base / '4.1.diary_podgotovka_voditel_pogruzchika.docx'
-
-        return str(candidate) if candidate.exists() else None
 
     def _format_date(self, date, language='ru'):
         """Форматировать дату с названием месяца."""
@@ -821,24 +984,18 @@ class ProductionTraining(models.Model):
 
 
 # ============================================================================
-# ИТОГО: 5 МОДЕЛЕЙ вместо 14 (-64%)
+# ИТОГО: 6 МОДЕЛЕЙ
 # ============================================================================
 
 """
-УДАЛЕНО (8 моделей):
-- TrainingProgramSection → JSON в TrainingProgram.content
-- TrainingProgramEntry → JSON в TrainingProgram.content
-- TrainingEntryType → choices в коде ('theory', 'practice', 'consultation')
-- TrainingScheduleRule → YAGNI (не используется)
-- TrainingRoleType → choices в коде (instructor, consultant, chairman, member)
-- TrainingRoleAssignment → прямые поля в ProductionTraining
-- TrainingDiaryEntry → переделать или удалить (пока удалено)
-- TrainingTheoryConsultation → объединить с дневником или удалить (пока удалено)
-
-ОСТАВЛЕНО (5 моделей):
+СТРУКТУРА:
 1. TrainingType — типы обучения (подготовка, переподготовка)
 2. TrainingQualificationGrade — разряды (2, 3, 4, 5, 6)
 3. TrainingProfession — профессии
-4. TrainingProgram — программы обучения (с JSON вместо 3 моделей)
-5. ProductionTraining — карточки обучения (с прямыми полями ролей)
+4. TrainingProgram — программы обучения
+5. ProductionTraining — курсы обучения (общие данные)
+6. TrainingAssignment — назначения сотрудников (индивидуальные данные)
+
+СВЯЗИ:
+ProductionTraining (1) ←→ (N) TrainingAssignment ←→ (1) Employee
 """

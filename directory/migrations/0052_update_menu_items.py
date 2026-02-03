@@ -13,7 +13,7 @@ def update_menu_items(apps, schema_editor):
     if separator:
         separator_updates = []
         if not separator.icon:
-            separator.icon = "⏱️"
+            separator.icon = "🕐"
             separator_updates.append("icon")
         if not separator.is_separator:
             separator.is_separator = True

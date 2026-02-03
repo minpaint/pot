@@ -23,7 +23,6 @@ from deadline_control.models import (
     PositionMedicalFactor,
     MedicalExaminationNorm,
     HarmfulFactor,
-    MedicalSettings
 )
 
 try:
@@ -61,6 +60,46 @@ def get_harmful_factors_for_employee(employee):
     return [norm.harmful_factor for norm in reference_norms]
 
 
+def get_medical_referral_template(organization):
+    """
+    Получает шаблон направления на медосмотр для организации.
+
+    Приоритет:
+    1. Шаблон организации (DocumentTemplate с document_type.code='medical' и organization=org)
+    2. Эталонный шаблон (DocumentTemplate с document_type.code='medical' и is_default=True)
+
+    Возвращает путь к файлу шаблона или None.
+    """
+    from directory.models import DocumentTemplate, DocumentTemplateType
+
+    try:
+        medical_type = DocumentTemplateType.objects.get(code='medical')
+    except DocumentTemplateType.DoesNotExist:
+        return None
+
+    # 1. Ищем шаблон для конкретной организации
+    org_template = DocumentTemplate.objects.filter(
+        document_type=medical_type,
+        organization=organization,
+        is_active=True
+    ).first()
+
+    if org_template and org_template.template_file:
+        return org_template.template_file.path
+
+    # 2. Ищем эталонный шаблон
+    default_template = DocumentTemplate.objects.filter(
+        document_type=medical_type,
+        is_default=True,
+        is_active=True
+    ).first()
+
+    if default_template and default_template.template_file:
+        return default_template.template_file.path
+
+    return None
+
+
 def generate_referral_document(referral):
     """
     Генерирует DOCX документ направления на медосмотр.
@@ -69,38 +108,18 @@ def generate_referral_document(referral):
     if not DOCXTPL_AVAILABLE:
         return None
 
-    # Получаем путь к шаблону из настроек организации или используем эталонный
-    medical_settings = MedicalSettings.get_settings(employee.organization)
+    # Получаем сотрудника из направления
+    employee = referral.employee
+    organization = employee.organization
 
-    if medical_settings and medical_settings.referral_template:
-        # Используем шаблон из настроек
-        template_path = medical_settings.referral_template.path
-    else:
-        # Используем эталонный шаблон (исправленная версия)
-        template_path = os.path.join(
-            settings.MEDIA_ROOT,
-            'document_templates',
-            'etalon',
-            'napravlenie_blank_fixed.docx'
-        )
-        # Если исправленный шаблон не найден, пробуем оригинальный
-        if not os.path.exists(template_path):
-            template_path = os.path.join(
-                settings.MEDIA_ROOT,
-                'document_templates',
-                'etalon',
-                'napravlenie_blank.docx'
-            )
+    # Получаем путь к шаблону через систему DocumentTemplate
+    template_path = get_medical_referral_template(organization)
 
-    if not os.path.exists(template_path):
-        raise FileNotFoundError(f"Шаблон направления не найден: {template_path}")
+    if not template_path or not os.path.exists(template_path):
+        raise FileNotFoundError(f"Шаблон направления на медосмотр не найден. Создайте эталонный шаблон типа 'medical'.")
 
     # Загружаем шаблон
     doc = DocxTemplate(template_path)
-
-    # Подготавливаем данные для заполнения
-    employee = referral.employee
-    organization = employee.organization
 
     # Разбиваем ФИО на части
     name_parts = employee.full_name_nominative.split()
@@ -259,7 +278,9 @@ class GenerateReferralView(LoginRequiredMixin, View):
             if DOCXTPL_AVAILABLE:
                 filepath = generate_referral_document(referral)
                 if filepath and referral.document:
-                    document_url = referral.document.url
+                    # Используем URL для скачивания через специальный endpoint
+                    from django.urls import reverse
+                    document_url = reverse('deadline_control:medical:referral_download', args=[referral.id])
 
             return JsonResponse({
                 'success': True,
@@ -278,6 +299,45 @@ class GenerateReferralView(LoginRequiredMixin, View):
                 'success': False,
                 'error': str(e)
             }, status=500)
+
+
+class DownloadReferralView(LoginRequiredMixin, View):
+    """
+    Скачивание сгенерированного направления на медосмотр.
+    GET /deadline-control/medical/referral/download/{id}/
+    """
+
+    def get(self, request, referral_id):
+        from urllib.parse import quote
+
+        # Получаем направление
+        referral = get_object_or_404(MedicalReferral, pk=referral_id)
+
+        # Проверяем права доступа
+        if not AccessControlHelper.can_access_object(request.user, referral.employee):
+            raise PermissionDenied("У вас нет доступа к этому направлению")
+
+        # Проверяем, что документ существует
+        if not referral.document:
+            return JsonResponse({
+                'success': False,
+                'error': 'Документ не найден'
+            }, status=404)
+
+        # Формируем имя файла для скачивания
+        employee_name = referral.employee.full_name_nominative.replace(' ', '_')
+        filename = f"Направление_на_МО_{employee_name}.docx"
+
+        # Возвращаем файл на скачивание
+        response = FileResponse(
+            referral.document.open('rb'),
+            as_attachment=True,
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        # Для корректной работы с русскими именами файлов
+        encoded_filename = quote(filename)
+        response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
+        return response
 
 
 class ExistingEmployeeReferralView(LoginRequiredMixin, View):
@@ -449,28 +509,11 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
                 }
                 return render(request, 'deadline_control/new_employee_referral.html', context)
 
-            # Получаем шаблон для организации
-            medical_settings = MedicalSettings.get_settings(organization)
+            # Получаем шаблон через систему DocumentTemplate
+            template_path = get_medical_referral_template(organization)
 
-            if medical_settings and medical_settings.referral_template:
-                template_path = medical_settings.referral_template.path
-            else:
-                template_path = os.path.join(
-                    settings.MEDIA_ROOT,
-                    'document_templates',
-                    'etalon',
-                    'napravlenie_blank_fixed.docx'
-                )
-                if not os.path.exists(template_path):
-                    template_path = os.path.join(
-                        settings.MEDIA_ROOT,
-                        'document_templates',
-                        'etalon',
-                        'napravlenie_blank.docx'
-                    )
-
-            if not os.path.exists(template_path):
-                errors.append(f'Шаблон направления не найден')
+            if not template_path or not os.path.exists(template_path):
+                errors.append('Шаблон направления на медосмотр не найден. Создайте эталонный шаблон типа "medical".')
                 context = {
                     'organizations': organizations,
                     'position_names': list(position_names),

@@ -22,6 +22,20 @@ register_registry_import(admin.site)
 register_system_tools(admin.site)
 
 
+def debug_headers(request):
+    """Временный endpoint для диагностики CSRF проблем"""
+    headers_info = []
+    headers_info.append(f"REQUEST METHOD: {request.method}")
+    headers_info.append(f"is_secure(): {request.is_secure()}")
+    headers_info.append(f"scheme: {request.scheme}")
+    headers_info.append("")
+    headers_info.append("=== META headers ===")
+    for key, value in sorted(request.META.items()):
+        if key.startswith('HTTP_') or key in ('REMOTE_ADDR', 'SERVER_NAME', 'SERVER_PORT'):
+            headers_info.append(f"{key}: {value}")
+    return HttpResponse("\n".join(headers_info), content_type="text/plain")
+
+
 def serve_verification_file(request, filename):
     """
     Обработчик для файлов верификации поисковых систем и других сервисов
@@ -47,6 +61,9 @@ def serve_verification_file(request, filename):
 
 
 urlpatterns = [
+    # Диагностика заголовков (ВРЕМЕННО для отладки CSRF)
+    path('debug-headers/', debug_headers, name='debug_headers'),
+
     # Главная страница - Дашборд контроля сроков
     path('', DashboardView.as_view(), name='home'),
 
@@ -65,7 +82,7 @@ urlpatterns = [
     # Ключевое исправление - указываем непосредственно модуль, а не строку
     path('directory/', include('directory.urls')),
 
-    # ⏰ URL приложения deadline_control (Контроль сроков)
+    # 🕐 URL приложения deadline_control (Контроль сроков)
     path('deadline-control/', include('deadline_control.urls')),
 
     # 🎓 Обучение на производстве

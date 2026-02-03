@@ -221,6 +221,7 @@ class ProductionTrainingAdmin(admin.ModelAdmin):
         }),
         ('Оценки', {
             'fields': (
+                'theory_score',
                 'exam_score',
                 'practical_score',
                 'practical_work_topic'

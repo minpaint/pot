@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Обучение на производстве{% endblock %}
 
@@ -10,7 +11,7 @@
 
     <div class="card">
         <div class="card-body">
-            {% if trainings %}
+            {% if assignments %}
                 <div class="table-responsive">
                     <table class="table table-striped align-middle">
                         <thead>
@@ -19,20 +20,28 @@
                                 <th>Профессия</th>
                                 <th>Тип обучения</th>
                                 <th>Период</th>
+                                <th>До окончания</th>
                                 <th>Статус</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for training in trainings %}
+                            {% for assignment in assignments %}
                                 <tr>
-                                    <td>{{ training.employee.full_name_nominative }}</td>
-                                    <td>{{ training.profession.name_ru_nominative }}</td>
-                                    <td>{{ training.training_type.name_ru }}</td>
+                                    <td>{{ assignment.employee.full_name_nominative }}</td>
+                                    <td>{{ assignment.training.profession.name_ru_nominative }}</td>
+                                    <td>{{ assignment.training.training_type.name_ru }}</td>
                                     <td>
-                                        {% if training.start_date %}{{ training.start_date|date:"d.m.Y" }}{% endif %}
-                                        {% if training.end_date %} — {{ training.end_date|date:"d.m.Y" }}{% endif %}
+                                        {% if assignment.start_date %}{{ assignment.start_date|date:"d.m.Y" }}{% endif %}
+                                        {% if assignment.end_date %} — {{ assignment.end_date|date:"d.m.Y" }}{% endif %}
                                     </td>
-                                    <td>{{ training.get_status_display }}</td>
+                                    <td>
+                                        {% if assignment.end_date %}
+                                            <span class="pt-days-left" data-end-date="{{ assignment.end_date|date:'Y-m-d' }}"></span>
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ assignment.get_status_display }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -44,4 +53,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'production_training/js/training_days_left.js' %}"></script>
 {% endblock %}

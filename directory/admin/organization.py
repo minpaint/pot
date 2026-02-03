@@ -29,16 +29,6 @@ class OrganizationAdmin(admin.ModelAdmin):
         ('Реквизиты', {
             'fields': ('requisites_ru', 'requisites_by')
         }),
-        ('🎓 Эталонные роли для обучения', {
-            'fields': (
-                'default_theory_consultant',
-                'default_commission_chairman',
-                'default_instructor',
-            ),
-            'classes': ('collapse',),
-            'description': 'Эти роли будут подставляться по умолчанию при создании карточки обучения. '
-                          'Их можно переопределить для конкретного обучения.'
-        }),
     )
 
     def get_form(self, request, obj=None, **kwargs):

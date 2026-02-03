@@ -121,7 +121,7 @@ class BulkEmailSender:
             elapsed = time.time() - self.last_send_time
             if elapsed < self.delay_seconds:
                 sleep_time = self.delay_seconds - elapsed
-                logger.debug(f"⏱️ Rate limiting: пауза {sleep_time:.2f}s")
+                logger.debug(f"🕐 Rate limiting: пауза {sleep_time:.2f}s")
                 time.sleep(sleep_time)
 
     def _send_with_retry(

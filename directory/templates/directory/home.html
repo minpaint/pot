@@ -1024,9 +1024,15 @@ if (btnGenerateReferral) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Скачиваем документ
+                // Скачиваем документ через скрытую ссылку с атрибутом download
                 if (data.document_url) {
-                    window.location.href = data.document_url;
+                    const link = document.createElement('a');
+                    link.href = data.document_url;
+                    link.download = '';  // Браузер возьмёт имя файла из Content-Disposition
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 }
                 // Закрываем модальное окно
                 bootstrap.Modal.getInstance(medicalReferralModal).hide();

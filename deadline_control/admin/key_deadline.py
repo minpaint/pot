@@ -96,7 +96,7 @@ class KeyDeadlineItemInline(admin.TabularInline):
         elif days <= 14:
             # Скоро - оранжевый
             return format_html(
-                '<span style="color: orange; font-weight: bold;">⏰ Осталось {} дн.</span>',
+                '<span style="color: orange; font-weight: bold;">🕐 Осталось {} дн.</span>',
                 days
             )
         else:

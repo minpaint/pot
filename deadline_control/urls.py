@@ -48,6 +48,8 @@ medical_patterns = [
     # API для направлений
     path('referral/api/employee/<int:employee_id>/', medical_referral.EmployeeReferralDataView.as_view(), name='referral_employee_data'),
     path('referral/generate/', medical_referral.GenerateReferralView.as_view(), name='referral_generate'),
+    # Скачивание направления
+    path('referral/download/<int:referral_id>/', medical_referral.DownloadReferralView.as_view(), name='referral_download'),
     # Форма для направления нового сотрудника
     path('referral/new-employee/', medical_referral.NewEmployeeReferralView.as_view(), name='referral_new_employee'),
 ]

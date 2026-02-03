@@ -86,20 +86,6 @@ class AssignTrainingForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
     )
 
-    qualification_document_number = forms.CharField(
-        required=False,
-        label="Номер диплома/свидетельства",
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-    )
-
-    qualification_document_date = forms.DateField(
-        required=False,
-        label="Дата диплома/свидетельства",
-        widget=forms.DateInput(
-            attrs={'type': 'date', 'class': 'form-control'}
-        ),
-    )
-
     def __init__(self, *args, organization=None, **kwargs):
         super().__init__(*args, **kwargs)
 

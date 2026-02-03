@@ -122,7 +122,7 @@ def collect_recipients_for_subdivision(
 
     elif include_subdivision_emails and not subdivision:
         logger.debug(
-            "⏭️  [Источник 1: SubdivisionEmail] Пропущен: subdivision=None"
+            "⏩  [Источник 1: SubdivisionEmail] Пропущен: subdivision=None"
         )
 
     # =================================================================
@@ -171,7 +171,7 @@ def collect_recipients_for_subdivision(
 
     elif include_responsible_employees and not subdivision:
         logger.debug(
-            "⏭️  [Источник 2: Employee] Пропущен: subdivision=None"
+            "⏩  [Источник 2: Employee] Пропущен: subdivision=None"
         )
 
     # =================================================================

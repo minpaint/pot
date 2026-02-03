@@ -417,7 +417,7 @@ class Command(BaseCommand):
 
         # Предстоящие
         if upcoming_items:
-            lines.append(f'⏰ ПРЕДСТОЯЩИЕ МЕРОПРИЯТИЯ (в течение {warning_days} дней, {len(upcoming_items)}):')
+            lines.append(f'🕐 ПРЕДСТОЯЩИЕ МЕРОПРИЯТИЯ (в течение {warning_days} дней, {len(upcoming_items)}):')
             lines.append('-' * 60)
 
             items_by_cat = {}

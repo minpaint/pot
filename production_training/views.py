@@ -1,17 +1,23 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
 
-from .models import ProductionTraining
+from .models import TrainingAssignment
 
 
 class ProductionTrainingListView(LoginRequiredMixin, ListView):
-    model = ProductionTraining
+    model = TrainingAssignment
     template_name = 'production_training/training_list.html'
-    context_object_name = 'trainings'
+    context_object_name = 'assignments'
     paginate_by = 50
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related(
-            'employee', 'profession', 'training_type', 'organization', 'subdivision', 'department'
+        return super().get_queryset().select_related(
+            'employee',
+            'current_position',
+            'training',
+            'training__profession',
+            'training__training_type',
+            'training__organization',
+            'training__subdivision',
+            'training__department',
         )
-        return qs

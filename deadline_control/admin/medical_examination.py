@@ -21,6 +21,7 @@ from deadline_control.forms.medical_examination import (
     PositionNormForm,
     HarmfulFactorNormFormSet,
     HarmfulFactorNormForm,
+    HarmfulFactorNormFormWithCounter,
 )
 from directory.models.position import Position
 
@@ -43,8 +44,12 @@ class MedicalExaminationTypeAdmin(admin.ModelAdmin):
 class HarmfulFactorAdmin(admin.ModelAdmin):
     list_display = ("short_name", "full_name", "periodicity")
     search_fields = ("short_name", "full_name",)
+    form = HarmfulFactorNormFormWithCounter
 
     change_list_template = "admin/deadline_control/harmful_factor/change_list.html"
+
+    class Media:
+        js = ('admin/js/harmful_factor_char_counter.js',)
 
     def get_urls(self):
         from django.urls import path
@@ -386,7 +391,7 @@ class MedicalSettingsAdmin(admin.ModelAdmin):
                 upcoming_button = f"""
         <div style="margin: 20px 0 30px; text-align: center; padding: 20px; background-color: #fff3e0; border-radius: 8px;">
             <p style="margin: 0 0 15px; color: #f57c00; font-weight: 600; font-size: 15px;">
-                ⏰ Запланируйте выдачу направлений для {len(upcoming)} сотрудников
+                🕐 Запланируйте выдачу направлений для {len(upcoming)} сотрудников
             </p>
             <a href="{medical_url}"
                style="display: inline-block; background-color: #ff9800; color: white; padding: 15px 40px;
@@ -635,7 +640,7 @@ class MedicalSettingsAdmin(admin.ModelAdmin):
             bg_color = '#fff3e0'
             border_color = '#ff9800'
             title_color = '#f57c00'
-            emoji = '⏰'
+            emoji = '🕐'
             title = f'Предстоящие медосмотры в течение 30 дней ({len(employees_data)})'
         else:  # no_date
             bg_color = '#e3f2fd'

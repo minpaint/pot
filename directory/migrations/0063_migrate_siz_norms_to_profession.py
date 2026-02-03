@@ -62,7 +62,7 @@ def migrate_siz_norms_to_profession(apps, schema_editor):
                 migrated_count += 1
 
     print(f"✅ Мигрировано {migrated_count} эталонных норм СИЗ")
-    print(f"⏭️  Пропущено {skipped_count} профессий без норм")
+    print(f"⏩  Пропущено {skipped_count} профессий без норм")
 
 
 def reverse_migration(apps, schema_editor):

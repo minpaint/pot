@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='equipmentjournalsenddetail',
             name='status',
-            field=models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏭️ Пропущено')], max_length=20, verbose_name='Статус'),
+            field=models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏩ Пропущено')], max_length=20, verbose_name='Статус'),
         ),
         migrations.SeparateDatabaseAndState(
             state_operations=[

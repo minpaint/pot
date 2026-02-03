@@ -128,7 +128,7 @@ class EquipmentJournalSendDetail(models.Model):
     STATUS_CHOICES = [
         ('success', '✅ Отправлено'),
         ('failed', '❌ Ошибка'),
-        ('skipped', '⏭️ Пропущено'),
+        ('skipped', '⏩ Пропущено'),
     ]
 
     SKIP_REASON_CHOICES = [
@@ -231,6 +231,6 @@ class EquipmentJournalSendDetail(models.Model):
         status_icon = {
             'success': '✅',
             'failed': '❌',
-            'skipped': '⏭️'
+            'skipped': '⏩'
         }.get(self.status, '❓')
         return f"{status_icon} {self.subdivision.name} - {self.get_status_display()}"

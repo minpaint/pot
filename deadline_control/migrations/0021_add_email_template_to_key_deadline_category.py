@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
             name='KeyDeadlineSendLog',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('notification_type', models.CharField(choices=[('scheduled', '⏰ Плановая рассылка'), ('manual', '👤 Ручная отправка')], default='scheduled', max_length=20, verbose_name='Тип уведомления')),
+                ('notification_type', models.CharField(choices=[('scheduled', '🕐 Плановая рассылка'), ('manual', '👤 Ручная отправка')], default='scheduled', max_length=20, verbose_name='Тип уведомления')),
                 ('total_categories', models.IntegerField(default=0, help_text='Общее количество активных категорий в организации', verbose_name='Всего категорий')),
                 ('overdue_items_count', models.IntegerField(default=0, help_text='Количество просроченных мероприятий', verbose_name='Просроченных мероприятий')),
                 ('upcoming_items_count', models.IntegerField(default=0, help_text='Количество предстоящих мероприятий (в течение 30 дней)', verbose_name='Предстоящих мероприятий')),
@@ -47,7 +47,7 @@ class Migration(migrations.Migration):
             name='KeyDeadlineSendDetail',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏭️ Пропущено')], max_length=20, verbose_name='Статус')),
+                ('status', models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏩ Пропущено')], max_length=20, verbose_name='Статус')),
                 ('recipients', models.TextField(default='[]', help_text='JSON список email адресов: ["a@test.com", "b@test.com"]', verbose_name='Получатели (JSON)')),
                 ('recipients_count', models.IntegerField(default=0, verbose_name='Количество получателей')),
                 ('items_total', models.IntegerField(default=0, help_text='Общее количество мероприятий в категории', verbose_name='Всего мероприятий')),
@@ -71,7 +71,7 @@ class Migration(migrations.Migration):
             name='MedicalNotificationSendLog',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('notification_type', models.CharField(choices=[('scheduled', '⏰ Плановая рассылка'), ('manual', '👤 Ручная отправка')], default='scheduled', max_length=20, verbose_name='Тип уведомления')),
+                ('notification_type', models.CharField(choices=[('scheduled', '🕐 Плановая рассылка'), ('manual', '👤 Ручная отправка')], default='scheduled', max_length=20, verbose_name='Тип уведомления')),
                 ('no_date_count', models.IntegerField(default=0, help_text='Количество сотрудников без даты медосмотра', verbose_name='Без даты МО')),
                 ('expired_count', models.IntegerField(default=0, help_text='Количество сотрудников с просроченным медосмотром', verbose_name='Просроченные МО')),
                 ('upcoming_count', models.IntegerField(default=0, help_text='Количество сотрудников с предстоящим медосмотром', verbose_name='Предстоящие МО')),
@@ -95,7 +95,7 @@ class Migration(migrations.Migration):
             name='MedicalNotificationSendDetail',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏭️ Пропущено')], max_length=20, verbose_name='Статус')),
+                ('status', models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏩ Пропущено')], max_length=20, verbose_name='Статус')),
                 ('recipients', models.TextField(default='[]', help_text='JSON список email адресов: ["a@test.com", "b@test.com"]', verbose_name='Получатели (JSON)')),
                 ('recipients_count', models.IntegerField(default=0, verbose_name='Количество получателей')),
                 ('employees_total', models.IntegerField(default=0, help_text='Общее количество сотрудников в уведомлении', verbose_name='Всего сотрудников')),

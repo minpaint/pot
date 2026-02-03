@@ -30,6 +30,7 @@ __all__ = [
     # базовые формы
     "MedicalExaminationTypeForm",
     "HarmfulFactorForm",
+    "HarmfulFactorNormFormWithCounter",
     "MedicalExaminationNormForm",
     "PositionMedicalFactorForm",
     "EmployeeMedicalExaminationForm",
@@ -68,8 +69,32 @@ class HarmfulFactorForm(forms.ModelForm):
         fields = ["short_name", "full_name", "periodicity"]
         widgets = {
             "short_name": forms.TextInput(attrs={"class": "form-control"}),
-            "full_name": forms.TextInput(attrs={"class": "form-control"}),
+            "full_name": forms.Textarea(attrs={
+                "class": "form-control vLargeTextField",
+                "rows": 4,
+                "style": "width: 100%; max-width: 800px;",
+            }),
             "periodicity": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+
+
+class HarmfulFactorNormFormWithCounter(forms.ModelForm):
+    """
+    Форма для админки вредных факторов с расширенным полем full_name и счётчиком символов
+    """
+    class Meta:
+        model = HarmfulFactor
+        fields = ["short_name", "full_name", "periodicity"]
+        widgets = {
+            "short_name": forms.TextInput(attrs={"class": "vTextField", "style": "width: 300px;"}),
+            "full_name": forms.Textarea(attrs={
+                "id": "id_full_name",
+                "class": "vLargeTextField",
+                "rows": 5,
+                "style": "width: 100%; max-width: 900px; font-size: 14px;",
+                "maxlength": "1000",
+            }),
+            "periodicity": forms.NumberInput(attrs={"class": "vIntegerField", "style": "width: 100px;"}),
         }
 
 

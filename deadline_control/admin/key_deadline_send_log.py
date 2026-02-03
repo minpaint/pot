@@ -120,7 +120,7 @@ class KeyDeadlineSendLogAdmin(admin.ModelAdmin):
         }
 
         icons = {
-            'scheduled': '⏰',
+            'scheduled': '🕐',
             'manual': '👤',
         }
 
@@ -143,7 +143,7 @@ class KeyDeadlineSendLogAdmin(admin.ModelAdmin):
             '<div style="font-size:11px;">'
             '<span style="background:#2196f3;color:white;padding:2px 6px;border-radius:3px;margin-right:2px;">📊 {}</span>'
             '<span style="background:#f44336;color:white;padding:2px 6px;border-radius:3px;margin-right:2px;">🚨 {}</span>'
-            '<span style="background:#ff9800;color:white;padding:2px 6px;border-radius:3px;">⏰ {}</span>'
+            '<span style="background:#ff9800;color:white;padding:2px 6px;border-radius:3px;">🕐 {}</span>'
             '</div>',
             total,
             obj.overdue_items_count,
@@ -162,7 +162,7 @@ class KeyDeadlineSendLogAdmin(admin.ModelAdmin):
         }
 
         icons = {
-            'in_progress': '⏳',
+            'in_progress': '🔄',
             'completed': '✅',
             'partial': '⚠️',
             'failed': '❌',
@@ -241,7 +241,7 @@ class KeyDeadlineSendLogAdmin(admin.ModelAdmin):
             '<div style="font-size:14px;line-height:1.8;">'\
             '<strong>Мероприятия:</strong><br>'\
             '🚨 Просроченных: <span style="color:#f44336;font-weight:600;">{}</span><br>'\
-            '⏰ Предстоящих: <span style="color:#ff9800;font-weight:600;">{}</span><br>'\
+            '🕐 Предстоящих: <span style="color:#ff9800;font-weight:600;">{}</span><br>'\
             '📋 Всего мероприятий: {}<br>'\
             '<br>'\
             '<strong>Отправки:</strong><br>'\

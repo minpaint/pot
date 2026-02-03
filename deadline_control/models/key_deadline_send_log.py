@@ -26,7 +26,7 @@ class KeyDeadlineSendLog(models.Model):
     ]
 
     NOTIFICATION_TYPE_CHOICES = [
-        ('scheduled', '⏰ Плановая рассылка'),
+        ('scheduled', '🕐 Плановая рассылка'),
         ('manual', '👤 Ручная отправка'),
     ]
 

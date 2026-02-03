@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
             name='InstructionJournalSendDetail',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏭️ Пропущено')], max_length=20, verbose_name='Статус')),
+                ('status', models.CharField(choices=[('success', '✅ Отправлено'), ('failed', '❌ Ошибка'), ('skipped', '⏩ Пропущено')], max_length=20, verbose_name='Статус')),
                 ('recipients', models.TextField(default='[]', help_text='JSON список email адресов: ["a@test.com", "b@test.com"]', verbose_name='Получатели (JSON)')),
                 ('recipients_count', models.IntegerField(default=0, verbose_name='Количество получателей')),
                 ('employees_count', models.IntegerField(default=0, help_text='Количество сотрудников в сгенерированном документе', verbose_name='Количество сотрудников')),

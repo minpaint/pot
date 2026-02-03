@@ -65,7 +65,7 @@ class SIZNormInlineForPosition(admin.TabularInline):
     unit.short_description = "Ед. изм."
 
     def wear_period(self, obj):
-        """⌛ Отображение срока носки СИЗ"""
+        """🔄 Отображение срока носки СИЗ"""
         if obj.siz:
             if obj.siz.wear_period == 0:
                 return "До износа"
@@ -115,7 +115,7 @@ class PositionMedicalFactorInline(admin.TabularInline):
         ).order_by('harmful_factor__short_name')
 
     def periodicity(self, obj):
-        """⏱️ Отображение базовой периодичности"""
+        """🕐 Отображение базовой периодичности"""
         if obj.harmful_factor:
             return f"{obj.harmful_factor.periodicity} мес."
         return ""
@@ -627,7 +627,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
 
         class PositionFormWithUser(Form):
             def __init__(self, *args, **kwargs):
-                self.user = request.user
+                kwargs['user'] = request.user
                 super().__init__(*args, **kwargs)
                 # Настраиваем labels и help_text для полей
                 self.fields['documents'].label = "ДОСТУПНЫЕ ДОКУМЕНТЫ"

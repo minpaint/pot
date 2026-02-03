@@ -26,7 +26,7 @@ class MedicalNotificationSendLog(models.Model):
     ]
 
     NOTIFICATION_TYPE_CHOICES = [
-        ('scheduled', '⏰ Плановая рассылка'),
+        ('scheduled', '🕐 Плановая рассылка'),
         ('manual', '👤 Ручная отправка'),
     ]
 
@@ -170,7 +170,7 @@ class MedicalNotificationSendDetail(models.Model):
     STATUS_CHOICES = [
         ('success', '✅ Отправлено'),
         ('failed', '❌ Ошибка'),
-        ('skipped', '⏭️ Пропущено'),
+        ('skipped', '⏩ Пропущено'),
     ]
 
     SKIP_REASON_CHOICES = [

@@ -40,9 +40,9 @@ class HarmfulFactor(models.Model):
     )
 
     full_name = models.CharField(
-        max_length=255,
+        max_length=1000,
         verbose_name="Полное наименование",
-        help_text="Полное наименование вредного производственного фактора"
+        help_text="Полное наименование вредного производственного фактора (до 1000 символов)"
     )
 
     periodicity = models.PositiveIntegerField(

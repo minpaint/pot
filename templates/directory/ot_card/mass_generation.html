@@ -3,164 +3,372 @@
 
 {% block title %}{{ title }} - OT Online{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
+<style>
+    .ot-card-container { padding: 20px; }
+    .page-header { margin-bottom: 20px; }
+    .page-description { color: #666; font-size: 14px; margin-bottom: 15px; }
+
+    /* Синий блок параметров инструктажа */
+    .date-input-section {
+        background: #e7f3ff;
+        border: 2px solid #0066cc;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .date-input-section label {
+        font-weight: 600; font-size: 15px; color: #0066cc;
+        display: block; margin-bottom: 8px;
+    }
+    .date-input-section input[type="date"] {
+        padding: 8px 12px; border: 1px solid #ced4da;
+        border-radius: 4px; font-size: 14px; width: 200px;
+    }
+    .date-input-section input[type="date"]:focus {
+        outline: none; border-color: #0066cc;
+        box-shadow: 0 0 0 0.2rem rgba(0,102,204,.25);
+    }
+
+    /* Кнопки действий */
+    .action-buttons {
+        display: flex; gap: 10px; margin-bottom: 15px;
+        flex-wrap: wrap; align-items: center;
+    }
+    .selected-info { color: #666; font-size: 14px; margin-left: auto; }
+
+    /* Таблица дерева */
+    #result_list {
+        width: 100%; background: white;
+        border: 1px solid #ddd; border-radius: 4px;
+        table-layout: fixed;
+    }
+    #result_list th {
+        background: #f8f9fa; padding: 8px 6px;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600; font-size: 13px;
+        text-transform: uppercase; color: #495057;
+    }
+    #result_list td {
+        padding: 4px 6px; border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tree-row:hover td { background-color: #f8f9fa; }
+
+    .column-checkbox { width: 22px !important; text-align: center; padding: 2px 0 !important; }
+    .column-name { }
+    .column-position { width: 25%; }
+
+    /* Чекбоксы */
+    .form-check-input { cursor: pointer; }
+    .column-checkbox .form-check-input {
+        margin: 0;
+        width: 16px;
+        height: 16px;
+    }
+    .tree-row.selected { background-color: #e7f3ff; }
+
+    /* Иконки */
+    .tree-icon { margin-right: 4px; font-size: 14px; }
+
+    /* Кнопки разворачивания */
+    .toggle-btn {
+        display: inline-block; margin-right: 4px;
+        padding: 1px 5px; border: 1px solid #dee2e6;
+        background: white; border-radius: 2px;
+        cursor: pointer; font-size: 11px;
+        font-family: monospace; transition: all 0.2s;
+        min-width: 22px; text-align: center;
+    }
+    .toggle-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
+
+    /* Отступы для уровней */
+    .tree-row[data-level="0"] .field-name { padding-left: 6px; font-weight: 600; }
+    .tree-row[data-level="1"] .field-name { padding-left: 20px; font-weight: 500; }
+    .tree-row[data-level="2"] .field-name { padding-left: 34px; }
+    .tree-row[data-level="3"] .field-name { padding-left: 48px; }
+
+    .tree-row-hidden { display: none !important; }
+    .hidden-by-search { display: none !important; }
+    .highlight-search td { background-color: #fff3cd !important; }
+
+    /* Контролы дерева */
+    .tree-controls {
+        padding: 10px; background: #f8f9fa;
+        border: 1px solid #dee2e6; border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    .tree-btn {
+        padding: 6px 12px; background: white;
+        border: 1px solid #ced4da; border-radius: 4px;
+        cursor: pointer; font-size: 13px; transition: all 0.2s;
+    }
+    .tree-btn:hover { background: #e9ecef; border-color: #adb5bd; }
+    .tree-search-container { flex: 1; max-width: 300px; }
+    .tree-search {
+        width: 100%; padding: 6px 12px;
+        border: 1px solid #ced4da; border-radius: 4px; font-size: 13px;
+    }
+    .tree-search:focus {
+        outline: none; border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+    /* Групповой чекбокс на уровне подразделения/отдела */
+    .group-checkbox {
+        cursor: pointer; width: 16px; height: 16px;
+    }
+
+    /* Кнопка генерации на уровне группы */
+    .group-generate-btn {
+        padding: 2px 8px; font-size: 11px;
+        background: #28a745; color: white; border: none;
+        border-radius: 3px; cursor: pointer; margin-left: 6px;
+        white-space: nowrap; vertical-align: middle;
+        display: inline-block;
+    }
+    .group-generate-btn:hover { background: #218838; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="row mb-4">
-        <div class="col">
-            <h2>{{ title }}</h2>
-            <p class="text-muted">Массовая генерация личных карточек по охране труда для сотрудников</p>
-        </div>
+<div class="ot-card-container">
+    <div class="page-header">
+        <h4 class="mb-2">{{ title }}</h4>
+        <p class="page-description">
+            Выберите сотрудников для массовой генерации личных карточек по охране труда.
+            Можно выбирать отдельных сотрудников или целые подразделения/отделы.
+        </p>
     </div>
 
-    {% if subdivisions or orgs_no_subdivision %}
-    <form method="post" action="{% url 'directory:ot_card:mass_generation_generate' %}" id="mass-generation-form">
-        {% csrf_token %}
-
-        <!-- Синий блок: параметры инструктажа (как в журнале инструктажей) -->
-        <div class="date-input-section">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 10px;">
-                <div>
-                    <label for="date_povtorny">📅 Дата инструктажа:</label>
-                    <input type="date" id="date_povtorny" name="date_povtorny"
-                           value="{{ default_date }}" required style="width: 100%;">
-                </div>
-                <div>
-                    <label for="instruction_type">📋 Вид инструктажа:</label>
-                    <select id="instruction_type" name="instruction_type" required
-                            style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
-                        {% for value, label in instruction_types %}
-                        <option value="{{ value }}" {% if value == 'Повторный' %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+    <!-- Параметры инструктажа -->
+    <div class="date-input-section">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+            <div>
+                <label for="date_povtorny">📅 Дата инструктажа:</label>
+                <input type="date" id="date_povtorny" name="date_povtorny"
+                       value="{{ default_date }}" required style="width: 100%;">
             </div>
-            <div id="reasonField" style="display: none;">
-                <label for="instruction_reason">📝 Причина проведения внепланового/целевого инструктажа:</label>
-                <input type="text" id="instruction_reason" name="instruction_reason"
-                       placeholder="Укажите причину проведения инструктажа"
-                       style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
-            </div>
-        </div>
-
-        <!-- Фильтр по организации -->
-        <div class="row mb-3">
-            <div class="col-md-4 mb-3 mb-md-0">
-                <label for="organization-filter" class="form-label">Фильтр по организации</label>
-                <select id="organization-filter" class="form-select">
-                    <option value="">Все организации</option>
-                    {% for org in all_organizations %}
-                    <option value="{{ org.id }}">{{ org.full_name_ru }}</option>
+            <div>
+                <label for="instruction_type">📋 Вид инструктажа:</label>
+                <select id="instruction_type" name="instruction_type" required
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
+                    {% for value, label in instruction_types %}
+                    <option value="{{ value }}" {% if value == 'Повторный' %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
         </div>
+        <div id="reasonField" style="display: none;">
+            <label for="instruction_reason">📝 Причина проведения внепланового/целевого инструктажа:</label>
+            <input type="text" id="instruction_reason" name="instruction_reason"
+                   placeholder="Укажите причину проведения инструктажа"
+                   style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
+        </div>
+    </div>
+
+    <!-- Фильтр по организации -->
+    {% if org_options|length >= 1 %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" action="" class="row g-2 align-items-end">
+                <div class="col-md-8 col-lg-6">
+                    <label for="orgSelect" class="form-label fw-bold">
+                        🏢 {% if org_options|length == 1 %}Организация:{% else %}Выберите организацию:{% endif %}
+                    </label>
+                    <select name="org" id="orgSelect" class="form-select"
+                            {% if org_options|length > 1 %}required{% endif %}
+                            {% if org_options|length == 1 %}disabled{% endif %}>
+                        {% if org_options|length > 1 %}
+                        <option value="">-- Выберите организацию --</option>
+                        {% endif %}
+                        {% for org in org_options %}
+                        <option value="{{ org.id }}" {% if org.id == selected_org_id %}selected{% endif %}>
+                            {{ org.short_name_ru }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if org_options|length > 1 %}
+                <div class="col-md-4 col-lg-2">
+                    <button type="submit" class="btn btn-primary w-100">Показать</button>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not show_tree %}
+    <div class="alert alert-info" role="alert">
+        <h5 class="alert-heading">Информация</h5>
+        {% if org_options|length == 0 %}
+        <p class="mb-0">У вас нет доступных организаций с активными сотрудниками.</p>
+        {% elif org_options|length > 1 %}
+        <p class="mb-0">Пожалуйста, выберите организацию из списка выше.</p>
+        {% endif %}
+    </div>
+    {% else %}
+
+    <form method="post" action="{% url 'directory:ot_card:mass_generation_generate' %}" id="mass-generation-form">
+        {% csrf_token %}
 
         <!-- Кнопки управления -->
-        <div class="row mb-3">
-            <div class="col">
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="select-all">
-                        Выбрать все
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="deselect-all">
-                        Снять все
-                    </button>
-                </div>
-                <button type="submit" class="btn btn-success ms-3" id="generate-btn">
-                    Сгенерировать карточки
-                </button>
-                <span class="ms-3 text-muted" id="selected-count">Выбрано: 0</span>
+        <div class="action-buttons">
+            <button type="submit" class="btn btn-success" id="generate-btn">
+                Сгенерировать карточки
+            </button>
+            <div class="form-check form-check-inline ms-3">
+                <input class="form-check-input" type="checkbox" id="selectAll">
+                <label class="form-check-label" for="selectAll">Выбрать всех</label>
+            </div>
+            <span class="selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong>{% if employees_count %} из {{ employees_count }}{% endif %}</span>
+        </div>
+
+        <!-- Контролы дерева -->
+        <div class="tree-controls">
+            <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
+            <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
+            <div class="tree-search-container">
+                <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам...">
             </div>
         </div>
 
-        <!-- Таблица подразделений -->
-        <div class="card">
-            <div class="card-body">
-                <!-- Сообщение когда не выбрана организация -->
-                <div id="no-organization-message" class="alert alert-info text-center" style="display: none;">
-                    Выберите организацию из списка выше, чтобы увидеть подразделения
-                </div>
+        <!-- Древовидная таблица -->
+        <div class="table-responsive">
+            <table id="result_list" style="table-layout: fixed; width: 100%;">
+                <colgroup>
+                    <col style="width: 30px;">
+                    <col style="width: 55%;">
+                    <col style="width: auto;">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="column-checkbox" style="width: 30px; padding: 4px 2px;"></th>
+                        <th class="column-name">ФИО / Структура</th>
+                        <th class="column-position">Должность</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org, org_data in tree.items %}
+                        {# Организация #}
+                        <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
+                            <td class="column-checkbox">
+                                <input type="checkbox" class="form-check-input group-checkbox"
+                                       data-group="org_{{ org.id }}">
+                            </td>
+                            <td class="field-name">
+                                <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
+                                <strong>{{ org_data.name }}</strong>
+                                <button type="button" class="group-generate-btn" data-generate-group="org_{{ org.id }}">📋 Сгенерировать</button>
+                            </td>
+                            <td></td>
+                        </tr>
 
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th style="width: 50px;">
-                                    <input type="checkbox" id="select-all-checkbox" class="form-check-input">
-                                </th>
-                                <th>Организация</th>
-                                <th>Структурное подразделение</th>
-                                <th class="text-center">Сотрудников</th>
+                        {# Сотрудники без подразделения #}
+                        {% for employee in org_data.items %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
+                                <td class="column-checkbox">
+                                    <input type="checkbox" class="form-check-input employee-checkbox"
+                                           name="employee_ids" value="{{ employee.id }}"
+                                           data-groups="org_{{ org.id }}">
+                                </td>
+                                <td class="field-name">
+                                    <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                    {{ employee.full_name_nominative }}
+                                </td>
+                                <td>{{ employee.position.position_name }}</td>
                             </tr>
-                        </thead>
-                        <tbody id="subdivisions-tbody">
-                            {% for subdivision in subdivisions %}
-                            <tr class="subdivision-row" data-organization-id="{{ subdivision.organization.id }}">
-                                <td>
-                                    <input type="checkbox"
-                                           name="subdivision_ids"
-                                           value="{{ subdivision.id }}"
-                                           class="form-check-input subdivision-checkbox"
-                                           data-count="{{ subdivision.employees_count }}">
+                        {% endfor %}
+
+                        {# Подразделения #}
+                        {% for sub, sub_data in org_data.subdivisions.items %}
+                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
+                                <td class="column-checkbox">
+                                    <input type="checkbox" class="form-check-input group-checkbox"
+                                           data-group="sub_{{ sub.id }}"
+                                           data-parent-group="org_{{ org.id }}">
                                 </td>
-                                <td>{{ subdivision.organization.full_name_ru }}</td>
-                                <td>
-                                    <strong>{{ subdivision.name }}</strong>
+                                <td class="field-name">
+                                    <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                    <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
+                                    {{ sub_data.name }}
+                                    <button type="button" class="group-generate-btn" data-generate-group="sub_{{ sub.id }}">📋 Сгенерировать</button>
                                 </td>
-                                <td class="text-center">
-                                    <span class="badge bg-info">{{ subdivision.employees_count }}</span>
-                                </td>
+                                <td></td>
                             </tr>
+
+                            {# Сотрудники без отдела #}
+                            {% for employee in sub_data.items %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
+                                    <td class="column-checkbox">
+                                        <input type="checkbox" class="form-check-input employee-checkbox"
+                                               name="employee_ids" value="{{ employee.id }}"
+                                               data-groups="org_{{ org.id }} sub_{{ sub.id }}">
+                                    </td>
+                                    <td class="field-name">
+                                        <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                        {{ employee.full_name_nominative }}
+                                    </td>
+                                    <td>{{ employee.position.position_name }}</td>
+                                </tr>
                             {% endfor %}
-                            {% for item in orgs_no_subdivision %}
-                            <tr class="subdivision-row" data-organization-id="{{ item.organization.id }}">
-                                <td>
-                                    <input type="checkbox"
-                                           name="organization_ids"
-                                           value="{{ item.organization.id }}"
-                                           class="form-check-input subdivision-checkbox"
-                                           data-count="{{ item.employees_count }}">
-                                </td>
-                                <td>{{ item.organization.full_name_ru }}</td>
-                                <td>
-                                    <em class="text-muted">Без подразделения</em>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-info">{{ item.employees_count }}</span>
-                                </td>
-                            </tr>
+
+                            {# Отделы #}
+                            {% for dept, dept_data in sub_data.departments.items %}
+                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                                    <td class="column-checkbox">
+                                        <input type="checkbox" class="form-check-input group-checkbox"
+                                               data-group="dept_{{ dept.id }}"
+                                               data-parent-group="sub_{{ sub.id }}">
+                                    </td>
+                                    <td class="field-name">
+                                        <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
+                                        <span class="tree-icon">{{ tree_settings.icons.department }}</span>
+                                        {{ dept_data.name }}
+                                    </td>
+                                    <td></td>
+                                </tr>
+
+                                {# Сотрудники в отделе #}
+                                {% for employee in dept_data.items %}
+                                    <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                        <td class="column-checkbox">
+                                            <input type="checkbox" class="form-check-input employee-checkbox"
+                                                   name="employee_ids" value="{{ employee.id }}"
+                                                   data-groups="org_{{ org.id }} sub_{{ sub.id }} dept_{{ dept.id }}">
+                                        </td>
+                                        <td class="field-name">
+                                            <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                            {{ employee.full_name_nominative }}
+                                        </td>
+                                        <td>{{ employee.position.position_name }}</td>
+                                    </tr>
+                                {% endfor %}
                             {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                        {% endfor %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                Нет сотрудников для генерации карточек.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
         <div class="row mt-3">
             <div class="col">
-                <button type="submit" class="btn btn-success">
-                    Сгенерировать карточки
-                </button>
-                <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary">
-                    Назад
-                </a>
+                <button type="submit" class="btn btn-success">Сгенерировать карточки</button>
+                <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary ms-2">Назад</a>
             </div>
         </div>
     </form>
 
-    {% else %}
-    <div class="alert alert-info">
-        <h5>Нет данных для генерации</h5>
-        <p>Не найдено структурных подразделений с активными сотрудниками.</p>
-        <p>Убедитесь, что:</p>
-        <ul>
-            <li>Есть активные сотрудники с должностями</li>
-            <li>У вас есть доступ к организациям</li>
-        </ul>
-        <a href="{% url 'directory:employee_home' %}" class="btn btn-primary mt-2">
-            Вернуться на главную
-        </a>
-    </div>
     {% endif %}
 </div>
 
@@ -174,27 +382,22 @@
         <p class="text-light">Это может занять некоторое время</p>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'admin/js/tree_view.js' %}"></script>
+<script src="{% static 'admin/js/tree_search.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('mass-generation-form');
-
     if (!form) return;
 
-    const checkboxes = document.querySelectorAll('.subdivision-checkbox');
-    const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const selectAllBtn = document.getElementById('select-all');
-    const deselectAllBtn = document.getElementById('deselect-all');
-    const selectedCountSpan = document.getElementById('selected-count');
+    const allEmployeeCheckboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
+    const allGroupCheckboxes = Array.from(document.querySelectorAll('.group-checkbox'));
+    const selectAll = document.getElementById('selectAll');
+    const counter = document.getElementById('selectedCount');
     const loadingOverlay = document.getElementById('loading-overlay');
-    const submitButtons = document.querySelectorAll('button[type="submit"]');
-    const organizationFilter = document.getElementById('organization-filter');
-    const subdivisionRows = document.querySelectorAll('.subdivision-row');
-    const noOrgMessage = document.getElementById('no-organization-message');
-    const subdivisionsTable = document.querySelector('.table-responsive');
+    const submitButtons = form.querySelectorAll('button[type="submit"]');
 
     // Показ/скрытие поля причины в зависимости от вида инструктажа
     const instructionTypeSelect = document.getElementById('instruction_type');
@@ -202,155 +405,192 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function toggleReasonField() {
         const selectedType = instructionTypeSelect.value;
-        if (selectedType === 'Внеплановый' || selectedType === 'Целевой') {
-            reasonField.style.display = 'block';
-        } else {
-            reasonField.style.display = 'none';
-        }
+        reasonField.style.display =
+            (selectedType === 'Внеплановый' || selectedType === 'Целевой') ? 'block' : 'none';
     }
 
     if (instructionTypeSelect) {
         instructionTypeSelect.addEventListener('change', toggleReasonField);
-        toggleReasonField(); // Проверяем начальное состояние
+        toggleReasonField();
     }
 
-    // Функция фильтрации по организации
-    function applyOrganizationFilter() {
-        const selectedOrgId = organizationFilter.value;
+    // === Логика чекбоксов ===
 
-        subdivisionRows.forEach(row => {
-            if (selectedOrgId === '' || row.dataset.organizationId === selectedOrgId) {
-                row.style.display = '';
+    function updateCounter() {
+        const selected = allEmployeeCheckboxes.filter(cb => cb.checked).length;
+        counter.textContent = selected;
+    }
+
+    // Получить все employee-чекбоксы, принадлежащие группе
+    function getEmployeesInGroup(groupId) {
+        return allEmployeeCheckboxes.filter(cb => {
+            const groups = cb.getAttribute('data-groups') || '';
+            return groups.split(' ').includes(groupId);
+        });
+    }
+
+    // Получить дочерние group-чекбоксы
+    function getChildGroups(groupId) {
+        return allGroupCheckboxes.filter(cb => cb.getAttribute('data-parent-group') === groupId);
+    }
+
+    // Обновить состояние группового чекбокса на основе его сотрудников
+    function updateGroupState(groupCheckbox) {
+        const groupId = groupCheckbox.getAttribute('data-group');
+        const employees = getEmployeesInGroup(groupId);
+
+        if (employees.length === 0) {
+            groupCheckbox.checked = false;
+            groupCheckbox.indeterminate = false;
+            return;
+        }
+
+        const checkedCount = employees.filter(cb => cb.checked).length;
+
+        if (checkedCount === 0) {
+            groupCheckbox.checked = false;
+            groupCheckbox.indeterminate = false;
+        } else if (checkedCount === employees.length) {
+            groupCheckbox.checked = true;
+            groupCheckbox.indeterminate = false;
+        } else {
+            groupCheckbox.checked = false;
+            groupCheckbox.indeterminate = true;
+        }
+    }
+
+    // Обновить все групповые чекбоксы снизу вверх
+    function updateAllGroupStates() {
+        // Сначала отделы (нижний уровень), потом подразделения, потом организации
+        const deptGroups = allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('dept_'));
+        const subGroups = allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('sub_'));
+        const orgGroups = allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('org_'));
+
+        deptGroups.forEach(updateGroupState);
+        subGroups.forEach(updateGroupState);
+        orgGroups.forEach(updateGroupState);
+
+        updateCounter();
+
+        // Обновить selectAll
+        if (selectAll) {
+            const total = allEmployeeCheckboxes.length;
+            const checked = allEmployeeCheckboxes.filter(cb => cb.checked).length;
+            if (checked === 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            } else if (checked === total) {
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
             } else {
-                row.style.display = 'none';
-                // Снимаем галочку с скрытых подразделений
-                const checkbox = row.querySelector('.subdivision-checkbox');
-                if (checkbox) {
-                    checkbox.checked = false;
-                }
+                selectAll.checked = false;
+                selectAll.indeterminate = true;
             }
-        });
-
-        // Показываем сообщение если не выбрана организация и их несколько
-        if (selectedOrgId === '' && organizationFilter.options.length > 2) {
-            noOrgMessage.style.display = 'block';
-            subdivisionsTable.style.display = 'none';
-        } else {
-            noOrgMessage.style.display = 'none';
-            subdivisionsTable.style.display = 'block';
-        }
-
-        updateSelectedCount();
-    }
-
-    // Обработчик изменения фильтра
-    organizationFilter.addEventListener('change', applyOrganizationFilter);
-
-    // Автоматический выбор организации при загрузке
-    const orgOptions = organizationFilter.querySelectorAll('option');
-    const orgCount = orgOptions.length - 1;
-
-    if (orgCount === 1) {
-        organizationFilter.selectedIndex = 1;
-        applyOrganizationFilter();
-    } else if (orgCount > 1) {
-        subdivisionRows.forEach(row => {
-            row.style.display = 'none';
-        });
-        noOrgMessage.style.display = 'block';
-        subdivisionsTable.style.display = 'none';
-    } else {
-        applyOrganizationFilter();
-    }
-
-    function getVisibleCheckboxes() {
-        return Array.from(checkboxes).filter(cb => {
-            const row = cb.closest('tr');
-            return row && row.style.display !== 'none';
-        });
-    }
-
-    function updateSelectedCount() {
-        const checked = document.querySelectorAll('.subdivision-checkbox:checked');
-        let totalEmployees = 0;
-        checked.forEach(cb => {
-            totalEmployees += parseInt(cb.dataset.count || 0);
-        });
-        selectedCountSpan.textContent = `Выбрано: ${checked.length} (~${totalEmployees} карточек)`;
-
-        const visibleCheckboxes = getVisibleCheckboxes();
-        const checkedVisible = visibleCheckboxes.filter(cb => cb.checked);
-
-        if (checkedVisible.length === 0) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        } else if (checkedVisible.length === visibleCheckboxes.length) {
-            selectAllCheckbox.checked = true;
-            selectAllCheckbox.indeterminate = false;
-        } else {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = true;
         }
     }
 
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', updateSelectedCount);
-    });
+    // Клик по групповому чекбоксу — выбрать/снять всех сотрудников в группе
+    allGroupCheckboxes.forEach(function(groupCb) {
+        groupCb.addEventListener('change', function() {
+            const groupId = this.getAttribute('data-group');
+            const checked = this.checked;
 
-    selectAllCheckbox.addEventListener('change', function() {
-        const visibleCheckboxes = getVisibleCheckboxes();
-        visibleCheckboxes.forEach(cb => {
-            cb.checked = this.checked;
+            // Выбрать всех сотрудников в этой группе
+            getEmployeesInGroup(groupId).forEach(cb => { cb.checked = checked; });
+
+            // Выбрать дочерние групповые чекбоксы
+            getChildGroups(groupId).forEach(childGroup => {
+                childGroup.checked = checked;
+                childGroup.indeterminate = false;
+            });
+
+            updateAllGroupStates();
         });
-        updateSelectedCount();
     });
 
-    selectAllBtn.addEventListener('click', function() {
-        const visibleCheckboxes = getVisibleCheckboxes();
-        visibleCheckboxes.forEach(cb => {
-            cb.checked = true;
+    // Клик по сотруднику — обновить родительские группы
+    allEmployeeCheckboxes.forEach(function(empCb) {
+        empCb.addEventListener('change', function() {
+            updateAllGroupStates();
         });
-        updateSelectedCount();
     });
 
-    deselectAllBtn.addEventListener('click', function() {
-        const visibleCheckboxes = getVisibleCheckboxes();
-        visibleCheckboxes.forEach(cb => {
-            cb.checked = false;
+    // Выбрать всех
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            allEmployeeCheckboxes.forEach(cb => { cb.checked = checked; });
+            allGroupCheckboxes.forEach(cb => {
+                cb.checked = checked;
+                cb.indeterminate = false;
+            });
+            updateCounter();
         });
-        updateSelectedCount();
+    }
+
+    // Начальное обновление
+    updateAllGroupStates();
+
+    // === Кнопки генерации на уровне группы ===
+    document.querySelectorAll('.group-generate-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const groupId = this.getAttribute('data-generate-group');
+
+            // Снимаем все чекбоксы
+            allEmployeeCheckboxes.forEach(cb => { cb.checked = false; });
+            allGroupCheckboxes.forEach(cb => { cb.checked = false; cb.indeterminate = false; });
+
+            // Выбираем только сотрудников этой группы
+            const groupEmployees = getEmployeesInGroup(groupId);
+            if (groupEmployees.length === 0) {
+                alert('В этой группе нет сотрудников.');
+                return;
+            }
+            groupEmployees.forEach(cb => { cb.checked = true; });
+
+            updateAllGroupStates();
+
+            // Отправляем форму
+            form.dispatchEvent(new Event('submit', { cancelable: true }));
+        });
     });
 
-    // Обработка отправки формы
+    // === Отправка формы (async fetch для скачивания ZIP) ===
     form.addEventListener('submit', async function(e) {
-        const checked = document.querySelectorAll('.subdivision-checkbox:checked');
-
-        if (checked.length === 0) {
-            e.preventDefault();
-            alert('Пожалуйста, выберите хотя бы одну строку');
-            return false;
-        }
-
         e.preventDefault();
 
+        const checked = allEmployeeCheckboxes.filter(cb => cb.checked);
+        if (checked.length === 0) {
+            alert('Пожалуйста, выберите хотя бы одного сотрудника.');
+            return;
+        }
+
         loadingOverlay.style.display = 'block';
-        submitButtons.forEach(btn => {
-            btn.disabled = true;
-        });
+        submitButtons.forEach(btn => { btn.disabled = true; });
 
         try {
+            // Собираем данные формы + параметры инструктажа (они вне формы)
             const formData = new FormData(form);
+
+            // Добавляем параметры инструктажа (они в date-input-section, вне <form>)
+            const datePovtorny = document.getElementById('date_povtorny');
+            const instructionType = document.getElementById('instruction_type');
+            const instructionReason = document.getElementById('instruction_reason');
+
+            if (datePovtorny) formData.set('date_povtorny', datePovtorny.value);
+            if (instructionType) formData.set('instruction_type', instructionType.value);
+            if (instructionReason) formData.set('instruction_reason', instructionReason.value);
+
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(errorText || `Ошибка сервера: ${response.status}`);
+                throw new Error(errorText || 'Ошибка сервера: ' + response.status);
             }
 
             const blob = await response.blob();
@@ -368,61 +608,12 @@ document.addEventListener('DOMContentLoaded', function() {
             a.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
-            alert(`Не удалось скачать архив: ${err.message}`);
+            alert('Не удалось скачать архив: ' + err.message);
         } finally {
             loadingOverlay.style.display = 'none';
-            submitButtons.forEach(btn => {
-                btn.disabled = false;
-            });
+            submitButtons.forEach(btn => { btn.disabled = false; });
         }
     });
-
-    updateSelectedCount();
 });
 </script>
-
-<style>
-/* Синий блок параметров инструктажа (как в журнале инструктажей) */
-.date-input-section {
-    background: #e7f3ff;
-    border: 2px solid #0066cc;
-    border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.date-input-section label {
-    font-weight: 600;
-    font-size: 15px;
-    color: #0066cc;
-    display: block;
-    margin-bottom: 8px;
-}
-
-.date-input-section input[type="date"] {
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 14px;
-    width: 200px;
-}
-
-.date-input-section input[type="date"]:focus {
-    outline: none;
-    border-color: #0066cc;
-    box-shadow: 0 0 0 0.2rem rgba(0,102,204,.25);
-}
-
-/* Таблица */
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
-
-.subdivision-checkbox,
-#select-all-checkbox {
-    cursor: pointer;
-    width: 20px;
-    height: 20px;
-}
-</style>
 {% endblock %}

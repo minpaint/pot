@@ -7,11 +7,12 @@
     width: 100% !important;
     margin: 0 !important;
     border-collapse: collapse !important;
+    table-layout: fixed !important;
 }
 
 .column-checkbox {
-    width: 33px !important;
-    padding: 8px !important;
+    width: 30px !important;
+    padding: 4px 2px !important;
     text-align: center !important;
 }
 
@@ -125,7 +126,6 @@ tr:hover td {
 }
 
 .column-name {
-    width: 40% !important;
     text-align: left !important;
 }
 

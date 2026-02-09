@@ -432,6 +432,15 @@
                 </li>
                 {% endif %}
 
+                {% check_url_visibility user 'directory:ot_card:mass_generation' as show_ot_cards %}
+                {% if show_ot_cards %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'directory:ot_card:mass_generation' %}">
+                        👤 Личные карточки по ОТ
+                    </a>
+                </li>
+                {% endif %}
+
                 {% check_url_visibility user 'directory:documents:instruction_journal' as show_instruction_journal %}
                 {% if show_instruction_journal %}
                 <li class="nav-item">

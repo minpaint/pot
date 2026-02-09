@@ -98,7 +98,7 @@
 
         <!-- ====== ВКЛАДКА 2: ПО ПОДРАЗДЕЛЕНИЯМ ====== -->
         <div class="tab-pane fade" id="by-subdivision" role="tabpanel">
-            {% if subdivisions %}
+            {% if subdivisions or orgs_no_subdivision %}
             <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" id="mass-generation-form">
                 {% csrf_token %}
 
@@ -107,9 +107,8 @@
                         <label for="organization-filter" class="form-label">Фильтр по организации</label>
                         <select id="organization-filter" class="form-select">
                             <option value="">Все организации</option>
-                            {% regroup subdivisions by organization as organization_list %}
-                            {% for org_group in organization_list %}
-                            <option value="{{ org_group.grouper.id }}">{{ org_group.grouper.full_name_ru }}</option>
+                            {% for org in all_organizations %}
+                            <option value="{{ org.id }}">{{ org.full_name_ru }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -172,6 +171,24 @@
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-info">{{ subdivision.employees_with_norms_count }}</span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% for item in orgs_no_subdivision %}
+                                    <tr class="subdivision-row" data-organization-id="{{ item.organization.id }}">
+                                        <td>
+                                            <input type="checkbox"
+                                                   name="organization_ids"
+                                                   value="{{ item.organization.id }}"
+                                                   class="form-check-input subdivision-checkbox"
+                                                   data-count="{{ item.employees_count }}">
+                                        </td>
+                                        <td>{{ item.organization.full_name_ru }}</td>
+                                        <td>
+                                            <em class="text-muted">Без подразделения</em>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info">{{ item.employees_count }}</span>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -314,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             checked.forEach(cb => {
                 totalEmployees += parseInt(cb.dataset.count || 0);
             });
-            selectedCountSpan.textContent = `Выбрано: ${checked.length} подразделений (≈${totalEmployees} карточек)`;
+            selectedCountSpan.textContent = `Выбрано: ${checked.length} (≈${totalEmployees} карточек)`;
 
             // Обновляем состояние главного чекбокса с учетом видимых строк
             const visibleCheckboxes = getVisibleCheckboxes();

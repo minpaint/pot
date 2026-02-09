@@ -6,14 +6,20 @@
 - Сотрудники (Employee)
 - Оборудование (Equipment)
 """
+import re
+from urllib.parse import quote
+
 from django.contrib import admin
-from django.shortcuts import render, redirect
-from django.urls import path
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import path, reverse
 from django.http import HttpResponse
 from django.contrib import messages
 from django.utils.html import format_html
+from django.utils import timezone
+from django.db import transaction
 
-from directory.models import Organization
+from directory.models import Organization, Position, Employee, ImportLog
+from deadline_control.models import Equipment
 from directory.forms.global_import_forms import GlobalImportForm, GlobalExportForm
 from directory.services.global_import import (
     parse_workbook,
@@ -34,7 +40,7 @@ class GlobalImportExportAdmin:
         self.admin_site = admin_site
 
     def get_urls(self):
-        """Регистрируем URL-ы для импорта и экспорта"""
+        """Регистрируем URL-ы для импорта, экспорта и отката"""
         urls = [
             path(
                 'import/',
@@ -45,6 +51,16 @@ class GlobalImportExportAdmin:
                 'export/',
                 self.admin_site.admin_view(self.export_view),
                 name='global_export'
+            ),
+            path(
+                'import/history/',
+                self.admin_site.admin_view(self.import_history_view),
+                name='import_history'
+            ),
+            path(
+                'import/rollback/<int:log_id>/',
+                self.admin_site.admin_view(self.rollback_import_view),
+                name='import_rollback'
             ),
         ]
         return urls
@@ -90,18 +106,48 @@ class GlobalImportExportAdmin:
                         del request.session['global_import_organization_id']
 
                     if result.get('success'):
-                        org_info = f' для организации "{organization.short_name_ru}"' if organization else ''
-                        messages.success(
-                            request,
-                            format_html(
-                                '✅ Импорт успешно завершен{}!<br>'
-                                'Создано: <b>{}</b>, обновлено: <b>{}</b>, ошибок: <b>{}</b>',
-                                org_info,
-                                result['total_created'],
-                                result['total_updated'],
-                                result['total_errors']
-                            )
+                        # Сохраняем лог импорта для возможности отката
+                        import_log = ImportLog.objects.create(
+                            import_type='global',
+                            organization=organization,
+                            created_by=request.user,
+                            status='success',
+                            total_created=result['total_created'],
+                            total_updated=result['total_updated'],
+                            total_errors=result['total_errors'],
+                            created_objects=result.get('created_objects', {}),
                         )
+
+                        org_info = f' для организации "{organization.short_name_ru}"' if organization else ''
+
+                        # Формируем сообщение с кнопкой отката
+                        if result['total_created'] > 0:
+                            rollback_url = reverse('admin:import_rollback', args=[import_log.id])
+                            messages.success(
+                                request,
+                                format_html(
+                                    '✅ Импорт успешно завершен{}!<br>'
+                                    'Создано: <b>{}</b>, обновлено: <b>{}</b>, ошибок: <b>{}</b><br>'
+                                    '<a href="{}" class="button" style="margin-top: 10px;">↩️ Откатить импорт</a>',
+                                    org_info,
+                                    result['total_created'],
+                                    result['total_updated'],
+                                    result['total_errors'],
+                                    rollback_url
+                                )
+                            )
+                        else:
+                            messages.success(
+                                request,
+                                format_html(
+                                    '✅ Импорт успешно завершен{}!<br>'
+                                    'Создано: <b>{}</b>, обновлено: <b>{}</b>, ошибок: <b>{}</b>',
+                                    org_info,
+                                    result['total_created'],
+                                    result['total_updated'],
+                                    result['total_errors']
+                                )
+                            )
                     else:
                         error_msg = result.get('error_message', 'Неизвестная ошибка')
                         messages.error(
@@ -202,12 +248,17 @@ class GlobalImportExportAdmin:
                         else:
                             filename = 'export_all.xlsx'
 
+                    download_name, ascii_name = _build_export_filename(filename)
+
                     # Отдаём файл
                     response = HttpResponse(
                         file_content,
                         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                     )
-                    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                    response['Content-Disposition'] = (
+                        f'attachment; filename="{ascii_name}"; '
+                        f"filename*=UTF-8''{quote(download_name)}"
+                    )
                     response['X-Content-Type-Options'] = 'nosniff'
                     response['Content-Length'] = len(file_content)
 
@@ -227,6 +278,101 @@ class GlobalImportExportAdmin:
             'form': form,
         })
         return render(request, 'admin/directory/global_import/export.html', context)
+
+    def import_history_view(self, request):
+        """📜 История импортов с возможностью отката"""
+        context = self.admin_site.each_context(request)
+
+        # Получаем последние 20 импортов
+        imports = ImportLog.objects.select_related(
+            'organization', 'created_by', 'rolled_back_by'
+        ).order_by('-created_at')[:20]
+
+        context.update({
+            'title': 'История импортов',
+            'imports': imports,
+        })
+        return render(request, 'admin/directory/global_import/import_history.html', context)
+
+    def rollback_import_view(self, request, log_id):
+        """↩️ Откат импорта - удаление созданных объектов"""
+        import_log = get_object_or_404(ImportLog, id=log_id)
+
+        if not import_log.can_rollback:
+            messages.error(request, 'Этот импорт нельзя откатить (уже откачен или нет созданных объектов)')
+            return redirect('admin:import_history')
+
+        context = self.admin_site.each_context(request)
+
+        if request.method == 'POST':
+            if 'confirm' in request.POST:
+                # Выполняем откат
+                try:
+                    with transaction.atomic():
+                        deleted_counts = {}
+                        created_objects = import_log.created_objects
+
+                        # Маппинг названий моделей на классы
+                        MODEL_CLASSES = {
+                            'Position': Position,
+                            'Employee': Employee,
+                            'Equipment': Equipment,
+                        }
+
+                        # Удаляем в обратном порядке (сначала зависимые)
+                        for model_name in ['Equipment', 'Employee', 'Position']:
+                            if model_name in created_objects:
+                                ids = created_objects[model_name]
+                                model_class = MODEL_CLASSES[model_name]
+                                count, _ = model_class.objects.filter(id__in=ids).delete()
+                                deleted_counts[model_name] = count
+
+                        # Обновляем лог
+                        import_log.status = 'rolled_back'
+                        import_log.rolled_back_at = timezone.now()
+                        import_log.rolled_back_by = request.user
+                        import_log.rollback_details = ', '.join(
+                            f'{model}: {count}' for model, count in deleted_counts.items()
+                        )
+                        import_log.save()
+
+                        messages.success(
+                            request,
+                            format_html(
+                                '✅ Откат выполнен успешно!<br>Удалено: {}',
+                                import_log.rollback_details
+                            )
+                        )
+
+                except Exception as e:
+                    messages.error(request, f'Ошибка при откате: {str(e)}')
+
+                return redirect('admin:import_history')
+
+        # GET - показываем подтверждение
+        context.update({
+            'title': 'Подтверждение отката импорта',
+            'import_log': import_log,
+        })
+        return render(request, 'admin/directory/global_import/rollback_confirm.html', context)
+
+
+def _build_export_filename(filename: str) -> tuple[str, str]:
+    cleaned = (filename or '').strip()
+    cleaned = cleaned.replace('\n', ' ').replace('\r', ' ')
+    cleaned = cleaned.replace('"', "'")
+
+    if not cleaned:
+        cleaned = 'export.xlsx'
+
+    if not cleaned.lower().endswith('.xlsx'):
+        cleaned = f'{cleaned}.xlsx'
+
+    ascii_name = re.sub(r'[^A-Za-z0-9._-]+', '_', cleaned).strip('._')
+    if not ascii_name:
+        ascii_name = 'export.xlsx'
+
+    return cleaned, ascii_name
 
 
 def register_global_import_export(admin_site):

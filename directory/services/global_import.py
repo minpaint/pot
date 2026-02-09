@@ -331,9 +331,24 @@ def commit_import(datasets: Dict[str, Dataset], organization: Optional[Organizat
             'updated': int,
             'errors': int,
             'skipped': int,
+            'created_ids': List[int],  # ID созданных объектов
         }
     """
     results = []
+
+    # Словарь для сбора ID созданных объектов по моделям
+    created_objects = {
+        'Position': [],
+        'Employee': [],
+        'Equipment': [],
+    }
+
+    # Маппинг листов на названия моделей
+    SHEET_TO_MODEL = {
+        'Структура': 'Position',
+        'Сотрудники': 'Employee',
+        'Оборудование': 'Equipment',
+    }
 
     # Обрабатываем листы в правильном порядке
     sorted_sheets = [name for name in PROCESSING_ORDER if name in datasets]
@@ -350,6 +365,7 @@ def commit_import(datasets: Dict[str, Dataset], organization: Optional[Organizat
                 'updated': 0,
                 'errors': 0,
                 'skipped': 0,
+                'created_ids': [],
             }
 
             try:
@@ -371,6 +387,16 @@ def commit_import(datasets: Dict[str, Dataset], organization: Optional[Organizat
                 sheet_result['updated'] = result.totals.get('update', 0)
                 sheet_result['errors'] = result.totals.get('error', 0)
                 sheet_result['skipped'] = result.totals.get('skip', 0) + result.totals.get('invalid', 0)
+
+                # Собираем ID созданных объектов
+                for row in result.rows:
+                    if row.import_type == 'new' and row.object_id:
+                        sheet_result['created_ids'].append(row.object_id)
+
+                # Сохраняем в общий словарь
+                model_name = SHEET_TO_MODEL.get(sheet_name)
+                if model_name and sheet_result['created_ids']:
+                    created_objects[model_name].extend(sheet_result['created_ids'])
 
                 # Проверяем на ошибки
                 if result.has_errors():
@@ -402,12 +428,16 @@ def commit_import(datasets: Dict[str, Dataset], organization: Optional[Organizat
 
             results.append(sheet_result)
 
+        # Убираем пустые модели из created_objects
+        created_objects = {k: v for k, v in created_objects.items() if v}
+
         return {
             'sheets': results,
             'success': all(r['status'] == 'success' for r in results),
             'total_created': sum(r['created'] for r in results),
             'total_updated': sum(r['updated'] for r in results),
             'total_errors': sum(r['errors'] for r in results),
+            'created_objects': created_objects,  # Для сохранения в ImportLog
         }
 
     except ValidationError as e:

@@ -20,6 +20,10 @@ from .instruction_journal import (
     send_instruction_samples_for_organization,
     preview_mass_send_instruction_samples,
 )
+from .ot_card_mass_generation import (
+    OTCardMassGenerationView,
+    generate_ot_cards_bulk,
+)
 
 __all__ = [
     'DocumentSelectionView',
@@ -31,4 +35,6 @@ __all__ = [
     'send_instruction_sample',
     'send_instruction_samples_for_organization',
     'preview_mass_send_instruction_samples',
+    'OTCardMassGenerationView',
+    'generate_ot_cards_bulk',
 ]

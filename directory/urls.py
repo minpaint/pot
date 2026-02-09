@@ -43,6 +43,8 @@ from directory.views.documents import (
     send_instruction_sample,
     send_instruction_samples_for_organization,
     preview_mass_send_instruction_samples,
+    OTCardMassGenerationView,
+    generate_ot_cards_bulk,
 )
 
 
@@ -151,6 +153,12 @@ siz_patterns = [
     # Карточки СИЗ (массовая генерация)
     path('mass-generation/', siz.SIZMassGenerationView.as_view(), name='mass_generation'),
     path('mass-generation/generate/', siz.generate_siz_cards_bulk, name='mass_generation_generate'),
+]
+
+# 👤 Личные карточки по ОТ
+ot_card_patterns = [
+    path('mass-generation/', OTCardMassGenerationView.as_view(), name='mass_generation'),
+    path('mass-generation/generate/', generate_ot_cards_bulk, name='mass_generation_generate'),
 ]
 
 # 📑 Приемы на работу
@@ -280,6 +288,7 @@ urlpatterns = [
     path('documents/', include((document_patterns, 'documents'))),
     path('positions/<int:position_id>/siz-norms/', siz.position_siz_norms, name='position_siz_norms'),
     path('siz/', include((siz_patterns, 'siz'))),
+    path('ot-card/', include((ot_card_patterns, 'ot_card'))),
     path('commissions/', include((commission_patterns, 'commissions'))),
     path('hiring/', include((hiring_patterns, 'hiring'))),
     path('medical/', include((medical_patterns, 'medical'))),  # 🏥 Добавляем маршруты для медосмотров

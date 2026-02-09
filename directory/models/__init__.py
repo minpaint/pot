@@ -16,6 +16,8 @@ from .commission import Commission, CommissionMember
 from .hiring import EmployeeHiring
 # Добавляем импорт моделей экзаменов
 from .quiz import QuizCategory, QuizCategoryOrder, Quiz, Question, Answer, QuizAttempt, UserAnswer, QuizAccessToken, QuizQuestionOrder
+# Лог импортов
+from .import_log import ImportLog
 
 __all__ = [
     'Organization',
@@ -51,4 +53,5 @@ __all__ = [
     'UserAnswer',
     'QuizAccessToken',
     'QuizQuestionOrder',
+    'ImportLog',
 ]

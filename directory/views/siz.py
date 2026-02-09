@@ -7,7 +7,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Subquery, OuterRef, IntegerField, Value
 from django.db.models.functions import Coalesce
-from directory.models import Employee, SIZIssued
+from directory.models import Employee, Organization, SIZIssued
 from directory.models.siz import SIZ, SIZNorm
 from directory.models.position import Position
 from directory.models.subdivision import StructuralSubdivision
@@ -291,7 +291,59 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Карточки СИЗ'
+
+        # Организации с сотрудниками без подразделений, у которых есть нормы СИЗ
+        accessible_orgs = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
+        orgs_no_subdivision = self._get_orgs_no_subdivision_with_siz(accessible_orgs)
+        context['orgs_no_subdivision'] = orgs_no_subdivision
+
+        # Собираем все организации для dropdown
+        all_org_ids = set()
+        for sub in context['subdivisions']:
+            all_org_ids.add(sub.organization_id)
+        for item in orgs_no_subdivision:
+            all_org_ids.add(item['organization'].id)
+        context['all_organizations'] = Organization.objects.filter(
+            id__in=all_org_ids
+        ).order_by('full_name_ru')
+
         return context
+
+    @staticmethod
+    def _get_orgs_no_subdivision_with_siz(accessible_orgs):
+        """Организации с сотрудниками без подразделения, у которых есть нормы СИЗ"""
+        employees_qs = Employee.objects.filter(
+            status='active',
+            position__isnull=False,
+            organization__in=accessible_orgs,
+            subdivision__isnull=True,
+            position__subdivision__isnull=True,
+            position__department__isnull=True,
+        ).filter(
+            Q(position__siz_norms__isnull=False) |
+            Q(position__position_name__in=Position.objects.filter(
+                siz_norms__isnull=False
+            ).values_list('position_name', flat=True))
+        )
+
+        org_counts = (
+            employees_qs
+            .values('organization_id')
+            .annotate(employees_count=Count('id', distinct=True))
+            .filter(employees_count__gt=0)
+        )
+
+        org_ids = [item['organization_id'] for item in org_counts]
+        counts_map = {item['organization_id']: item['employees_count'] for item in org_counts}
+
+        orgs = Organization.objects.filter(id__in=org_ids).order_by('full_name_ru')
+
+        return [
+            {'organization': org, 'employees_count': counts_map[org.id]}
+            for org in orgs
+        ]
 
 
 @login_required
@@ -303,9 +355,10 @@ def generate_siz_cards_bulk(request):
     from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
 
     subdivision_ids = request.POST.getlist('subdivision_ids')
+    organization_ids = request.POST.getlist('organization_ids')
     issue_date = request.POST.get('issue_date') or ''
 
-    if not subdivision_ids:
+    if not subdivision_ids and not organization_ids:
         return HttpResponse("Не выбрано ни одного подразделения", status=400)
 
     issue_date_display = ''
@@ -390,6 +443,65 @@ def generate_siz_cards_bulk(request):
             except Exception as e:
                 logger.error(f"Ошибка при обработке подразделения {subdivision_id}: {e}")
                 errors.append(f"Ошибка подразделения ID={subdivision_id}: {str(e)}")
+
+        # Генерация для организаций без подразделений
+        for org_id in organization_ids:
+            try:
+                org = Organization.objects.get(pk=org_id)
+
+                employees = Employee.objects.filter(
+                    organization=org,
+                    subdivision__isnull=True,
+                    position__subdivision__isnull=True,
+                    position__department__isnull=True,
+                    position__isnull=False,
+                ).select_related(
+                    'position',
+                    'position__department',
+                    'position__subdivision',
+                ).distinct()
+
+                safe_org = re.sub(r'[<>:"/\\|?*]', '_', org.short_name_ru or org.full_name_ru)
+                folder_name = f"{safe_org} (без подразделения)"
+
+                for employee in employees:
+                    has_norms = SIZNorm.objects.filter(position=employee.position).exists()
+                    if not has_norms:
+                        reference_positions = Position.objects.filter(
+                            position_name=employee.position.position_name
+                        )
+                        has_norms = any(
+                            SIZNorm.objects.filter(position=pos).exists()
+                            for pos in reference_positions
+                        )
+                    if not has_norms:
+                        continue
+
+                    try:
+                        result = generate_siz_card_docx(
+                            employee,
+                            request.user,
+                            custom_context,
+                            raise_on_error=True,
+                        )
+                    except Exception as e:
+                        errors.append(f"Ошибка генерации для {employee.full_name_nominative}: {e}")
+                        continue
+
+                    if result and 'content' in result:
+                        safe_employee = re.sub(r'[<>:"/\\|?*]', '_', employee.full_name_nominative)
+                        file_path = f"{folder_name}/{safe_employee}_карточка_СИЗ.docx"
+                        zip_file.writestr(file_path, result['content'])
+                        generated_count += 1
+                        logger.info(f"Добавлена карточка: {file_path}")
+                    else:
+                        errors.append(f"Ошибка генерации для {employee.full_name_nominative}")
+
+            except Organization.DoesNotExist:
+                errors.append(f"Организация ID={org_id} не найдена")
+            except Exception as e:
+                logger.error(f"Ошибка при обработке организации {org_id}: {e}")
+                errors.append(f"Ошибка организации ID={org_id}: {str(e)}")
 
         # Добавляем файл со сводкой
         summary = f"""Массовая генерация карточек СИЗ

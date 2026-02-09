@@ -149,7 +149,13 @@
             <div>
                 <label for="date_povtorny">📅 Дата инструктажа:</label>
                 <input type="date" id="date_povtorny" name="date_povtorny"
-                       value="{{ default_date }}" required style="width: 100%;">
+                       value="{{ default_date }}" style="width: 100%;">
+                <div style="margin-top: 6px;">
+                    <label style="display: inline-flex; align-items: center; font-size: 13px; font-weight: normal; color: #555; cursor: pointer; margin-bottom: 0;">
+                        <input type="checkbox" id="skip_date" style="margin-right: 5px; cursor: pointer;">
+                        Без даты (оставить пустой)
+                    </label>
+                </div>
             </div>
             <div>
                 <label for="instruction_type">📋 Вид инструктажа:</label>
@@ -414,6 +420,30 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleReasonField();
     }
 
+    // === Галочка «Без даты» ===
+    const skipDateCheckbox = document.getElementById('skip_date');
+    const dateInput = document.getElementById('date_povtorny');
+
+    function applySkipDate() {
+        if (skipDateCheckbox.checked) {
+            dateInput.disabled = true;
+            dateInput.style.opacity = '0.4';
+        } else {
+            dateInput.disabled = false;
+            dateInput.style.opacity = '1';
+        }
+        localStorage.setItem('ot_card_skip_date', skipDateCheckbox.checked ? '1' : '0');
+    }
+
+    // Восстановить из localStorage
+    if (skipDateCheckbox) {
+        if (localStorage.getItem('ot_card_skip_date') === '1') {
+            skipDateCheckbox.checked = true;
+        }
+        applySkipDate();
+        skipDateCheckbox.addEventListener('change', applySkipDate);
+    }
+
     // === Логика чекбоксов ===
 
     function updateCounter() {
@@ -578,7 +608,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const instructionType = document.getElementById('instruction_type');
             const instructionReason = document.getElementById('instruction_reason');
 
-            if (datePovtorny) formData.set('date_povtorny', datePovtorny.value);
+            const skipDate = document.getElementById('skip_date');
+            if (skipDate && skipDate.checked) {
+                formData.set('date_povtorny', '');
+            } else if (datePovtorny) {
+                formData.set('date_povtorny', datePovtorny.value);
+            }
             if (instructionType) formData.set('instruction_type', instructionType.value);
             if (instructionReason) formData.set('instruction_reason', instructionReason.value);
 

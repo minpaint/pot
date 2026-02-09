@@ -244,7 +244,8 @@ def generate_ot_cards_bulk(request):
                     folder = re.sub(r'[<>:"/\\|?*]', '_', org_name) + ' (без подразделения)'
 
                 safe_employee = re.sub(r'[<>:"/\\|?*]', '_', employee.full_name_nominative)
-                file_path = f"{folder}/{safe_employee}_личная_карточка_ОТ.docx"
+                safe_position = re.sub(r'[<>:"/\\|?*]', '_', employee.position.position_name)
+                file_path = f"{folder}/{safe_employee}_{safe_position}.docx"
                 zip_file.writestr(file_path, result['content'])
                 generated_count += 1
                 logger.info(f"Добавлена карточка ОТ: {file_path}")

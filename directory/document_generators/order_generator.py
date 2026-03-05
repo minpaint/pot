@@ -130,26 +130,12 @@ def generate_all_orders(employee, user=None, custom_context: Optional[Dict[str, 
 
         now = datetime.datetime.now()
         # Добавляем номер и дату распоряжения по умолчанию, если они не переданы
+        # Дата распоряжения = дата приступления к работе (hire_date), а не текущая дата
+        hire_date_for_order = employee.hire_date if employee.hire_date else now.date()
         if not custom_context or 'order_number' not in custom_context:
-            context.setdefault('order_number', f"РСТ-{now.strftime('%Y%m%d')}-{employee.id}")
+            context.setdefault('order_number', f"РСТ-{hire_date_for_order.strftime('%Y%m%d')}-{employee.id}")
         if not custom_context or 'order_date' not in custom_context:
-            context.setdefault('order_date', now.strftime("%d.%m.%Y"))
-
-        # Срок стажировки берём из должности
-        # Если есть управление служебным автомобилем - минимум 5 дней
-        base_internship = getattr(employee.position, 'internship_period_days', 2) if employee.position else 2
-        drives_vehicle = employee.position and getattr(employee.position, 'drives_company_vehicle', False)
-
-        if drives_vehicle:
-            # Если управляет автомобилем - берём максимум из срока по должности и 5 дней
-            duration = max(base_internship, 5)
-            context['internship_duration'] = duration
-            # Обновляем форматированную версию
-            from directory.utils.declension import format_days
-            context['internship_duration_formatted'] = format_days(duration)
-            context['has_internship'] = True
-        else:
-            context['internship_duration'] = base_internship
+            context.setdefault('order_date', hire_date_for_order.strftime("%d.%m.%Y"))
 
         if custom_context:
             context.update(custom_context)

@@ -36,7 +36,7 @@ class DocumentForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
+        # user НЕ извлекаем здесь — OrganizationRestrictionFormMixin сделает это
         super().__init__(*args, **kwargs)
 
         # 🎨 Настройка crispy-forms
@@ -44,15 +44,10 @@ class DocumentForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         self.helper.form_method = 'post'
         self.helper.add_input(Submit('submit', '💾 Сохранить'))
 
-        # Если у пользователя одна организация – устанавливаем её по умолчанию 🔑
-        if self.user and hasattr(self.user, 'profile'):
+        # Если у пользователя одна организация – предустанавливаем её
+        # self.user уже установлен OrganizationRestrictionFormMixin
+        if self.user and hasattr(self.user, 'profile') and not getattr(self.user, 'is_superuser', False):
             user_orgs = self.user.profile.organizations.all()
-            self.fields['organization'].queryset = user_orgs
             if user_orgs.count() == 1:
                 org = user_orgs.first()
                 self.initial['organization'] = org.id
-                self.fields['subdivision'].queryset = org.subdivisions.all()
-            else:
-                self.fields['subdivision'].queryset = Document.objects.none()
-
-            self.fields['department'].queryset = Document.objects.none()

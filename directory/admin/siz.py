@@ -219,7 +219,7 @@ class SIZNormAdmin(ImportExportModelAdmin):
             all_norms = SIZNorm.objects.filter(position=reference_position).select_related('siz', 'position')
 
             # Базовые нормы (без условий)
-            base_norms = all_norms.filter(condition='').order_by('order', 'siz__name')
+            base_norms = all_norms.filter(condition='').order_by('order', 'id')
 
             # 🔄 ИСПРАВЛЕНИЕ: Получаем уникальные условия и группируем нормы более эффективно
             # Используем словарь для хранения сгруппированных норм, чтобы избежать дублирования
@@ -253,7 +253,7 @@ class SIZNormAdmin(ImportExportModelAdmin):
             group_norms = []
             for condition_name, norms in grouped_norms.items():
                 # Сортируем нормы по порядку
-                sorted_norms = sorted(norms, key=lambda x: (x.order, x.siz.name))
+                sorted_norms = sorted(norms, key=lambda x: (x.order, x.id))
                 group_norms.append({
                     'name': condition_name,
                     'norms': sorted_norms
@@ -328,7 +328,7 @@ class ProfessionSIZNormAdmin(ImportExportModelAdmin):
             ).select_related('siz')
 
             # Базовые нормы (без условий)
-            base_norms = all_norms.filter(condition='').order_by('order', 'siz__name')
+            base_norms = all_norms.filter(condition='').order_by('order', 'id')
 
             # Группируем нормы по условиям
             grouped_norms = {}
@@ -343,7 +343,7 @@ class ProfessionSIZNormAdmin(ImportExportModelAdmin):
             # Преобразуем словарь в список для шаблона
             group_norms = []
             for condition_name, norms in grouped_norms.items():
-                sorted_norms = sorted(norms, key=lambda x: (x.order, x.siz.name))
+                sorted_norms = sorted(norms, key=lambda x: (x.order, x.id))
                 group_norms.append({
                     'name': condition_name,
                     'norms': sorted_norms

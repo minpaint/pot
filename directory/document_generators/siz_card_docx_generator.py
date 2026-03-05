@@ -61,7 +61,7 @@ def generate_siz_card_docx(
         last_name, first_name, patronymic = _split_full_name(full_name)
 
         # 3. Определение пола для заголовка
-        gender = _gender_from_patronymic(patronymic)
+        gender = _determine_gender(last_name, first_name, patronymic)
 
         # 4. Генерация случайных размеров СИЗ
         ppe_head, ppe_gloves, sizod, _ = _generate_random_ppe_sizes(gender)
@@ -214,41 +214,115 @@ def _generate_random_ppe_sizes(gender: str) -> Tuple[str, str, str, str]:
     """
     Генерирует случайные размеры СИЗ в зависимости от пола.
 
+    Использует взвешенное распределение: наиболее распространённые размеры
+    выбираются чаще, редкие — реже. Без весов random.choice даёт нереалистичную
+    картину (размер 48 обуви так же вероятен, как 43-й).
+
     Args:
         gender: Пол сотрудника ("Мужской" или "Женский")
 
     Returns:
         Кортеж (headgear, gloves, respirator, gas_mask)
     """
-    if gender == "Мужской":
-        # Мужские размеры
-        headgear = random.randint(55, 59)  # Головной убор от 55 до 59
-        gloves = random.randint(15, 19) / 2  # Перчатки от 7.5 до 9.5, кратные 0.5
-        respirator = random.choice(["1", "2", "3"])  # Респиратор размеры 1, 2, 3
-    else:
-        # Женские размеры
-        headgear = random.randint(53, 57)  # Головной убор от 53 до 57
-        gloves = random.randint(13, 17) / 2  # Перчатки от 6.5 до 8.5, кратные 0.5
-        respirator = random.choice(["1", "2", "3"])  # Респиратор размеры 1, 2, 3
+    is_female = (gender or "").strip().lower().startswith("жен")
 
-    # Противогаз такого же размера, как и респиратор
+    if is_female:
+        # Головной убор женщин: пик на 55-56
+        headgear = random.choices(
+            [53, 54, 55, 56, 57],
+            weights=[5, 20, 35, 30, 10],
+        )[0]
+        # Перчатки женщин: пик на 7.5–8.0
+        gloves_x2 = random.choices(
+            [14, 15, 16, 17],   # делим на 2 → 7.0, 7.5, 8.0, 8.5
+            weights=[15, 35, 35, 15],
+        )[0]
+    else:
+        # Головной убор мужчин: пик на 57-58
+        headgear = random.choices(
+            [55, 56, 57, 58, 59, 60],
+            weights=[5, 15, 30, 30, 15, 5],
+        )[0]
+        # Перчатки мужчин: пик на 9.0–9.5
+        gloves_x2 = random.choices(
+            [16, 17, 18, 19, 20],  # делим на 2 → 8.0, 8.5, 9.0, 9.5, 10.0
+            weights=[5, 15, 35, 30, 15],
+        )[0]
+
+    gloves_val = gloves_x2 / 2
+    # Форматируем: 9.0 → "9", 8.5 → "8.5"
+    gloves = str(int(gloves_val)) if gloves_val == int(gloves_val) else str(gloves_val)
+
+    # Респиратор: размер 2 носят ~80% людей, 1 и 3 — редкость
+    respirator = random.choices(["1", "2", "3"], weights=[10, 80, 10])[0]
+
+    # Противогаз того же размера, что и респиратор
     gas_mask = respirator
 
-    return str(headgear), str(gloves), respirator, gas_mask
+    return str(headgear), gloves, respirator, gas_mask
+
+
+def _determine_gender(last_name: str, first_name: str, patronymic: str) -> str:
+    """
+    Определяет пол по трём признакам в порядке убывания надёжности:
+    отчество → имя → фамилия. Если ни один не дал результата → Мужской.
+    """
+    return (
+        _gender_from_patronymic(patronymic)
+        or _gender_from_first_name(first_name)
+        or _gender_from_last_name(last_name)
+        or "Мужской"
+    )
 
 
 def _gender_from_patronymic(patronymic: str) -> str:
-    """Определяет пол по отчеству."""
+    """Определяет пол по отчеству. Возвращает '' если не определено."""
     if not patronymic:
-        return "Мужской"  # По умолчанию
-
-    if patronymic.endswith(("на", "вна", "чна", "кызы", "зы")):
+        return ""
+    p = patronymic.lower()
+    if p.endswith(("вна", "чна", "кызы", "зы")):
         return "Женский"
-    if patronymic.endswith(("ич", "ыч", "оглы", "улы", "лы")):
+    if p.endswith("на"):
+        return "Женский"
+    if p.endswith(("вич", "ыч", "оглы", "улы", "лы", "ич")):
         return "Мужской"
+    return ""
 
-    # По умолчанию считаем мужским
-    return "Мужской"
+
+# Мужские имена с нетипичным окончанием -а/-я (формальные, не уменьшительные)
+_MALE_NAMES_A = frozenset({"илья", "никита", "лука", "фома", "кузьма", "савва", "данила"})
+# Унисекс — не угадываем
+_UNISEX_NAMES = frozenset({"саша", "женя", "валя", "шура"})
+
+
+def _gender_from_first_name(first_name: str) -> str:
+    """Определяет пол по имени. Возвращает '' если не определено."""
+    if not first_name:
+        return ""
+    name = first_name.lower()
+    if name in _UNISEX_NAMES:
+        return ""
+    if name in _MALE_NAMES_A:
+        return "Мужской"
+    if name.endswith(("а", "я")):
+        return "Женский"
+    if name.endswith("й"):
+        return "Мужской"
+    return ""
+
+
+def _gender_from_last_name(last_name: str) -> str:
+    """Определяет пол по фамилии. Возвращает '' если не определено."""
+    if not last_name:
+        return ""
+    name = last_name.lower()
+    # Женские (проверяем раньше мужских — более специфичны)
+    if name.endswith(("ская", "цкая", "ова", "ева", "ина", "ая")):
+        return "Женский"
+    # Мужские
+    if name.endswith(("ский", "цкий", "ов", "ев", "ин", "ич", "ук", "юк")):
+        return "Мужской"
+    return ""
 
 
 # =========================

@@ -249,6 +249,13 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
 
     # Добавляем форматированную продолжительность стажировки
     internship_days = context.get('internship_duration', 2)
+
+    # Учитываем стажировку при управлении служебным автомобилем (минимум 5 дней)
+    drives_vehicle = employee.position and getattr(employee.position, 'drives_company_vehicle', False)
+    if drives_vehicle and contract_type != 'contractor':
+        internship_days = max(internship_days, 5)
+        context['internship_duration'] = internship_days
+
     context['internship_duration_formatted'] = format_days(internship_days)
 
     # Добавляем период стажировки "с ДД.ММ.ГГГГ по ДД.ММ.ГГГГ"

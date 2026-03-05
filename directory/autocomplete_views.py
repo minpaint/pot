@@ -24,8 +24,8 @@ class OrganizationAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Organization.objects.all()
 
-        # 🔒 Если не суперпользователь, фильтруем по организациям из профиля
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        # 🔒 Если не суперпользователь и не staff, фильтруем по организациям из профиля
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(pk__in=allowed_orgs)
 
@@ -52,8 +52,8 @@ class SubdivisionAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = StructuralSubdivision.objects.all()
 
-        # 🔒 Фильтруем по профилю, если не суперпользователь
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        # 🔒 Фильтруем по профилю, если не суперпользователь и не staff
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -89,7 +89,7 @@ class DepartmentAutocomplete(autocomplete.Select2QuerySetView):
         qs = Department.objects.all()
 
         # 🔒 Фильтрация по профилю
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -135,7 +135,7 @@ class PositionAutocomplete(autocomplete.Select2QuerySetView):
         qs = Position.objects.all()
 
         # 🔒 Фильтрация по профилю
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -192,7 +192,7 @@ class DocumentAutocomplete(autocomplete.Select2QuerySetView):
         qs = Document.objects.all()
 
         # 🔒 Фильтрация по профилю
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -337,7 +337,7 @@ class EmployeeByCommissionAutocomplete(autocomplete.Select2QuerySetView):
         qs = Employee.objects.filter(is_active=True)
 
         # Ограничение по организациям пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -377,7 +377,7 @@ class EmployeeAutocomplete(autocomplete.Select2QuerySetView):
         qs = Employee.objects.exclude(status__in=['candidate', 'fired'])
 
         # 🔒 Ограничение по правам пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -486,7 +486,7 @@ class CommissionAutocomplete(autocomplete.Select2QuerySetView):
         qs = qs.filter(is_active=True)
 
         # Фильтрация по организациям пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(
                 Q(organization__in=allowed_orgs) |
@@ -540,7 +540,7 @@ class QualificationCommissionAutocomplete(autocomplete.Select2QuerySetView):
         qs = Commission.objects.filter(is_active=True, commission_type='qualification')
 
         # Фильтрация по организациям пользователя
-        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+        if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
             allowed_orgs = self.request.user.profile.organizations.all()
             qs = qs.filter(
                 Q(organization__in=allowed_orgs) |

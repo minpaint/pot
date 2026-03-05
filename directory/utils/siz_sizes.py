@@ -1,51 +1,95 @@
 import random
-import re
 
 from directory.models.employee import Employee
 
+# ---------------------------------------------------------------------------
+# Взвешенные распределения антропометрических данных
+#
+# Веса отражают реальное распределение по данным Беларуси/России:
+# пик — наиболее распространённые размеры, края — редкие.
+# ---------------------------------------------------------------------------
 
-def _choice_start(value):
-    match = re.search(r'\d+', value)
-    return int(match.group(0)) if match else None
+# Рост мужчин: диапазоны ≥ 170 см. Пик — 176-188, очень высокие редки.
+_MALE_HEIGHT_WEIGHTS = {
+    "170-176 см": 10,
+    "176-182 см": 30,
+    "182-188 см": 35,
+    "188-194 см": 18,
+    "194-200 см": 7,
+}
+
+# Рост женщин: диапазоны ≤ 176 см. Пик — 164-170.
+_FEMALE_HEIGHT_WEIGHTS = {
+    "158-164 см": 20,
+    "164-170 см": 50,
+    "170-176 см": 30,
+}
+
+# Размер одежды мужчин (48–66): пик на 52-54, крупные редки.
+_MALE_CLOTHING_WEIGHTS = {
+    "48-50": 25,
+    "52-54": 40,
+    "56-58": 22,
+    "60-62": 9,
+    "64-66": 4,
+}
+
+# Размер одежды женщин (44–54): пик на 44-50.
+_FEMALE_CLOTHING_WEIGHTS = {
+    "44-46": 35,
+    "48-50": 40,
+    "52-54": 25,
+}
+
+# Размер обуви мужчин (40–48): пик на 42-44.
+_MALE_SHOE_WEIGHTS = {
+    "40": 2,
+    "41": 5,
+    "42": 18,
+    "43": 25,
+    "44": 25,
+    "45": 14,
+    "46": 7,
+    "47": 3,
+    "48": 1,
+}
+
+# Размер обуви женщин (36–41): пик на 38-39.
+_FEMALE_SHOE_WEIGHTS = {
+    "36": 5,
+    "37": 15,
+    "38": 30,
+    "39": 30,
+    "40": 15,
+    "41": 5,
+}
 
 
-def _pick_choice(choices, min_start=None, max_start=None):
-    filtered = []
-    for value, _label in choices:
-        start = _choice_start(value)
-        if start is None:
-            continue
-        if min_start is not None and start < min_start:
-            continue
-        if max_start is not None and start > max_start:
-            continue
-        filtered.append(value)
-
-    if not filtered:
-        filtered = [value for value, _label in choices]
-
-    return random.choice(filtered) if filtered else ""
+def _weighted_choice(weights: dict) -> str:
+    """Выбирает ключ из словаря {значение: вес} с учётом весов."""
+    values = list(weights.keys())
+    wts = list(weights.values())
+    return random.choices(values, weights=wts, k=1)[0]
 
 
 def get_employee_sizes(employee, gender):
-    gender_value = (gender or "").strip().lower()
-    is_female = gender_value.startswith("жен")
+    """
+    Возвращает антропометрические данные сотрудника.
 
-    height = employee.height or _pick_choice(
-        Employee.HEIGHT_CHOICES,
-        max_start=170 if is_female else None,
-        min_start=None if is_female else 170,
-    )
-    clothing_size = employee.clothing_size or _pick_choice(
-        Employee.CLOTHING_SIZE_CHOICES,
-        max_start=52 if is_female else None,
-        min_start=None if is_female else 48,
-    )
-    shoe_size = employee.shoe_size or _pick_choice(
-        Employee.SHOE_SIZE_CHOICES,
-        max_start=41 if is_female else None,
-        min_start=None if is_female else 40,
-    )
+    Если поле заполнено в БД — используется реальное значение.
+    Если поле пустое — генерируется реалистичное случайное значение
+    с учётом пола (взвешенное распределение, не равновероятное).
+    """
+    is_female = (gender or "").strip().lower().startswith("жен")
+
+    if is_female:
+        height = employee.height or _weighted_choice(_FEMALE_HEIGHT_WEIGHTS)
+        clothing_size = employee.clothing_size or _weighted_choice(_FEMALE_CLOTHING_WEIGHTS)
+        shoe_size = employee.shoe_size or _weighted_choice(_FEMALE_SHOE_WEIGHTS)
+    else:
+        height = employee.height or _weighted_choice(_MALE_HEIGHT_WEIGHTS)
+        clothing_size = employee.clothing_size or _weighted_choice(_MALE_CLOTHING_WEIGHTS)
+        shoe_size = employee.shoe_size or _weighted_choice(_MALE_SHOE_WEIGHTS)
 
     return {
         "height": height,

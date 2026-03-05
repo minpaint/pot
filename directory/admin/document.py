@@ -40,6 +40,16 @@ class DocumentAdmin(TreeViewMixin, admin.ModelAdmin):
     list_filter = ['organization', 'subdivision', 'department']
     search_fields = ['name']
 
+    def get_form(self, request, obj=None, **kwargs):
+        Form = super().get_form(request, obj, **kwargs)
+
+        class DocumentFormWithUser(Form):
+            def __init__(self, *args, **inner_kwargs):
+                inner_kwargs['user'] = request.user
+                super().__init__(*args, **inner_kwargs)
+
+        return DocumentFormWithUser
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if not request.user.is_superuser and hasattr(request.user, 'profile'):

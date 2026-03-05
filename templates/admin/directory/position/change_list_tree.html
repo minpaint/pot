@@ -33,21 +33,6 @@
       <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
       <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
 
-      {# Компактный фильтр по организации #}
-      <div class="tree-filter-container">
-        <label for="org-filter">🏢 Организация:</label>
-        <select id="org-filter" class="tree-filter-select">
-          <option value="">Все организации</option>
-          {% if org_options %}
-            {% for org in org_options %}
-              <option value="{{ org.id }}" {% if selected_org_id == org.id %}selected{% endif %}>
-                {{ org.short_name_ru }} ({{ org.position_count }} долж.)
-              </option>
-            {% endfor %}
-          {% endif %}
-        </select>
-      </div>
-
       {# Фильтр по структурному подразделению #}
       <div class="tree-filter-container">
         <label for="subdivision-filter">🏭 Подразделение:</label>
@@ -616,7 +601,6 @@
   <script>
     // Обработчик изменения фильтра по организации
     document.addEventListener('DOMContentLoaded', function() {
-      const orgFilter = document.getElementById('org-filter');
       const subFilter = document.getElementById('subdivision-filter');
       const deptFilter = document.getElementById('department-filter');
 
@@ -627,26 +611,6 @@
           url.searchParams.delete(key);
         }
       };
-
-      if (orgFilter) {
-        orgFilter.addEventListener('change', function() {
-          const selectedOrg = this.value;
-          const url = new URL(window.location.href);
-
-          if (selectedOrg) {
-            // Добавляем фильтр по организации
-            url.searchParams.set('organization__id__exact', selectedOrg);
-          } else {
-            // Убираем фильтр (показываем все)
-            url.searchParams.delete('organization__id__exact');
-          }
-          url.searchParams.delete('subdivision__id__exact');
-          url.searchParams.delete('department__id__exact');
-
-          // Перезагружаем страницу с новым фильтром
-          window.location.href = url.toString();
-        });
-      }
 
       if (subFilter) {
         subFilter.addEventListener('change', function() {

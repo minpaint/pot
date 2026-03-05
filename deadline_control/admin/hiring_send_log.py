@@ -85,3 +85,30 @@ class DocumentEmailSendLogAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         """Запрещает редактирование логов"""
         return False
+
+    def get_queryset(self, request):
+        """Фильтрация по доступным организациям и выбранной организации в сессии."""
+        qs = super().get_queryset(request).select_related(
+            'employee',
+            'employee__organization',
+            'hiring',
+            'sent_by',
+        )
+
+        allowed_orgs = None
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(employee__organization__in=allowed_orgs)
+
+        has_org_get_filter = bool(
+            request.GET.get('employee__organization__id__exact')
+            or request.GET.get('employee__organization_id')
+        )
+        if not has_org_get_filter:
+            selected_org_id = request.session.get('selected_org_id')
+            if selected_org_id and (
+                allowed_orgs is None or allowed_orgs.filter(id=selected_org_id).exists()
+            ):
+                qs = qs.filter(employee__organization_id=selected_org_id)
+
+        return qs

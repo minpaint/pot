@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<div id="content-main">
+<div id="content-main" class="employee-tree-page">
   <div class="object-tools">
     <a href="{% url 'admin:directory_employee_add' %}" class="addlink">
       Добавить сотрудника
@@ -36,7 +36,7 @@
       {# Компактный фильтр по организации #}
       <div class="tree-filter-container">
         <label for="org-filter" style="font-weight: bold; margin-right: 8px;">🏢 Организация:</label>
-        <select id="org-filter" class="tree-filter-select" style="min-width: 300px;">
+        <select id="org-filter" class="tree-filter-select">
           {% if org_options %}
             {% for org in org_options %}
               <option value="{{ org.id }}" {% if selected_org_id == org.id %}selected{% endif %}>
@@ -291,6 +291,47 @@
   <script src="{% static 'admin/js/tree_view.js' %}"></script>
   <script src="{% static 'admin/js/tree_search.js' %}"></script>
   <style>
+    .employee-tree-page .tree-controls {
+      flex-wrap: wrap;
+      align-items: center;
+      row-gap: 8px;
+    }
+
+    .employee-tree-page .tree-filter-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 0;
+      flex: 1 1 360px;
+      min-width: 220px;
+    }
+
+    .employee-tree-page .tree-filter-container label {
+      margin-right: 0 !important;
+      white-space: nowrap;
+    }
+
+    .employee-tree-page .tree-filter-select {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .employee-tree-page .tree-search-container {
+      flex: 1 1 280px;
+      max-width: none;
+      min-width: 180px;
+    }
+
+    .employee-tree-page .results {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .employee-tree-page #result_list {
+      min-width: 980px;
+    }
+
     /* Центрирование текста в ячейках */
     .text-center {
       text-align: center;
@@ -367,13 +408,7 @@
     }
 
     /* Компактный фильтр */
-    .tree-filter-container {
-      display: inline-block;
-      margin-left: 20px;
-      vertical-align: middle;
-    }
-
-    .tree-filter-select {
+    .employee-tree-page .tree-filter-select {
       padding: 6px 12px;
       border: 1px solid #ccc;
       border-radius: 4px;
@@ -381,10 +416,48 @@
       background-color: white;
     }
 
-    .tree-filter-select:focus {
+    .employee-tree-page .tree-filter-select:focus {
       outline: none;
       border-color: #417690;
       box-shadow: 0 0 5px rgba(65, 118, 144, 0.3);
+    }
+
+    @media (max-width: 1100px) {
+      .employee-tree-page #result_list {
+        min-width: 900px;
+      }
+
+      .employee-tree-page .tree-row[data-level="1"] .field-name {
+        padding-left: 14px !important;
+      }
+
+      .employee-tree-page .tree-row[data-level="2"] .field-name {
+        padding-left: 24px !important;
+      }
+
+      .employee-tree-page .tree-row[data-level="3"] .field-name {
+        padding-left: 34px !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .employee-tree-page .tree-btn {
+        flex: 1 1 auto;
+        min-width: 150px;
+      }
+
+      .employee-tree-page .tree-filter-container,
+      .employee-tree-page .tree-search-container {
+        flex-basis: 100%;
+      }
+
+      .employee-tree-page #result_list {
+        min-width: 820px;
+      }
+
+      .employee-tree-page .field-actions a {
+        margin-right: 4px;
+      }
     }
   </style>
 

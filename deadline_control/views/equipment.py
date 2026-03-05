@@ -27,6 +27,9 @@ class EquipmentListView(LoginRequiredMixin, AccessControlMixin, ListView):
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
         qs = super().get_queryset()
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            qs = qs.filter(organization_id=selected_org_id)
         return qs.select_related('organization', 'subdivision', 'department', 'equipment_type').order_by('organization__short_name_ru', 'equipment_name')
 
     def get_context_data(self, **kwargs):
@@ -58,6 +61,9 @@ class EquipmentTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
         qs = super().get_queryset()
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            qs = qs.filter(organization_id=selected_org_id)
         return qs.select_related('organization', 'subdivision', 'department', 'equipment_type').order_by(
             'organization__short_name_ru',
             'subdivision__name',

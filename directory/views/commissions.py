@@ -31,6 +31,9 @@ class CommissionTreeView(LoginRequiredMixin, TemplateView):
         allowed_orgs = AccessControlHelper.get_accessible_organizations(
             self.request.user, self.request
         )
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            allowed_orgs = allowed_orgs.filter(id=selected_org_id)
 
         # Создаем структуру данных для дерева
         tree_data = []

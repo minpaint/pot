@@ -248,6 +248,11 @@ class HiringTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
         # AccessControlMixin автоматически фильтрует по правам доступа
         queryset = super().get_queryset()
 
+        # Фильтр по выбранной организации из глобального селектора
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            queryset = queryset.filter(organization_id=selected_org_id)
+
         # Фильтрация по активности
         is_active = self.request.GET.get('is_active')
         if is_active == 'true':
@@ -365,6 +370,11 @@ class HiringListView(LoginRequiredMixin, AccessControlMixin, ListView):
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
         queryset = super().get_queryset()
+
+        # Фильтр по выбранной организации из глобального селектора
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            queryset = queryset.filter(organization_id=selected_org_id)
 
         # Применяем те же фильтры, что и в TreeView
         is_active = self.request.GET.get('is_active')

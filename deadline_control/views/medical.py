@@ -58,6 +58,11 @@ class MedicalExaminationListView(LoginRequiredMixin, ListView):
         # Учитывает organizations, subdivisions и departments из профиля пользователя
         qs = AccessControlHelper.filter_queryset(qs, self.request.user, self.request)
 
+        # Фильтр по выбранной организации из глобального селектора (сессия)
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            qs = qs.filter(organization_id=selected_org_id)
+
         # Prefetch для оптимизации запросов
         qs = qs.select_related(
             'organization',

@@ -18,6 +18,9 @@ class KeyDeadlineListView(LoginRequiredMixin, AccessControlMixin, ListView):
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
         qs = super().get_queryset()
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            qs = qs.filter(organization_id=selected_org_id)
         return qs.filter(is_active=True).select_related(
             'organization', 'category'
         ).order_by('organization__short_name_ru', 'category__name', 'name')

@@ -209,8 +209,8 @@ class InstructionJournalView(LoginRequiredMixin, TemplateView):
                 delattr(self.request, '_user_orgs_cache')
             accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
 
-        # 📋 Определяем выбранную организацию из GET-параметра
-        org_id_param = self.request.GET.get('org', '')
+        # 📋 Определяем выбранную организацию: GET (приоритет) → сессия
+        org_id_param = self.request.GET.get('org', '') or self.request.session.get('selected_org_id', '')
         selected_org_id = None
 
         if org_id_param:
@@ -231,10 +231,10 @@ class InstructionJournalView(LoginRequiredMixin, TemplateView):
         # 💾 Сохранить выбор в сессии для UX
         try:
             if selected_org_id:
-                self.request.session['last_selected_org_id_instruction_journal'] = selected_org_id
-            elif hasattr(self.request, 'session') and 'last_selected_org_id_instruction_journal' in self.request.session:
+                self.request.session['selected_org_id'] = selected_org_id
+            elif hasattr(self.request, 'session') and 'selected_org_id' in self.request.session:
                 # Попытка восстановить последний выбор
-                last_org_id = self.request.session.get('last_selected_org_id_instruction_journal')
+                last_org_id = self.request.session.get('selected_org_id')
                 if accessible_orgs.filter(id=last_org_id).exists():
                     selected_org_id = last_org_id
                     logger.info(f"User {user.username} restored org_id={selected_org_id} from session")

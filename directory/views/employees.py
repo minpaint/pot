@@ -29,6 +29,11 @@ class EmployeeListView(LoginRequiredMixin, AccessControlMixin, ListView):
         # AccessControlMixin автоматически фильтрует по правам доступа
         queryset = super().get_queryset()
 
+        # Фильтр по выбранной организации из глобального селектора
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            queryset = queryset.filter(organization_id=selected_org_id)
+
         # Фильтрация по подразделению
         subdivision = self.request.GET.get('subdivision')
         if subdivision:
@@ -75,6 +80,11 @@ class EmployeeTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
         queryset = super().get_queryset()
+
+        # Фильтр по выбранной организации из глобального селектора
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            queryset = queryset.filter(organization_id=selected_org_id)
 
         # 🚀 ДЕФОЛТНЫЙ ФИЛЬТР: показываем только активных сотрудников
         # (исключаем кандидатов и уволенных для ускорения загрузки)

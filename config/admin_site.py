@@ -75,6 +75,26 @@ class OTAdminSite(AdminSite):
         ]),
     ])
 
+    def each_context(self, request):
+        context = super().each_context(request)
+        if request.user.is_authenticated:
+            try:
+                from directory.utils.permissions import AccessControlHelper
+                accessible_orgs = AccessControlHelper.get_accessible_organizations(request.user, request)
+                selected_org_id = request.session.get('selected_org_id')
+                if not selected_org_id and accessible_orgs.count() == 1:
+                    selected_org_id = accessible_orgs.first().id
+                    request.session['selected_org_id'] = selected_org_id
+                selected_org = accessible_orgs.filter(id=selected_org_id).first() if selected_org_id else None
+                context.update({
+                    'global_org_options': accessible_orgs,
+                    'global_selected_org_id': selected_org_id,
+                    'global_selected_org': selected_org,
+                })
+            except Exception:
+                pass
+        return context
+
     def get_app_list(self, request, app_label=None):
         """
         Возвращает меню, сгруппированное по логическим блокам.

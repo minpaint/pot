@@ -61,6 +61,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 {% endblock %}
 
+{# 🏢 Блок инструментов пользователя — добавляем селектор организации #}
+{% block usertools %}
+    {% if global_org_options %}
+        <div style="display:inline-flex; align-items:center; gap:8px; margin-right:16px; vertical-align:middle;">
+            {% if global_org_options|length > 1 %}
+            <form method="post" action="{% url 'directory:set_organization' %}"
+                  style="display:flex; align-items:center; gap:6px; margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+                <span style="font-size:14px;">🏢</span>
+                <select name="org_id" onchange="this.form.submit()"
+                        style="font-size:12px; padding:2px 6px; border-radius:4px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.15); color:#fff; cursor:pointer; max-width:220px;">
+                    {% for org in global_org_options %}
+                    <option value="{{ org.id }}"
+                            {% if org.id == global_selected_org_id %}selected{% endif %}
+                            style="color:#000;">
+                        {{ org.short_name_ru|default:org.full_name_ru }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% elif global_selected_org %}
+            <span style="font-size:13px; opacity:.85;">🏢 {{ global_selected_org.short_name_ru|default:global_selected_org.full_name_ru }}</span>
+            {% endif %}
+        </div>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
+
 {# 🔍 Блок для поиска – наследуется от стандартного шаблона. #}
 {% block search %}
     {{ block.super }}

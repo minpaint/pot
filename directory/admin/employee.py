@@ -114,12 +114,18 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             org_id = int(org_param)
             if accessible_orgs.filter(id=org_id).exists():
                 selected_org_id = org_id
+                # Синхронизируем сессию при явном выборе через GET
+                request.session['selected_org_id'] = org_id
 
-        # Если фильтр не задан — автоподставляем первую доступную и редиректим
+        # Если фильтр не задан — пробуем сессию, затем первую доступную
         if selected_org_id is None and accessible_orgs.exists():
-            first_id = accessible_orgs.first().id
+            session_org_id = request.session.get('selected_org_id')
+            if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
+                fallback_id = session_org_id
+            else:
+                fallback_id = accessible_orgs.first().id
             params = request.GET.copy()
-            params['organization__id__exact'] = str(first_id)
+            params['organization__id__exact'] = str(fallback_id)
             url = f"{request.path}?{params.urlencode()}"
             return HttpResponseRedirect(url)
 

@@ -3,6 +3,7 @@
 """
 from django.contrib import admin
 from directory.admin.mixins.tree_view import TreeViewMixin
+from directory.admin.mixins.org_filter import OrgFilterAdminMixin
 from directory.models import Department, DepartmentEmail
 from directory.forms.department import DepartmentForm
 
@@ -19,7 +20,7 @@ class DepartmentEmailInline(admin.TabularInline):
     verbose_name_plural = "Email отдела"
 
 @admin.register(Department)
-class DepartmentAdmin(TreeViewMixin, admin.ModelAdmin):
+class DepartmentAdmin(OrgFilterAdminMixin, TreeViewMixin, admin.ModelAdmin):
     """
     📂 Организация -> Подразделение -> Отдел
     """

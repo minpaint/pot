@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from tablib import Dataset
 
 from directory.admin.mixins.tree_view import TreeViewMixin
+from directory.admin.mixins.org_filter import OrgFilterAdminMixin
 from deadline_control.models import Equipment
 from deadline_control.forms import EquipmentForm
 from deadline_control.resources import EquipmentResource
@@ -88,7 +89,7 @@ class EquipmentTreeViewMixin(TreeViewMixin):
 
 
 @admin.register(Equipment)
-class EquipmentAdmin(EquipmentTreeViewMixin, admin.ModelAdmin):
+class EquipmentAdmin(OrgFilterAdminMixin, EquipmentTreeViewMixin, admin.ModelAdmin):
     form = EquipmentForm
     change_list_template = "admin/deadline_control/equipment/change_list_tree.html"
 

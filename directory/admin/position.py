@@ -289,6 +289,13 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             selected_org_id = None
             if org_param and org_param.isdigit():
                 selected_org_id = int(org_param)
+                # Синхронизируем сессию при явном выборе через GET
+                request.session['selected_org_id'] = selected_org_id
+            elif not org_param:
+                # Нет явного GET-фильтра — берём из сессии
+                session_org_id = request.session.get('selected_org_id')
+                if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
+                    selected_org_id = session_org_id
 
             extra_context['org_options'] = org_options
             extra_context['selected_org_id'] = selected_org_id
@@ -511,10 +518,14 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
-        # Фильтрация по выбранной организации из dropdown
+        # Фильтрация по выбранной организации из dropdown или сессии
         org_param = request.GET.get('organization__id__exact')
         if org_param and org_param.isdigit():
             qs = qs.filter(organization_id=int(org_param))
+        else:
+            session_org_id = request.session.get('selected_org_id')
+            if session_org_id:
+                qs = qs.filter(organization_id=session_org_id)
 
         sub_param = request.GET.get('subdivision__id__exact')
         if sub_param and sub_param.isdigit():

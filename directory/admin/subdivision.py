@@ -14,6 +14,7 @@ import datetime
 import openpyxl
 import xlrd
 from directory.admin.mixins.tree_view import TreeViewMixin
+from directory.admin.mixins.org_filter import OrgFilterAdminMixin
 from directory.models import (
     StructuralSubdivision,
     SubdivisionEmail,
@@ -51,7 +52,7 @@ class SubdivisionEmailInline(admin.TabularInline):
         }
 
 @admin.register(StructuralSubdivision)
-class StructuralSubdivisionAdmin(TreeViewMixin, admin.ModelAdmin):
+class StructuralSubdivisionAdmin(OrgFilterAdminMixin, TreeViewMixin, admin.ModelAdmin):
     """
     🏭 Админ-класс для модели StructuralSubdivision.
     Отображает древовидное представление: Организация → Подразделение.

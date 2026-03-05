@@ -5,6 +5,7 @@ from django.utils.html import format_html
 from dal import autocomplete
 from directory.models import Commission, CommissionMember
 from directory.admin.mixins.tree_view import TreeViewMixin
+from directory.admin.mixins.org_filter import OrgFilterAdminMixin
 
 
 class CommissionMemberInline(admin.TabularInline):
@@ -132,6 +133,12 @@ class CommissionAdmin(CommissionTreeViewMixin, admin.ModelAdmin):
             ) | qs.filter(
                 department__organization__in=allowed_orgs
             )
+        # Фильтр по выбранной организации из сессии
+        has_org_get_filter = bool(request.GET.get('organization__id__exact'))
+        if not has_org_get_filter:
+            selected_org_id = request.session.get('selected_org_id')
+            if selected_org_id:
+                qs = qs.filter(organization_id=selected_org_id)
         return qs
 
     def get_form(self, request, obj=None, **kwargs):

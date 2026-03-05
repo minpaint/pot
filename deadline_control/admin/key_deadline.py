@@ -8,6 +8,7 @@ from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.html import format_html
 from django.db.models import Count, Q
+from directory.admin.mixins.org_filter import apply_session_org_filter
 
 from deadline_control.models import (
     KeyDeadlineCategory,
@@ -146,6 +147,13 @@ class OrganizationKeyDeadlineAdmin(admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(pk__in=allowed_orgs)
+
+        qs = apply_session_org_filter(
+            request,
+            qs,
+            organization_lookup='id',
+            get_filter_keys=('id__exact',),
+        )
 
         # Аннотация для сортировки
         qs = qs.prefetch_related('key_deadline_items')

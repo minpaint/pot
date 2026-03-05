@@ -24,6 +24,7 @@ from deadline_control.forms.medical_examination import (
     HarmfulFactorNormFormWithCounter,
 )
 from directory.models.position import Position
+from directory.admin.mixins.org_filter import apply_session_org_filter
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -165,6 +166,7 @@ class MedicalSettingsAdmin(admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
+        qs = apply_session_org_filter(request, qs)
         return qs.select_related('organization')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -946,6 +948,12 @@ class EmployeeMedicalExaminationAdmin(admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(employee__organization__in=allowed_orgs)
+        qs = apply_session_org_filter(
+            request,
+            qs,
+            organization_lookup='employee__organization_id',
+            get_filter_keys=('employee__organization__id__exact', 'employee__organization_id'),
+        )
         return qs
 
     def employee_organization(self, obj):
@@ -981,4 +989,3 @@ class EmployeeMedicalExaminationAdmin(admin.ModelAdmin):
 
     deadline_badge.short_description = "Срок"
     deadline_badge.admin_order_field = "next_date"
-

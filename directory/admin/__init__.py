@@ -13,6 +13,7 @@ from .user import CustomUserAdmin
 # Убираем SIZNormGroupAdmin из импортов
 from .siz import SIZAdmin, SIZNormAdmin
 from .commission_admin import CommissionAdmin
+from .mixins.org_filter import apply_session_org_filter
 from django.utils.html import format_html
 from directory.models import EmployeeHiring
 # medical_examination перемещён в deadline_control
@@ -122,3 +123,11 @@ class EmployeeHiringAdmin(admin.ModelAdmin):
         return HttpResponseRedirect(f'/admin/hiring/documents-action/?action=send&{ids_params}')
 
     send_documents_action.short_description = '✉️ Отправить документы'
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(organization__in=allowed_orgs)
+        qs = apply_session_org_filter(request, qs)
+        return qs.select_related('employee', 'organization', 'position')

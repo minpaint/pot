@@ -6,6 +6,7 @@ from django.utils.safestring import mark_safe
 from django.db import models
 from urllib.parse import quote
 from deadline_control.models import EmailTemplateType, EmailTemplate
+from directory.admin.mixins.org_filter import apply_session_org_filter
 
 
 @admin.register(EmailTemplateType)
@@ -96,6 +97,11 @@ class EmailTemplateAdmin(admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
+        qs = apply_session_org_filter(
+            request,
+            qs,
+            get_filter_keys=('organization__id__exact', 'organization_id'),
+        )
         return qs.select_related('organization', 'template_type', 'created_by')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):

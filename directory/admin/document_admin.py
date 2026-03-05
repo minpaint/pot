@@ -8,6 +8,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
+from directory.admin.mixins.org_filter import apply_session_org_filter
 
 from directory.models.document_template import (
     DocumentTemplateType,
@@ -64,6 +65,13 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(organization__in=allowed_orgs)
+        return apply_session_org_filter(request, qs)
+
 
 @admin.register(GeneratedDocument)
 class GeneratedDocumentAdmin(admin.ModelAdmin):
@@ -91,6 +99,19 @@ class GeneratedDocumentAdmin(admin.ModelAdmin):
         """
         return False
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(employee__organization__in=allowed_orgs)
+        qs = apply_session_org_filter(
+            request,
+            qs,
+            organization_lookup='employee__organization_id',
+            get_filter_keys=('employee__organization__id__exact', 'employee__organization_id'),
+        )
+        return qs.select_related('employee', 'employee__organization', 'template', 'created_by')
+
 
 @admin.register(DocumentGenerationLog)
 class DocumentGenerationLogAdmin(admin.ModelAdmin):
@@ -116,3 +137,16 @@ class DocumentGenerationLogAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         """Запрещает редактирование логов"""
         return False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(employee__organization__in=allowed_orgs)
+        qs = apply_session_org_filter(
+            request,
+            qs,
+            organization_lookup='employee__organization_id',
+            get_filter_keys=('employee__organization__id__exact', 'employee__organization_id'),
+        )
+        return qs.select_related('employee', 'employee__organization', 'created_by')

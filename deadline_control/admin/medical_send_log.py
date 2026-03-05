@@ -9,6 +9,7 @@ from django.core.management import call_command
 from io import StringIO
 from deadline_control.models import MedicalNotificationSendLog, MedicalNotificationSendDetail
 from directory.models import Organization
+from directory.admin.mixins.org_filter import apply_session_org_filter
 import json
 
 
@@ -348,6 +349,7 @@ class MedicalNotificationSendLogAdmin(admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
+        qs = apply_session_org_filter(request, qs)
         return qs.select_related('organization', 'initiated_by')
 
     def get_urls(self):

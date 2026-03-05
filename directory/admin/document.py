@@ -3,6 +3,7 @@
 """
 from django.contrib import admin
 from directory.admin.mixins.tree_view import TreeViewMixin
+from directory.admin.mixins.org_filter import apply_session_org_filter
 from directory.models import Document
 from directory.forms.document import DocumentForm
 
@@ -55,4 +56,4 @@ class DocumentAdmin(TreeViewMixin, admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
-        return qs
+        return apply_session_org_filter(request, qs)

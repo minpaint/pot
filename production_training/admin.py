@@ -15,6 +15,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404
 from dal import autocomplete
 from directory.forms.mixins import OrganizationRestrictionFormMixin
+from directory.admin.mixins.org_filter import apply_session_org_filter
 from directory.models import Employee
 
 from .models import (
@@ -361,6 +362,13 @@ class ProductionTrainingAdmin(admin.ModelAdmin):
 
         return FormWithUser
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(organization__in=allowed_orgs)
+        return apply_session_org_filter(request, qs)
+
     def get_training_profession(self, obj):
         """Профессия обучения с разрядом."""
         name = obj.profession.name_ru_nominative if obj.profession else '-'
@@ -538,6 +546,19 @@ class TrainingAssignmentAdmin(admin.ModelAdmin):
                 super().__init__(*args, **inner_kwargs)
 
         return FormWithUser
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(training__organization__in=allowed_orgs)
+        qs = apply_session_org_filter(
+            request,
+            qs,
+            organization_lookup='training__organization_id',
+            get_filter_keys=('training__organization__id__exact', 'training__organization_id'),
+        )
+        return qs
 
     def save_model(self, request, obj, form, change):
         """Автоматический пересчёт дат при сохранении."""

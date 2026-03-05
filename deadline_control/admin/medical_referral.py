@@ -1,5 +1,6 @@
 from django.contrib import admin
 from deadline_control.models import MedicalReferral
+from directory.admin.mixins.org_filter import apply_session_org_filter
 
 
 @admin.register(MedicalReferral)
@@ -92,3 +93,15 @@ class MedicalReferralAdmin(admin.ModelAdmin):
             return ', '.join([f"{f.short_name} ({f.full_name})" for f in factors])
         return 'Не указаны'
     get_factors_list.short_description = 'Список факторов'
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            allowed_orgs = request.user.profile.organizations.all()
+            qs = qs.filter(employee__organization__in=allowed_orgs)
+        return apply_session_org_filter(
+            request,
+            qs,
+            organization_lookup='employee__organization_id',
+            get_filter_keys=('employee__organization__id__exact', 'employee__organization_id'),
+        )

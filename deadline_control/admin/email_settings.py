@@ -5,6 +5,7 @@ from django.utils.html import format_html
 from django.core.mail import send_mail
 from django.contrib import messages
 from deadline_control.models import EmailSettings
+from directory.admin.mixins.org_filter import apply_session_org_filter
 
 
 @admin.register(EmailSettings)
@@ -133,6 +134,7 @@ class EmailSettingsAdmin(admin.ModelAdmin):
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
+        qs = apply_session_org_filter(request, qs)
         return qs.select_related('organization')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):

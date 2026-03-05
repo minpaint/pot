@@ -8,6 +8,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
+from django.db.models import Q
 from directory.admin.mixins.org_filter import apply_session_org_filter
 
 from directory.models.document_template import (
@@ -69,8 +70,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
-            qs = qs.filter(organization__in=allowed_orgs)
-        return apply_session_org_filter(request, qs)
+            qs = qs.filter(Q(organization__in=allowed_orgs) | Q(organization__isnull=True))
+        return apply_session_org_filter(request, qs, include_null_org=True)
 
 
 @admin.register(GeneratedDocument)

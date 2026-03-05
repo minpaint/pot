@@ -1,4 +1,5 @@
 # directory/admin/mixins/org_filter.py
+from django.db.models import Q
 
 DEFAULT_ORG_GET_FILTER_KEYS = (
     'organization__id__exact',
@@ -11,6 +12,8 @@ def apply_session_org_filter(
     qs,
     organization_lookup='organization_id',
     get_filter_keys=None,
+    include_null_org=False,
+    null_org_lookup='organization__isnull',
 ):
     """
     Фильтрует queryset по selected_org_id из сессии,
@@ -27,7 +30,10 @@ def apply_session_org_filter(
     except (TypeError, ValueError):
         return qs
 
-    return qs.filter(**{organization_lookup: selected_org_id})
+    org_filter = Q(**{organization_lookup: selected_org_id})
+    if include_null_org:
+        org_filter |= Q(**{null_org_lookup: True})
+    return qs.filter(org_filter)
 
 
 class OrgFilterAdminMixin:

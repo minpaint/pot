@@ -96,11 +96,12 @@ class EmailTemplateAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
-            qs = qs.filter(organization__in=allowed_orgs)
+            qs = qs.filter(models.Q(organization__in=allowed_orgs) | models.Q(organization__isnull=True))
         qs = apply_session_org_filter(
             request,
             qs,
             get_filter_keys=('organization__id__exact', 'organization_id'),
+            include_null_org=True,
         )
         return qs.select_related('organization', 'template_type', 'created_by')
 

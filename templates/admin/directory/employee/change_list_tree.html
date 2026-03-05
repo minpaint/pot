@@ -56,6 +56,15 @@
 
   <div class="results">
     <table id="result_list">
+      <colgroup>
+        <col class="col-checkbox">
+        <col class="col-name">
+        <col class="col-safety">
+        <col class="col-internship">
+        <col class="col-commission">
+        <col class="col-status">
+        <col class="col-actions">
+      </colgroup>
       <thead>
         <tr>
           <th class="column-checkbox"><input type="checkbox" id="select-all"></th>
@@ -329,7 +338,22 @@
     }
 
     .employee-tree-page #result_list {
-      min-width: 980px;
+      min-width: 1080px;
+      table-layout: fixed !important;
+    }
+
+    .employee-tree-page #result_list col.col-checkbox { width: 34px; }
+    .employee-tree-page #result_list col.col-name { width: 43%; }
+    .employee-tree-page #result_list col.col-safety { width: 8%; }
+    .employee-tree-page #result_list col.col-internship { width: 11%; }
+    .employee-tree-page #result_list col.col-commission { width: 10%; }
+    .employee-tree-page #result_list col.col-status { width: 16%; }
+    .employee-tree-page #result_list col.col-actions { width: 110px; }
+
+    .employee-tree-page .column-name,
+    .employee-tree-page .field-name {
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     /* Центрирование текста в ячейках */
@@ -424,7 +448,7 @@
 
     @media (max-width: 1100px) {
       .employee-tree-page #result_list {
-        min-width: 900px;
+        min-width: 980px;
       }
 
       .employee-tree-page .tree-row[data-level="1"] .field-name {
@@ -452,7 +476,7 @@
       }
 
       .employee-tree-page #result_list {
-        min-width: 820px;
+        min-width: 920px;
       }
 
       .employee-tree-page .field-actions a {

@@ -316,7 +316,7 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                 delattr(self.request, '_user_orgs_cache')
             accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
 
-        org_id_param = self.request.GET.get('org', '')
+        org_id_param = self.request.GET.get('org', '') or self.request.session.get('selected_org_id', '')
         selected_org_id = None
 
         if org_id_param:
@@ -338,14 +338,7 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
 
         try:
             if selected_org_id:
-                self.request.session['last_selected_org_id_periodic_protocol'] = selected_org_id
-            elif hasattr(self.request, 'session') and 'last_selected_org_id_periodic_protocol' in self.request.session:
-                last_org_id = self.request.session.get('last_selected_org_id_periodic_protocol')
-                if accessible_orgs.filter(id=last_org_id).exists():
-                    selected_org_id = last_org_id
-                    logger.info(
-                        f"User {user.username} restored org_id={selected_org_id} from session"
-                    )
+                self.request.session['selected_org_id'] = selected_org_id
         except Exception as e:
             logger.warning(f"Session not available: {e}")
 

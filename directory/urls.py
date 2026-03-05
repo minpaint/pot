@@ -23,7 +23,7 @@ from .views import (
     quiz_import_views,
     debug_permissions,
 )
-from .views.home import HomePageView, IntroductoryBriefingView
+from .views.home import HomePageView, IntroductoryBriefingView, SetOrganizationView
 from .views.documents.siz_integration import generate_siz_card_docx_view
 
 from deadline_control.views import medical_examination  # 🏥 Импортируем модуль с представлениями медосмотров
@@ -279,6 +279,7 @@ auth_patterns = [
 # 🌐 Основные маршруты
 urlpatterns = [
     path('', HomePageView.as_view(), name='employee_home'),
+    path('set-organization/', SetOrganizationView.as_view(), name='set_organization'),
     path('introductory-briefing/', IntroductoryBriefingView.as_view(), name='introductory_briefing'),
     path('debug-permissions/', debug_permissions_view, name='debug_permissions'),  # Отладка
     path('auth/', include((auth_patterns, 'auth'))),

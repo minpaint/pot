@@ -103,18 +103,6 @@
                 {% csrf_token %}
 
                 <div class="row mb-3">
-                    <div class="col-md-4 mb-3 mb-md-0">
-                        <label for="organization-filter" class="form-label">Фильтр по организации</label>
-                        <select id="organization-filter" class="form-select">
-                            <option value="">Все организации</option>
-                            {% for org in all_organizations %}
-                            <option value="{{ org.id }}">{{ org.full_name_ru }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
                     <div class="col">
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-outline-primary" id="select-all">
@@ -137,12 +125,6 @@
 
                 <div class="card">
                     <div class="card-body">
-                        <!-- Сообщение когда не выбрана организация -->
-                        <div id="no-organization-message" class="alert alert-info text-center" style="display: none;">
-                            <i class="bi bi-info-circle"></i>
-                            👆 Выберите организацию из списка выше, чтобы увидеть подразделения
-                        </div>
-
                         <div class="table-responsive">
                             <table class="table table-hover table-striped">
                                 <thead class="table-dark">
@@ -257,72 +239,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const loadingOverlay = document.getElementById('loading-overlay');
         const generateBtn = document.getElementById('generate-btn');
         const submitButtons = document.querySelectorAll('button[type="submit"]');
-        const organizationFilter = document.getElementById('organization-filter');
-        const subdivisionRows = document.querySelectorAll('.subdivision-row');
-        const noOrgMessage = document.getElementById('no-organization-message');
-        const subdivisionsTable = document.querySelector('.table-responsive');
-
-        // Функция фильтрации
-        function applyOrganizationFilter() {
-            const selectedOrgId = organizationFilter.value;
-            let hasVisibleRows = false;
-
-            subdivisionRows.forEach(row => {
-                if (selectedOrgId === '' || row.dataset.organizationId === selectedOrgId) {
-                    row.style.display = '';
-                    if (selectedOrgId !== '') {
-                        hasVisibleRows = true;
-                    }
-                } else {
-                    row.style.display = 'none';
-                    // Снимаем галочку с скрытых подразделений
-                    const checkbox = row.querySelector('.subdivision-checkbox');
-                    if (checkbox) {
-                        checkbox.checked = false;
-                    }
-                }
-            });
-
-            // Показываем сообщение если не выбрана организация и их несколько
-            if (selectedOrgId === '' && organizationFilter.options.length > 2) {
-                noOrgMessage.style.display = 'block';
-                subdivisionsTable.style.display = 'none';
-            } else {
-                noOrgMessage.style.display = 'none';
-                subdivisionsTable.style.display = 'block';
-            }
-
-            updateSelectedCount();
-        }
-
-        // Обработчик изменения фильтра
-        organizationFilter.addEventListener('change', applyOrganizationFilter);
-
-        // Автоматический выбор организации при загрузке
-        const orgOptions = organizationFilter.querySelectorAll('option');
-        const orgCount = orgOptions.length - 1; // Минус опция "Все организации"
-
-        if (orgCount === 1) {
-            // Если доступна только одна организация - выбираем её автоматически
-            organizationFilter.selectedIndex = 1; // Выбираем первую (не "Все организации")
-            applyOrganizationFilter();
-        } else if (orgCount > 1) {
-            // Если несколько организаций - скрываем таблицу, показываем сообщение
-            subdivisionRows.forEach(row => {
-                row.style.display = 'none';
-            });
-            noOrgMessage.style.display = 'block';
-            subdivisionsTable.style.display = 'none';
-        } else {
-            // Если нет организаций (не должно быть), применяем обычный фильтр
-            applyOrganizationFilter();
-        }
-
         function getVisibleCheckboxes() {
-            return Array.from(checkboxes).filter(cb => {
-                const row = cb.closest('tr');
-                return row && row.style.display !== 'none';
-            });
+            return Array.from(checkboxes);
         }
 
         function updateSelectedCount() {

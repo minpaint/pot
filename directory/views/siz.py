@@ -246,11 +246,25 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
     template_name = 'directory/siz/mass_generation.html'
     context_object_name = 'subdivisions'
 
+    def _get_selected_org_id(self):
+        """Определяем выбранную организацию из GET (приоритет) → сессия"""
+        org_id_param = self.request.GET.get('org') or self.request.session.get('selected_org_id')
+        if org_id_param:
+            try:
+                return int(org_id_param)
+            except (ValueError, TypeError):
+                pass
+        return None
+
     def get_queryset(self):
         """Получаем только те подразделения, где есть сотрудники с нормами СИЗ"""
         accessible_orgs = AccessControlHelper.get_accessible_organizations(
             self.request.user, self.request
         )
+
+        selected_org_id = self._get_selected_org_id()
+        if selected_org_id and accessible_orgs.filter(id=selected_org_id).exists():
+            accessible_orgs = accessible_orgs.filter(id=selected_org_id)
 
         # Subquery to count employees with SIZ norms per subdivision.
         # Учитываем три варианта связи с подразделением: через отдел, через subdivision у должности и напрямую у сотрудника.
@@ -296,18 +310,13 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
         accessible_orgs = AccessControlHelper.get_accessible_organizations(
             self.request.user, self.request
         )
+
+        selected_org_id = self._get_selected_org_id()
+        if selected_org_id and accessible_orgs.filter(id=selected_org_id).exists():
+            accessible_orgs = accessible_orgs.filter(id=selected_org_id)
+
         orgs_no_subdivision = self._get_orgs_no_subdivision_with_siz(accessible_orgs)
         context['orgs_no_subdivision'] = orgs_no_subdivision
-
-        # Собираем все организации для dropdown
-        all_org_ids = set()
-        for sub in context['subdivisions']:
-            all_org_ids.add(sub.organization_id)
-        for item in orgs_no_subdivision:
-            all_org_ids.add(item['organization'].id)
-        context['all_organizations'] = Organization.objects.filter(
-            id__in=all_org_ids
-        ).order_by('full_name_ru')
 
         return context
 

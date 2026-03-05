@@ -29,7 +29,7 @@ INSTRUCTION_TYPE_CHOICES = [
     ('Целевой', 'Целевой'),
 ]
 
-SESSION_KEY = 'last_selected_org_id_ot_card'
+SESSION_KEY = 'selected_org_id'
 
 
 class OTCardMassGenerationView(LoginRequiredMixin, TemplateView):

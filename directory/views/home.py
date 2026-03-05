@@ -1,11 +1,14 @@
 from django.views.generic import TemplateView
+from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render, redirect
+from django.http import HttpResponseRedirect
 from django.contrib import messages
 from django.db.models import Prefetch, Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.utils import timezone
 from datetime import timedelta
+from urllib.parse import urlparse
 import logging
 
 from directory.models import (
@@ -68,10 +71,10 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         # 💾 Сохранить выбор в сессии для UX
         try:
             if selected_org_id:
-                self.request.session['last_selected_org_id'] = selected_org_id
-            elif hasattr(self.request, 'session') and 'last_selected_org_id' in self.request.session:
+                self.request.session['selected_org_id'] = selected_org_id
+            elif hasattr(self.request, 'session') and 'selected_org_id' in self.request.session:
                 # Попытка восстановить последний выбор
-                last_org_id = self.request.session.get('last_selected_org_id')
+                last_org_id = self.request.session.get('selected_org_id')
                 if accessible_orgs.filter(id=last_org_id).exists():
                     selected_org_id = last_org_id
                     logger.info(f"User {user.username} restored org_id={selected_org_id} from session")
@@ -282,6 +285,34 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context['is_paginated'] = paginator.num_pages > 1
 
         return context
+
+
+class SetOrganizationView(LoginRequiredMixin, View):
+    """
+    🏢 POST-view для установки выбранной организации в сессию.
+    Используется глобальным селектором в хэдере.
+    """
+
+    def post(self, request, *args, **kwargs):
+        org_id_raw = request.POST.get('org_id')
+        next_url = request.POST.get('next', '/')
+
+        # Защита от open redirect: разрешаем только path (без домена)
+        parsed = urlparse(next_url)
+        if parsed.netloc:
+            next_url = '/'
+
+        if org_id_raw:
+            try:
+                org_id = int(org_id_raw)
+                accessible_orgs = AccessControlHelper.get_accessible_organizations(request.user, request)
+                if accessible_orgs.filter(id=org_id).exists():
+                    request.session['selected_org_id'] = org_id
+                    logger.info(f"User {request.user.username} selected org_id={org_id} via header")
+            except (ValueError, TypeError):
+                pass
+
+        return HttpResponseRedirect(next_url)
 
 
 class IntroductoryBriefingView(LoginRequiredMixin, TemplateView):

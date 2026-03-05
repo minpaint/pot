@@ -552,7 +552,25 @@
         <!-- Верхняя панель с пользовательским меню -->
         <div class="top-bar">
             <div>
-                <!-- Левая часть пустая -->
+                {% if user.is_authenticated %}
+                    {% if global_org_options|length > 1 %}
+                    <form method="post" action="{% url 'directory:set_organization' %}" class="d-flex align-items-center">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <span class="text-muted me-2 small">🏢</span>
+                        <select name="org_id" onchange="this.form.submit()"
+                                class="form-select form-select-sm" style="min-width: 200px; max-width: 300px;">
+                            {% for org in global_org_options %}
+                            <option value="{{ org.id }}" {% if org.id == global_selected_org_id %}selected{% endif %}>
+                                {{ org.short_name_ru|default:org.full_name_ru }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% elif global_selected_org %}
+                    <span class="text-muted small">🏢 {{ global_selected_org.short_name_ru|default:global_selected_org.full_name_ru }}</span>
+                    {% endif %}
+                {% endif %}
             </div>
             <div class="user-menu">
                 {% if user.is_authenticated %}

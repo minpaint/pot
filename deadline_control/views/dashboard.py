@@ -26,8 +26,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Получаем доступные организации через AccessControlHelper
         accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
 
-        # Фильтр по конкретной организации из GET-параметра
-        org_id = self.request.GET.get('org')
+        # Фильтр по организации: GET-параметр (приоритет) → сессия → None
+        org_id = self.request.GET.get('org') or self.request.session.get('selected_org_id')
         selected_org = None
         if org_id:
             from directory.models import Organization
@@ -35,10 +35,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 selected_org = Organization.objects.get(pk=org_id)
                 # ВАЖНО: Проверяем права доступа через AccessControlHelper
                 if not user.is_superuser and selected_org not in accessible_orgs:
-                    # Пользователь пытается получить доступ к организации, к которой у него нет прав
                     selected_org = None
                 else:
                     context['selected_org'] = selected_org
+                    # Сохраняем в сессию если пришло из GET
+                    if self.request.GET.get('org'):
+                        self.request.session['selected_org_id'] = selected_org.id
             except Organization.DoesNotExist:
                 pass
 

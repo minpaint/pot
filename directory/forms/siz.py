@@ -12,7 +12,7 @@ class SIZForm(CrispyFormMixin, forms.ModelForm):
 
     class Meta:
         model = SIZ
-        fields = ('name', 'classification', 'unit', 'wear_period', 'cost')
+        fields = ('name', 'classification', 'unit', 'wear_period', 'wear_type', 'cost')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

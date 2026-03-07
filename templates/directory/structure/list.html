@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Структура организации{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Структура организации</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'directory:structure:subdivision_create' %}" class="btn btn-primary btn-sm">
+            + Добавить подразделение
+        </a>
+        <a href="{% url 'directory:structure:department_create' %}" class="btn btn-outline-primary btn-sm">
+            + Добавить отдел
+        </a>
+    </div>
+</div>
+
+{% if not orgs_data %}
+<div class="alert alert-info">Нет доступных организаций.</div>
+{% endif %}
+
+{% for org, data in orgs_data.items %}
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ org.short_name_ru|default:org.full_name_ru }}</h5>
+        <small class="text-muted">{{ org.full_name_ru }}</small>
+    </div>
+    <div class="card-body p-0">
+
+        {% for sub_data in data.subdivisions %}
+        <div class="border-bottom">
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light">
+                <div>
+                    <strong>{{ sub_data.obj.name }}</strong>
+                    {% if sub_data.obj.short_name %}
+                    <small class="text-muted ms-2">({{ sub_data.obj.short_name }})</small>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'directory:structure:department_create' %}?subdivision={{ sub_data.obj.pk }}"
+                       class="btn btn-outline-success btn-xs py-0 px-2" style="font-size:0.8rem;">+ отдел</a>
+                    <a href="{% url 'directory:structure:subdivision_update' sub_data.obj.pk %}"
+                       class="btn btn-outline-secondary btn-xs py-0 px-2" style="font-size:0.8rem;">изменить</a>
+                    <a href="{% url 'directory:structure:subdivision_delete' sub_data.obj.pk %}"
+                       class="btn btn-outline-danger btn-xs py-0 px-2" style="font-size:0.8rem;">удалить</a>
+                </div>
+            </div>
+
+            {% if sub_data.departments %}
+            <ul class="list-group list-group-flush">
+                {% for dept in sub_data.departments %}
+                <li class="list-group-item d-flex justify-content-between align-items-center ps-5">
+                    <span>{{ dept.name }}{% if dept.short_name %} <small class="text-muted">({{ dept.short_name }})</small>{% endif %}</span>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'directory:structure:department_update' dept.pk %}"
+                           class="btn btn-outline-secondary btn-xs py-0 px-2" style="font-size:0.8rem;">изменить</a>
+                        <a href="{% url 'directory:structure:department_delete' dept.pk %}"
+                           class="btn btn-outline-danger btn-xs py-0 px-2" style="font-size:0.8rem;">удалить</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% if data.departments_no_subdivision %}
+        <div class="px-3 py-2">
+            <small class="text-muted fw-bold">Отделы без подразделения:</small>
+            <ul class="list-group list-group-flush mt-1">
+                {% for dept in data.departments_no_subdivision %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ dept.name }}{% if dept.short_name %} <small class="text-muted">({{ dept.short_name }})</small>{% endif %}</span>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'directory:structure:department_update' dept.pk %}"
+                           class="btn btn-outline-secondary btn-xs py-0 px-2" style="font-size:0.8rem;">изменить</a>
+                        <a href="{% url 'directory:structure:department_delete' dept.pk %}"
+                           class="btn btn-outline-danger btn-xs py-0 px-2" style="font-size:0.8rem;">удалить</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if not data.subdivisions and not data.departments_no_subdivision %}
+        <div class="p-3 text-muted">Нет подразделений и отделов. <a href="{% url 'directory:structure:subdivision_create' %}">Добавить подразделение</a></div>
+        {% endif %}
+
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

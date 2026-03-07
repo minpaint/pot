@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Удалить подразделение{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <div class="mb-3">
+            <a href="{% url 'directory:structure:structure_list' %}" class="btn btn-secondary btn-sm">&larr; К структуре</a>
+        </div>
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">Удалить подразделение</h4>
+            </div>
+            <div class="card-body">
+                <p>Вы уверены, что хотите удалить подразделение <strong>«{{ object.name }}»</strong>?</p>
+                {% if object.departments.exists %}
+                <div class="alert alert-warning">
+                    Внимание: в этом подразделении есть отделы ({{ object.departments.count }} шт.).
+                    Удаление может быть заблокировано — сначала удалите или перенесите отделы.
+                </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">Удалить</button>
+                        <a href="{% url 'directory:structure:structure_list' %}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

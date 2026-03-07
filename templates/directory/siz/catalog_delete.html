@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Удалить СИЗ{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <div class="mb-3">
+            <a href="{% url 'directory:siz_catalog:siz_catalog' %}" class="btn btn-secondary btn-sm">&larr; К каталогу</a>
+        </div>
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">Удалить СИЗ из каталога</h4>
+            </div>
+            <div class="card-body">
+                <p>Вы уверены, что хотите удалить <strong>«{{ object.name }}»</strong>?</p>
+                {% if object.classification %}
+                <p class="text-muted small">Классификация: {{ object.classification }}</p>
+                {% endif %}
+                {% with norms_count=object.norms.count %}
+                {% if norms_count %}
+                <div class="alert alert-warning">
+                    Внимание: этот СИЗ используется в {{ norms_count }} нормах выдачи.
+                    Удаление может быть заблокировано.
+                </div>
+                {% endif %}
+                {% endwith %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">Удалить</button>
+                        <a href="{% url 'directory:siz_catalog:siz_catalog' %}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

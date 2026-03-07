@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Каталог СИЗ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Каталог средств индивидуальной защиты</h2>
+    <a href="{% url 'directory:siz_catalog:siz_create' %}" class="btn btn-primary btn-sm">+ Добавить СИЗ</a>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="d-flex gap-2 align-items-center">
+            <input type="text" name="q" value="{{ search }}" placeholder="Поиск по названию..."
+                   class="form-control form-control-sm" style="max-width:300px;">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Найти</button>
+            {% if search %}
+            <a href="{% url 'directory:siz_catalog:siz_catalog' %}" class="btn btn-outline-danger btn-sm">Сбросить</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Наименование</th>
+                    <th>Классификация</th>
+                    <th>Ед. изм.</th>
+                    <th>Срок носки</th>
+                    <th>Стоимость</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for siz in siz_list %}
+                <tr>
+                    <td>{{ siz.name }}</td>
+                    <td><small class="text-muted">{{ siz.classification }}</small></td>
+                    <td>{{ siz.unit }}</td>
+                    <td>{{ siz.wear_period_display }}</td>
+                    <td>{% if siz.cost %}{{ siz.cost }} руб.{% else %}&mdash;{% endif %}</td>
+                    <td class="text-end">
+                        <a href="{% url 'directory:siz_catalog:siz_update' siz.pk %}"
+                           class="btn btn-outline-secondary btn-xs py-0 px-2" style="font-size:0.8rem;">изменить</a>
+                        <a href="{% url 'directory:siz_catalog:siz_delete' siz.pk %}"
+                           class="btn btn-outline-danger btn-xs py-0 px-2" style="font-size:0.8rem;">удалить</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        {% if search %}Ничего не найдено по запросу «{{ search }}»{% else %}Каталог пуст{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&q={{ search }}{% endif %}">
+                        &laquo;
+                    </a>
+                </li>
+                {% endif %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&q={{ search }}{% endif %}">
+                        &raquo;
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

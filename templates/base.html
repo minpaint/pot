@@ -506,36 +506,6 @@
                 {% endif %}
             </div>
 
-            <!-- Секция: Организация -->
-            <div class="sidebar-section collapsed" onclick="toggleSection('org')">
-                <span>Организация</span>
-                <span class="sidebar-section-icon">▼</span>
-            </div>
-            <div class="sidebar-section-content collapsed" id="section-org">
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'directory:structure:structure_list' %}">
-                        🏗️ Структура
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'directory:siz_catalog:siz_catalog' %}">
-                        🦺 Каталог СИЗ
-                    </a>
-                </li>
-                {% if user.is_staff %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'admin:global_import' %}">
-                        📊 Единый импорт/экспорт
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'admin:registry_import' %}">
-                        📋 Импорт реестра
-                    </a>
-                </li>
-                {% endif %}
-            </div>
-
             <!-- Секция: Дополнительно -->
             <div class="sidebar-section collapsed" onclick="toggleSection('extra')">
                 <span>Дополнительно</span>
@@ -556,6 +526,19 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'directory:commissions:commission_list' %}">
                         👥 Комиссии
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if user.is_staff %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'admin:global_import' %}">
+                        📊 Единый импорт/экспорт
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'admin:registry_import' %}">
+                        📋 Импорт реестра
                     </a>
                 </li>
                 {% endif %}
@@ -622,12 +605,6 @@
                                 </a>
                             </li>
                             {% endif %}
-                            <li>
-                                <a class="dropdown-item" href="{% url 'directory:auth:password_change' %}">
-                                    🔒 Сменить пароль
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'directory:auth:logout' %}">
                                     🚪 Выйти

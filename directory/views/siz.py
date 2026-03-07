@@ -1,8 +1,6 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.shortcuts import render, get_object_or_404
+from django.views.generic import ListView, CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
-from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse, HttpResponse
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_GET, require_POST
@@ -233,69 +231,6 @@ def get_siz_details(request, siz_id):
     }
 
     return JsonResponse(result)
-
-
-# =============================================
-# КАТАЛОГ СИЗ — CRUD
-# =============================================
-
-class SIZCreateView(LoginRequiredMixin, CreateView):
-    """Создание новой позиции в каталоге СИЗ"""
-    model = SIZ
-    form_class = SIZForm
-    template_name = 'directory/siz/catalog_form.html'
-    success_url = reverse_lazy('directory:siz:siz_catalog')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Добавить СИЗ в каталог'
-        return context
-
-
-class SIZUpdateView(LoginRequiredMixin, UpdateView):
-    """Редактирование позиции каталога СИЗ"""
-    model = SIZ
-    form_class = SIZForm
-    template_name = 'directory/siz/catalog_form.html'
-    success_url = reverse_lazy('directory:siz:siz_catalog')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = f'Редактировать: {self.object.name}'
-        return context
-
-
-class SIZDeleteView(LoginRequiredMixin, DeleteView):
-    """Удаление позиции из каталога СИЗ"""
-    model = SIZ
-    template_name = 'directory/siz/catalog_delete.html'
-    success_url = reverse_lazy('directory:siz:siz_catalog')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Удалить СИЗ из каталога'
-        return context
-
-
-class SIZCatalogView(LoginRequiredMixin, ListView):
-    """Каталог СИЗ с возможностью редактирования"""
-    model = SIZ
-    template_name = 'directory/siz/catalog.html'
-    context_object_name = 'siz_list'
-    paginate_by = 50
-
-    def get_queryset(self):
-        qs = SIZ.objects.all().order_by('name')
-        search = self.request.GET.get('q')
-        if search:
-            qs = qs.filter(name__icontains=search)
-        return qs
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Каталог СИЗ'
-        context['search'] = self.request.GET.get('q', '')
-        return context
 
 
 # =============================================

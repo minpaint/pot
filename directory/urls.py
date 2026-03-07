@@ -24,11 +24,6 @@ from .views import (
     debug_permissions,
 )
 from .views.home import HomePageView, IntroductoryBriefingView, SetOrganizationView
-from .views.structure import (
-    StructureListView,
-    SubdivisionCreateView, SubdivisionUpdateView, SubdivisionDeleteView,
-    DepartmentCreateView, DepartmentUpdateView, DepartmentDeleteView,
-)
 from .views.documents.siz_integration import generate_siz_card_docx_view
 
 from deadline_control.views import medical_examination  # 🏥 Импортируем модуль с представлениями медосмотров
@@ -67,8 +62,6 @@ from directory.autocomplete_views import (
     CommissionAutocomplete,
     QualificationCommissionAutocomplete,
 )
-
-from directory.views.siz import SIZCreateView, SIZUpdateView, SIZDeleteView, SIZCatalogView
 
 from directory.views.hiring import (
     HiringTreeView, HiringListView, HiringDetailView, HiringCreateView, HiringUpdateView,
@@ -281,33 +274,6 @@ auth_patterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='registration/password_reset_complete.html'
     ), name='password_reset_complete'),
-
-    path('password-change/', auth_views.PasswordChangeView.as_view(
-        template_name='registration/password_change.html',
-        success_url=reverse_lazy('directory:auth:password_change_done')
-    ), name='password_change'),
-    path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(
-        template_name='registration/password_change_done.html'
-    ), name='password_change_done'),
-]
-
-# 🏗️ Структура организации (Подразделения + Отделы)
-structure_patterns = [
-    path('', StructureListView.as_view(), name='structure_list'),
-    path('subdivisions/create/', SubdivisionCreateView.as_view(), name='subdivision_create'),
-    path('subdivisions/<int:pk>/update/', SubdivisionUpdateView.as_view(), name='subdivision_update'),
-    path('subdivisions/<int:pk>/delete/', SubdivisionDeleteView.as_view(), name='subdivision_delete'),
-    path('departments/create/', DepartmentCreateView.as_view(), name='department_create'),
-    path('departments/<int:pk>/update/', DepartmentUpdateView.as_view(), name='department_update'),
-    path('departments/<int:pk>/delete/', DepartmentDeleteView.as_view(), name='department_delete'),
-]
-
-# 🦺 Каталог СИЗ
-siz_catalog_patterns = [
-    path('', SIZCatalogView.as_view(), name='siz_catalog'),
-    path('create/', SIZCreateView.as_view(), name='siz_create'),
-    path('<int:pk>/update/', SIZUpdateView.as_view(), name='siz_update'),
-    path('<int:pk>/delete/', SIZDeleteView.as_view(), name='siz_delete'),
 ]
 
 # 🌐 Основные маршруты
@@ -317,8 +283,6 @@ urlpatterns = [
     path('introductory-briefing/', IntroductoryBriefingView.as_view(), name='introductory_briefing'),
     path('debug-permissions/', debug_permissions_view, name='debug_permissions'),  # Отладка
     path('auth/', include((auth_patterns, 'auth'))),
-    path('structure/', include((structure_patterns, 'structure'))),
-    path('siz-catalog/', include((siz_catalog_patterns, 'siz_catalog'))),
     path('autocomplete/', include(autocomplete_patterns)),
     path('employees/', include((employee_patterns, 'employees'))),
     path('positions/', include((position_patterns, 'positions'))),

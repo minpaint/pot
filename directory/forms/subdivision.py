@@ -16,7 +16,7 @@ from .mixins import OrganizationRestrictionFormMixin
 class StructuralSubdivisionForm(OrganizationRestrictionFormMixin, forms.ModelForm):
     class Meta:
         model = StructuralSubdivision
-        fields = ['name', 'short_name', 'organization']
+        fields = ['name', 'short_name', 'organization', 'skip_email_notifications']
         widgets = {
             'organization': autocomplete.ModelSelect2(
                 url='directory:organization-autocomplete',

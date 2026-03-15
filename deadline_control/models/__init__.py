@@ -13,6 +13,7 @@ from .send_log import InstructionJournalSendLog, InstructionJournalSendDetail
 from .equipment_send_log import EquipmentJournalSendLog, EquipmentJournalSendDetail
 from .medical_send_log import MedicalNotificationSendLog, MedicalNotificationSendDetail
 from .key_deadline_send_log import KeyDeadlineSendLog
+from .siz_send_log import SIZCardSendLog
 
 __all__ = [
     'Equipment',
@@ -37,4 +38,5 @@ __all__ = [
     'MedicalNotificationSendLog',
     'MedicalNotificationSendDetail',
     'KeyDeadlineSendLog',
+    'SIZCardSendLog',
 ]

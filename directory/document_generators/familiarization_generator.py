@@ -50,15 +50,15 @@ def generate_familiarization_document(
             from directory.views.documents.utils import get_employee_documents
 
             fetched_list, success = get_employee_documents(employee)
-            document_list = (
-                fetched_list
-                if success
-                else [
-                    "Устав ЗАО 'СтройКомплекс'",
-                    "Разрешение на строительство жилого комплекса 'Заречный'",
-                    "Правила внутреннего трудового распорядка",
-                ]
+            document_list = fetched_list if success else []
+
+        document_list = [doc_name for doc_name in (document_list or []) if doc_name]
+        if not document_list:
+            logger.info(
+                "Лист ознакомления не сформирован для %s: документы для ознакомления отсутствуют",
+                employee.full_name_nominative,
             )
+            return None
 
         # Дополняем контекст
         context.update(

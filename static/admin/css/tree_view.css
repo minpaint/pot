@@ -129,6 +129,19 @@ tr:hover td {
     text-align: left !important;
 }
 
+/* Position admin: названия структурных узлов в одну строку */
+.position-tree-page #result_list tr.tree-row[data-node-id] .field-name {
+    white-space: nowrap;
+}
+
+.position-tree-page #result_list .tree-branch-name {
+    display: inline-block;
+    max-width: calc(100% - 72px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
 .column-roles {
     width: 40% !important;
     text-align: left !important;

@@ -95,8 +95,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         """
-        Используем стандартный list_filter (organization__id__exact).
-        Если фильтр не задан, автоподставляем первую доступную организацию для ограничения дерева.
+        Фильтрует по организации из глобального хэдера (сессия selected_org_id).
         """
         extra_context = extra_context or {}
 
@@ -108,38 +107,33 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         else:
             accessible_orgs = Organization.objects.none()
 
-        org_param = request.GET.get('organization__id__exact')
+        # Читаем организацию из глобального хэдера (сессия)
+        session_org_id = request.session.get('selected_org_id')
         selected_org_id = None
-        if org_param and org_param.isdigit():
-            org_id = int(org_param)
-            if accessible_orgs.filter(id=org_id).exists():
-                selected_org_id = org_id
-                # Синхронизируем сессию при явном выборе через GET
-                request.session['selected_org_id'] = org_id
+        if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
+            selected_org_id = session_org_id
+        elif accessible_orgs.exists():
+            selected_org_id = accessible_orgs.first().id
+            request.session['selected_org_id'] = selected_org_id
 
-        # Если фильтр не задан — пробуем сессию, затем первую доступную
-        if selected_org_id is None and accessible_orgs.exists():
-            session_org_id = request.session.get('selected_org_id')
-            if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
-                fallback_id = session_org_id
-            else:
-                fallback_id = accessible_orgs.first().id
-            params = request.GET.copy()
-            params['organization__id__exact'] = str(fallback_id)
-            url = f"{request.path}?{params.urlencode()}"
-            return HttpResponseRedirect(url)
-
-        # Передаем список всех доступных организаций для dropdown фильтра
-        from django.db.models import Count
-        org_options = accessible_orgs.annotate(
-            employee_count=Count('employees')
-        ).order_by('-employee_count')
-
-        extra_context['org_options'] = org_options
         extra_context['selected_org_id'] = selected_org_id
         extra_context['show_tree'] = True
 
+        # Параметры сортировки для шаблона
+        sort_param = request.GET.get('sort', 'name')
+        order_param = request.GET.get('order', 'asc')
+        extra_context['sort'] = sort_param
+        extra_context['order'] = order_param
+
         return super().changelist_view(request, extra_context)
+
+    # Допустимые поля для сортировки
+    SORT_FIELD_MAP = {
+        'name': 'position__position_name',
+        'safety': 'position__is_responsible_for_safety',
+        'internship': 'position__can_be_internship_leader',
+        'status': 'status',
+    }
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -149,10 +143,18 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
-        # Фильтрация по выбранной организации из dropdown
-        org_param = request.GET.get('organization__id__exact')
-        if org_param and org_param.isdigit():
-            qs = qs.filter(organization_id=int(org_param))
+        # Фильтрация по организации из глобального хэдера (сессия)
+        org_id = request.session.get('selected_org_id')
+        if org_id:
+            qs = qs.filter(organization_id=org_id)
+
+        # Сортировка по GET-параметрам
+        sort_key = request.GET.get('sort', 'name')
+        order = request.GET.get('order', 'asc')
+        sort_field = self.SORT_FIELD_MAP.get(sort_key, 'full_name_nominative')
+        if order == 'desc':
+            sort_field = f'-{sort_field}'
+        qs = qs.order_by(sort_field)
 
         return qs.select_related(
             'organization',
@@ -344,7 +346,130 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
     # ACTIONS
     # ========================================================================
 
-    actions = ['action_assign_training']
+    actions = ['action_assign_training', 'action_generate_hiring_docs']
+
+    def action_generate_hiring_docs(self, request, queryset):
+        """📄 Перейти к выбору документов для генерации при приёме"""
+        ids = list(queryset.values_list('id', flat=True))
+        if not ids:
+            self.message_user(request, 'Выберите хотя бы одного сотрудника.', level=messages.WARNING)
+            return
+        request.session['bulk_hiring_docs_employee_ids'] = ids
+        return HttpResponseRedirect(reverse('admin:directory_employee_bulk_hiring_docs'))
+
+    action_generate_hiring_docs.short_description = '📄 Сгенерировать документы при приёме'
+
+    def bulk_hiring_docs_view(self, request):
+        """Промежуточный экран выбора документов для массовой генерации при приёме."""
+        from django.shortcuts import render
+        import io
+        import zipfile
+        from datetime import date
+        from urllib.parse import quote
+
+        from directory.models.document_template import DocumentTemplateType, DocumentGenerationLog
+        from directory.document_generators.order_generator import generate_all_orders
+        from directory.document_generators.protocol_generator import generate_knowledge_protocol
+        from directory.document_generators.familiarization_generator import generate_familiarization_document
+        from directory.document_generators.ot_card_generator import generate_personal_ot_card
+        from directory.document_generators.journal_example_generator import generate_journal_example
+        from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
+
+        context = self.admin_site.each_context(request)
+
+        employee_ids = request.session.get('bulk_hiring_docs_employee_ids', [])
+        if not employee_ids:
+            messages.error(request, 'Сотрудники не выбраны. Вернитесь к списку и выберите сотрудников.')
+            return redirect('admin:directory_employee_changelist')
+
+        employees = Employee.objects.filter(id__in=employee_ids).select_related(
+            'organization', 'subdivision', 'department', 'position'
+        ).order_by('full_name_nominative')
+
+        doc_types = DocumentTemplateType.objects.filter(
+            is_active=True, show_in_hiring=True
+        ).exclude(code='periodic_protocol').order_by('name')
+
+        if request.method == 'POST':
+            selected_codes = request.POST.getlist('document_types')
+            if not selected_codes:
+                messages.error(request, 'Выберите хотя бы один тип документа.')
+                context.update({
+                    'title': 'Генерация документов при приёме',
+                    'employees': employees,
+                    'doc_types': doc_types,
+                })
+                return render(request, 'admin/directory/employee/bulk_hiring_docs.html', context)
+
+            generator_map = {
+                'all_orders': generate_all_orders,
+                'knowledge_protocol': generate_knowledge_protocol,
+                'doc_familiarization': generate_familiarization_document,
+                'personal_ot_card': generate_personal_ot_card,
+                'journal_example': generate_journal_example,
+                'siz_card': generate_siz_card_docx,
+            }
+
+            zip_buffer = io.BytesIO()
+            total_docs = 0
+            errors = []
+
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for employee in employees:
+                    parts = (employee.full_name_nominative or '').split()
+                    folder = parts[0] if parts else f'сотрудник_{employee.pk}'
+
+                    for doc_type in selected_codes:
+                        generator_func = generator_map.get(doc_type)
+                        if not generator_func:
+                            continue
+                        try:
+                            if doc_type == 'doc_familiarization':
+                                result = generator_func(employee=employee, user=request.user, document_list=None)
+                            else:
+                                result = generator_func(employee=employee, user=request.user)
+                            if not result:
+                                continue
+                            docs = result if isinstance(result, list) else [result]
+                            for doc in docs:
+                                if isinstance(doc, dict) and 'content' in doc and 'filename' in doc:
+                                    zipf.writestr(f'{folder}/{doc["filename"]}', doc['content'])
+                                    total_docs += 1
+                        except Exception as e:
+                            errors.append(f'{employee.full_name_nominative} ({doc_type}): {str(e)}')
+
+                    try:
+                        DocumentGenerationLog.objects.create(
+                            employee=employee,
+                            document_types=selected_codes,
+                            created_by=request.user,
+                        )
+                    except Exception:
+                        pass
+
+            del request.session['bulk_hiring_docs_employee_ids']
+
+            if total_docs == 0:
+                messages.error(request, 'Не удалось сгенерировать ни одного документа.')
+                return redirect('admin:directory_employee_changelist')
+
+            if errors:
+                messages.warning(
+                    request,
+                    f'⚠️ Ошибки ({len(errors)} шт.): {"; ".join(errors[:3])}{"..." if len(errors) > 3 else ""}',
+                )
+
+            zip_filename = f'Документы_при_приёме_{date.today().strftime("%Y%m%d")}.zip'
+            response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+            response['Content-Disposition'] = f"attachment; filename*=UTF-8''{quote(zip_filename)}"
+            return response
+
+        context.update({
+            'title': 'Генерация документов при приёме',
+            'employees': employees,
+            'doc_types': doc_types,
+        })
+        return render(request, 'admin/directory/employee/bulk_hiring_docs.html', context)
 
     def action_assign_training(self, request, queryset):
         """
@@ -492,6 +617,213 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
 
         return render(request, 'admin/directory/employee/assign_training.html', context)
 
+    def bulk_add_view(self, request):
+        """📋 Массовый приём сотрудников"""
+        from directory.forms.bulk_employee import BulkEmployeeAddForm
+        from directory.models import StructuralSubdivision, Department, Position, EmployeeHiring
+        from directory.utils.declension import decline_full_name
+        from django.db import transaction
+
+        context = self.admin_site.each_context(request)
+        context['title'] = 'Массовый приём сотрудников'
+        context['subtitle'] = None
+
+        if request.method == 'POST':
+            if 'confirm' in request.POST:
+                # Этап 3: создание сотрудников
+                session_data = request.session.get('bulk_employee_data')
+                if not session_data:
+                    messages.error(request, 'Данные сессии не найдены. Начните заново.')
+                    return redirect('admin:directory_employee_bulk_add')
+
+                from directory.models import Organization
+                from datetime import date
+
+                org = Organization.objects.get(id=session_data['org_id'])
+                subdivision = StructuralSubdivision.objects.get(id=session_data['sub_id']) if session_data.get('sub_id') else None
+                department = Department.objects.get(id=session_data['dept_id']) if session_data.get('dept_id') else None
+                position = Position.objects.get(id=session_data['pos_id'])
+                hire_date = date.fromisoformat(session_data['hire_date'])
+                start_date = date.fromisoformat(session_data['start_date'])
+                hiring_type = session_data['hiring_type']
+
+                HIRING_TO_CONTRACT = {
+                    'new': 'standard',
+                    'transfer': 'transfer',
+                    'return': 'return',
+                    'contractor': 'contractor',
+                    'part_time': 'part_time',
+                }
+                contract_type = HIRING_TO_CONTRACT.get(hiring_type, 'standard')
+
+                created_count = 0
+                error_list = []
+
+                with transaction.atomic():
+                    for name_data in session_data['names']:
+                        try:
+                            employee = Employee(
+                                full_name_nominative=name_data['nominative'],
+                                organization=org,
+                                subdivision=subdivision,
+                                department=department,
+                                position=position,
+                                hire_date=hire_date,
+                                start_date=start_date,
+                                contract_type=contract_type,
+                                status='active',
+                            )
+                            employee.save()
+                            EmployeeHiring.objects.create(
+                                employee=employee,
+                                hiring_date=hire_date,
+                                start_date=start_date,
+                                hiring_type=hiring_type,
+                                organization=org,
+                                subdivision=subdivision,
+                                department=department,
+                                position=position,
+                                created_by=request.user,
+                            )
+                            created_count += 1
+                        except Exception as e:
+                            error_list.append(f'{name_data["nominative"]}: {str(e)}')
+
+                del request.session['bulk_employee_data']
+
+                if error_list:
+                    messages.warning(
+                        request,
+                        f'Создано {created_count} сотрудников. '
+                        f'Ошибки ({len(error_list)}): {"; ".join(error_list[:3])}'
+                        f'{"..." if len(error_list) > 3 else ""}'
+                    )
+                else:
+                    messages.success(request, f'✅ Успешно создано {created_count} сотрудников.')
+                return redirect('admin:directory_employee_changelist')
+
+            else:
+                # Этап 2: предпросмотр
+                form = BulkEmployeeAddForm(request.POST, user=request.user)
+                if form.is_valid():
+                    cd = form.cleaned_data
+                    organization = cd['organization']
+
+                    # Парсим список ФИО: убираем пустые строки и дубли
+                    raw_names = cd['names_text'].splitlines()
+                    names = []
+                    seen = set()
+                    for raw in raw_names:
+                        name = raw.strip()
+                        if name and name not in seen:
+                            seen.add(name)
+                            names.append(name)
+
+                    # Пропускаем только тех, у кого совпадает ФИО + организация + должность
+                    existing_names = set(
+                        Employee.objects.filter(
+                            organization=organization,
+                            position=cd['position'],
+                            full_name_nominative__in=names
+                        ).values_list('full_name_nominative', flat=True)
+                    )
+
+                    to_create = []
+                    to_skip = []
+                    for name in names:
+                        if name in existing_names:
+                            to_skip.append(name)
+                        else:
+                            dative = decline_full_name(name, 'datv')
+                            to_create.append({'nominative': name, 'dative': dative})
+
+                    if not to_create:
+                        messages.warning(
+                            request,
+                            'Все введённые сотрудники уже существуют в этой организации.'
+                        )
+                        context['form'] = form
+                        return render(request, 'admin/directory/employee/bulk_add.html', context)
+
+                    # Сохраняем параметры в сессию для подтверждения
+                    sub = cd.get('subdivision')
+                    dept = cd.get('department')
+                    request.session['bulk_employee_data'] = {
+                        'org_id': organization.id,
+                        'sub_id': sub.id if sub else None,
+                        'dept_id': dept.id if dept else None,
+                        'pos_id': cd['position'].id,
+                        'hire_date': cd['hire_date'].isoformat(),
+                        'start_date': cd['start_date'].isoformat(),
+                        'hiring_type': cd['hiring_type'],
+                        'names': to_create,
+                        'skipped': to_skip,
+                    }
+
+                    context.update({
+                        'title': 'Предпросмотр: массовый приём сотрудников',
+                        'to_create': to_create,
+                        'to_skip': to_skip,
+                        'organization': organization,
+                        'subdivision': cd.get('subdivision'),
+                        'department': cd.get('department'),
+                        'position': cd['position'],
+                        'hire_date': cd['hire_date'],
+                        'start_date': cd['start_date'],
+                        'hiring_type_display': dict(EmployeeHiring.HIRING_TYPE_CHOICES).get(
+                            cd['hiring_type'], cd['hiring_type']
+                        ),
+                    })
+                    return render(request, 'admin/directory/employee/bulk_add_preview.html', context)
+
+        else:
+            # Этап 1: показать форму
+            initial = {}
+            session_org_id = request.session.get('selected_org_id')
+            if session_org_id:
+                initial['organization'] = session_org_id
+            form = BulkEmployeeAddForm(user=request.user, initial=initial)
+
+        context['form'] = form
+        return render(request, 'admin/directory/employee/bulk_add.html', context)
+
+    def bulk_add_ajax_subdivisions(self, request):
+        """AJAX: список подразделений для организации"""
+        from django.http import JsonResponse
+        from directory.models import StructuralSubdivision
+        org_id = request.GET.get('org_id')
+        if not org_id:
+            return JsonResponse([], safe=False)
+        qs = StructuralSubdivision.objects.filter(organization_id=org_id).order_by('name')
+        return JsonResponse([{'id': s.id, 'name': s.name} for s in qs], safe=False)
+
+    def bulk_add_ajax_departments(self, request):
+        """AJAX: список отделов для подразделения"""
+        from django.http import JsonResponse
+        from directory.models import Department
+        sub_id = request.GET.get('sub_id')
+        if not sub_id:
+            return JsonResponse([], safe=False)
+        qs = Department.objects.filter(subdivision_id=sub_id).order_by('name')
+        return JsonResponse([{'id': d.id, 'name': d.name} for d in qs], safe=False)
+
+    def bulk_add_ajax_positions(self, request):
+        """AJAX: список должностей с фильтрацией по иерархии"""
+        from django.http import JsonResponse
+        from django.db.models import Q
+        from directory.models import Position
+        org_id = request.GET.get('org_id')
+        sub_id = request.GET.get('sub_id')
+        dept_id = request.GET.get('dept_id')
+        if not org_id:
+            return JsonResponse([], safe=False)
+        qs = Position.objects.filter(organization_id=org_id).order_by('position_name')
+        if sub_id:
+            qs = qs.filter(Q(subdivision_id=sub_id) | Q(subdivision__isnull=True))
+        if dept_id:
+            qs = qs.filter(Q(department_id=dept_id) | Q(department__isnull=True))
+        return JsonResponse([{'id': p.id, 'name': p.position_name} for p in qs], safe=False)
+
     def get_urls(self):
         """🔗 Добавляем кастомные URL для импорта/экспорта и назначения обучения"""
         urls = super().get_urls()
@@ -499,5 +831,10 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             path('import/', self.admin_site.admin_view(self.import_view), name='directory_employee_import'),
             path('export/', self.admin_site.admin_view(self.export_view), name='directory_employee_export'),
             path('assign-training/', self.admin_site.admin_view(self.assign_training_view), name='directory_employee_assign_training'),
+            path('bulk-add/', self.admin_site.admin_view(self.bulk_add_view), name='directory_employee_bulk_add'),
+            path('bulk-hiring-docs/', self.admin_site.admin_view(self.bulk_hiring_docs_view), name='directory_employee_bulk_hiring_docs'),
+            path('bulk-add/ajax/subdivisions/', self.admin_site.admin_view(self.bulk_add_ajax_subdivisions), name='directory_employee_bulk_add_subdivisions'),
+            path('bulk-add/ajax/departments/', self.admin_site.admin_view(self.bulk_add_ajax_departments), name='directory_employee_bulk_add_departments'),
+            path('bulk-add/ajax/positions/', self.admin_site.admin_view(self.bulk_add_ajax_positions), name='directory_employee_bulk_add_positions'),
         ]
         return custom_urls + urls

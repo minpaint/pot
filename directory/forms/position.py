@@ -38,7 +38,7 @@ class PositionForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             ),
             'documents': autocomplete.ModelSelect2Multiple(
                 url='directory:document-autocomplete',
-                forward=['organization', 'subdivision', 'department'],
+                forward=['organization'],
                 attrs={'data-placeholder': '📄 Выберите документы...'}
             ),
             'equipment': autocomplete.ModelSelect2Multiple(
@@ -115,10 +115,8 @@ class PositionForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             docs_qs = docs_qs.filter(organization_id=organization_id)
             equip_qs = equip_qs.filter(organization_id=organization_id)
             if department_id:
-                docs_qs = docs_qs.filter(department_id=department_id)
                 equip_qs = equip_qs.filter(department_id=department_id)
             elif subdivision_id:
-                docs_qs = docs_qs.filter(subdivision_id=subdivision_id)
                 equip_qs = equip_qs.filter(subdivision_id=subdivision_id)
         else:
             docs_qs = docs_qs.none()

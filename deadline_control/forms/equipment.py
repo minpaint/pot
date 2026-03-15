@@ -61,10 +61,23 @@ class EquipmentForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         # ВАЖНО: не извлекаем 'user' здесь, это делает миксин OrganizationRestrictionFormMixin
         super().__init__(*args, **kwargs)
 
+        # Добавляем form-control/form-select ко всем полям
+        for field_name, field in self.fields.items():
+            widget = field.widget
+            # select2 autocomplete виджеты трогаем осторожно
+            if hasattr(widget, 'attrs'):
+                css = widget.attrs.get('class', '')
+                if 'select2' not in css and 'form-control' not in css and 'form-select' not in css:
+                    from django.forms import Select, RadioSelect, CheckboxInput
+                    if isinstance(widget, (Select,)):
+                        widget.attrs['class'] = (css + ' form-select').strip()
+                    elif not isinstance(widget, (RadioSelect, CheckboxInput)):
+                        widget.attrs['class'] = (css + ' form-control').strip()
+
         # Делаем поле next_maintenance_date только для чтения
         self.fields['next_maintenance_date'].required = False
         self.fields['next_maintenance_date'].widget.attrs['readonly'] = True
-        self.fields['next_maintenance_date'].help_text = '📅 Рассчитывается автоматически на основе даты последнего ТО и периодичности'
+        self.fields['next_maintenance_date'].help_text = 'Рассчитывается автоматически на основе даты последнего ТО и периодичности'
 
         self.fields['load_capacity_kg'].required = False
 

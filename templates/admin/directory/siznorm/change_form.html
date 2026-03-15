@@ -1,24 +1,184 @@
 {% extends "admin/change_form.html" %}
-{# 
-    Шаблон для формы добавления/редактирования нормы СИЗ.
-    Расширяет стандартную форму админки добавлением дополнительных скриптов
-    для работы с полем выбора обобщенной профессии/должности.
-#}
-
-{% load i18n admin_urls %}
+{% load i18n admin_urls static %}
 
 {% block extrahead %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/vendor/select2/select2.min.css' %}">
+<link rel="stylesheet" href="{% static 'admin/css/autocomplete.css' %}">
+<script src="{% static 'admin/js/vendor/select2/select2.full.min.js' %}"></script>
+<style>
+    .batch-groups-module {
+        margin-top: 20px;
+    }
+
+    .batch-groups-module .description {
+        margin: 12px 0 16px;
+        color: #4a5568;
+    }
+
+    .batch-group-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .batch-group {
+        padding: 16px;
+        border: 1px solid #d7dbe0;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #fafcfe 0%, #f4f7fa 100%);
+    }
+
+    .batch-group__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .batch-group__body {
+        display: grid;
+        grid-template-columns: minmax(320px, 2fr) minmax(220px, 1fr);
+        gap: 16px;
+        align-items: start;
+    }
+
+    .batch-group__field label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+    }
+
+    .batch-group .select2-container {
+        width: 100% !important;
+    }
+
+    .batch-group .select2-container--default .select2-selection--multiple {
+        min-height: 44px;
+        border: 1px solid #c5ced8;
+        border-radius: 8px;
+        padding: 6px 8px;
+        background: #fff;
+    }
+
+    .batch-group .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        padding: 0;
+        margin: 0;
+    }
+
+    .batch-group .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        float: none;
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 7px 10px 7px 26px;
+        border: 1px solid #bfd3e6;
+        border-radius: 7px;
+        background: #eef6ff;
+        color: #234566;
+        white-space: normal;
+        line-height: 1.35;
+        box-sizing: border-box;
+    }
+
+    .batch-group .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        left: 9px;
+        top: 7px;
+        right: auto;
+        border-right: 0;
+        color: #6a7d90;
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    .batch-group .select2-container--default .select2-selection--multiple .select2-search--inline {
+        width: 100%;
+        margin: 0;
+    }
+
+    .batch-group .select2-container--default .select2-selection--multiple .select2-search__field {
+        width: 100% !important;
+        min-width: 100%;
+        margin: 0;
+        padding: 6px 0 0;
+        line-height: 1.4;
+    }
+
+    .batch-group .select2-dropdown {
+        border-radius: 8px;
+        border-color: #c5ced8;
+    }
+
+    .batch-group .select2-results__option {
+        white-space: normal;
+        line-height: 1.35;
+    }
+
+    .batch-group-summary {
+        margin-top: 12px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: #eef6ff;
+        color: #1d4f7a;
+    }
+
+    .batch-groups-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 14px;
+    }
+
+    #batch-groups-summary {
+        display: none;
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        background: #eef6ff;
+        color: #1d4f7a;
+    }
+
+    @media (max-width: 900px) {
+        .batch-group__body {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
 <script type="text/javascript">
-    (function($) {
-        $(document).ready(function() {
-            // Обработка выбора обобщенной профессии/должности
+    (function() {
+        function getAdminJQuery() {
+            if (window.django && window.django.jQuery && window.django.jQuery.fn) {
+                if (!window.django.jQuery.fn.select2 && window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+                    window.django.jQuery.fn.select2 = window.jQuery.fn.select2;
+                }
+                return window.django.jQuery;
+            }
+
+            if (window.jQuery && window.jQuery.fn) {
+                return window.jQuery;
+            }
+
+            return null;
+        }
+
+        function initBatchGroups($) {
             var uniquePositionField = $('#id_unique_position_name');
-            
-            // Начальная настройка поля профессии
-            uniquePositionField.addClass('select2-enable').css('width', '100%');
-            
-            // Включаем Select2 для более удобного выбора
+            var conditionField = $('#id_condition');
+            var batchGroupsField = $('#id_batch_groups_json');
+            var groupsContainer = $('#batch-group-list');
+            var addGroupButton = $('#add-batch-group');
+            var batchSummary = $('#batch-groups-summary');
+            var groupTemplateHtml = $('#batch-group-template').html();
+
             if ($.fn.select2) {
                 uniquePositionField.select2({
                     placeholder: "Выберите профессию/должность",
@@ -26,77 +186,287 @@
                     width: '100%'
                 });
             }
-            
-            // При выборе СИЗ, подгружаем информацию об этом СИЗ для отображения
-            $('#id_siz').on('change', function() {
-                var sizId = $(this).val();
-                if (sizId) {
-                    $.getJSON('/directory/api/siz/' + sizId + '/', function(data) {
-                        if (data) {
-                            // Можно добавить отображение информации о СИЗ, например:
-                            var infoHtml = '<div class="siz-info">' +
-                                '<p><strong>Классификация:</strong> ' + data.classification + '</p>' +
-                                '<p><strong>Единица измерения:</strong> ' + data.unit + '</p>' +
-                                '<p><strong>Срок носки:</strong> ' + data.wear_period_display + '</p>' +
-                                '</div>';
-                            
-                            // Находим контейнер для отображения информации
-                            var infoContainer = $('#siz-info-container');
-                            if (infoContainer.length === 0) {
-                                infoContainer = $('<div id="siz-info-container" class="help"></div>');
-                                $('#id_siz').after(infoContainer);
-                            }
-                            
-                            infoContainer.html(infoHtml);
-                        }
+
+            if (conditionField.length) {
+                conditionField.on('focus', function() {
+                    if (this.list && this.showPicker) {
+                        this.showPicker();
+                    }
+                });
+            }
+
+            function clearSelect2Search() {
+                window.setTimeout(function() {
+                    var searchField = document.querySelector('.select2-container--open .select2-search__field');
+                    if (!searchField) {
+                        return;
+                    }
+                    searchField.value = '';
+                    searchField.dispatchEvent(new Event('input', {bubbles: true}));
+                }, 0);
+            }
+
+            function normalizeSelectionOrder(groupElement) {
+                var select = groupElement.find('.js-batch-group-siz');
+                var selectedValues = select.val() || [];
+                var selectionOrder = groupElement.data('selectionOrder') || [];
+
+                selectionOrder = selectionOrder.filter(function(value) {
+                    return selectedValues.indexOf(value) !== -1;
+                });
+
+                selectedValues.forEach(function(value) {
+                    if (selectionOrder.indexOf(value) === -1) {
+                        selectionOrder.push(value);
+                    }
+                });
+
+                groupElement.data('selectionOrder', selectionOrder);
+                return selectionOrder;
+            }
+
+            function updateGroupSummary(groupElement) {
+                var selectionOrder = normalizeSelectionOrder(groupElement);
+                var summary = groupElement.find('.batch-group-summary');
+                var conditionValue = $.trim(groupElement.find('.js-batch-group-condition').val() || '');
+
+                if (!selectionOrder.length) {
+                    summary.text('СИЗ не выбраны.');
+                    return;
+                }
+
+                if (conditionValue) {
+                    summary.text('Дополнительная норма: ' + selectionOrder.length + ' СИЗ, условие "' + conditionValue + '".');
+                } else {
+                    summary.text('Основная норма: ' + selectionOrder.length + ' СИЗ.');
+                }
+            }
+
+            function syncGroupsToHiddenField() {
+                var payload = [];
+
+                groupsContainer.find('.batch-group').each(function() {
+                    var groupElement = $(this);
+                    var selectionOrder = normalizeSelectionOrder(groupElement);
+                    var conditionValue = $.trim(groupElement.find('.js-batch-group-condition').val() || '');
+
+                    if (!selectionOrder.length) {
+                        return;
+                    }
+
+                    payload.push({
+                        condition: conditionValue,
+                        siz_ids: selectionOrder
+                    });
+                });
+
+                batchGroupsField.val(JSON.stringify(payload));
+
+                if (!payload.length) {
+                    batchSummary.hide().text('');
+                    return;
+                }
+
+                var normsCount = 0;
+                payload.forEach(function(group) {
+                    normsCount += group.siz_ids.length;
+                });
+
+                batchSummary
+                    .show()
+                    .text('Подготовлено групп: ' + payload.length + '. Будет добавлено норм: ' + normsCount + '. Порядок сохранения идёт по группам сверху вниз и по порядку выбора СИЗ внутри группы.');
+            }
+
+            function reindexGroups() {
+                groupsContainer.find('.batch-group').each(function(index) {
+                    $(this).attr('data-group-index', index);
+                    $(this).find('.batch-group-title').text('Группа ' + (index + 1));
+                });
+            }
+
+            function buildGroup(initialData) {
+                var groupHtml = groupTemplateHtml.replace(/__index__/g, groupsContainer.find('.batch-group').length);
+                var groupElement = $(groupHtml);
+                var select = groupElement.find('.js-batch-group-siz');
+                var selectedIds = initialData && initialData.siz_ids ? initialData.siz_ids.map(String) : [];
+                var conditionValue = initialData && initialData.condition ? initialData.condition : '';
+
+                groupElement.data('selectionOrder', selectedIds.slice());
+                groupElement.find('.js-batch-group-condition').val(conditionValue);
+
+                select.val(selectedIds);
+
+                if ($.fn.select2) {
+                    select.select2({
+                        placeholder: 'Выберите один или несколько СИЗ',
+                        width: '100%',
+                        closeOnSelect: false
                     });
                 }
-            });
-            
-            // Подсказки для поля условий выдачи
-            var conditionField = $('#id_condition');
-            conditionField.on('focus', function() {
-                // Отображение выпадающего списка с подсказками
-                if (this.list) {
-                    this.showPicker();
-                }
-            });
-        });
-    })(django.jQuery);
-</script>
 
-<style>
-    /* Стили для информации о СИЗ */
-    .siz-info {
-        margin-top: 10px;
-        padding: 10px;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        border-left: 4px solid #17a2b8;
-    }
-    
-    /* Стили для поля выбора профессии */
-    .select2-container--default .select2-selection--single {
-        height: 35px;
-        padding: 3px 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-    }
-    
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 28px;
-    }
-    
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 33px;
-    }
-</style>
+                groupsContainer.append(groupElement);
+                reindexGroups();
+                updateGroupSummary(groupElement);
+                syncGroupsToHiddenField();
+            }
+
+            function loadInitialGroups() {
+                var initialGroups = [];
+                try {
+                    initialGroups = JSON.parse('{{ batch_initial_groups_json|escapejs }}' || '[]');
+                } catch (error) {
+                    initialGroups = [];
+                }
+
+                if (!initialGroups.length) {
+                    buildGroup({condition: '', siz_ids: []});
+                    return;
+                }
+
+                initialGroups.forEach(function(group) {
+                    buildGroup(group);
+                });
+            }
+
+            addGroupButton.on('click', function() {
+                buildGroup({condition: '', siz_ids: []});
+            });
+
+            groupsContainer.on('click', '.js-remove-batch-group', function() {
+                var allGroups = groupsContainer.find('.batch-group');
+                if (allGroups.length === 1) {
+                    allGroups.find('.js-batch-group-siz').val(null).trigger('change');
+                    allGroups.find('.js-batch-group-condition').val('');
+                    allGroups.data('selectionOrder', []);
+                    updateGroupSummary(allGroups.eq(0));
+                    syncGroupsToHiddenField();
+                    return;
+                }
+
+                $(this).closest('.batch-group').remove();
+                reindexGroups();
+                syncGroupsToHiddenField();
+            });
+
+            groupsContainer.on('change', '.js-batch-group-condition', function() {
+                var groupElement = $(this).closest('.batch-group');
+                updateGroupSummary(groupElement);
+                syncGroupsToHiddenField();
+            });
+
+            groupsContainer.on('change', '.js-batch-group-siz', function() {
+                var groupElement = $(this).closest('.batch-group');
+                updateGroupSummary(groupElement);
+                syncGroupsToHiddenField();
+            });
+
+            groupsContainer.on('select2:select', '.js-batch-group-siz', function(event) {
+                var groupElement = $(this).closest('.batch-group');
+                var selectionOrder = groupElement.data('selectionOrder') || [];
+                var selectedId = String(event.params.data.id);
+
+                selectionOrder = selectionOrder.filter(function(value) {
+                    return value !== selectedId;
+                });
+                selectionOrder.push(selectedId);
+
+                groupElement.data('selectionOrder', selectionOrder);
+                updateGroupSummary(groupElement);
+                syncGroupsToHiddenField();
+                clearSelect2Search();
+            });
+
+            groupsContainer.on('select2:unselect', '.js-batch-group-siz', function(event) {
+                var groupElement = $(this).closest('.batch-group');
+                var selectionOrder = groupElement.data('selectionOrder') || [];
+                var removedId = String(event.params.data.id);
+
+                selectionOrder = selectionOrder.filter(function(value) {
+                    return value !== removedId;
+                });
+
+                groupElement.data('selectionOrder', selectionOrder);
+                updateGroupSummary(groupElement);
+                syncGroupsToHiddenField();
+                clearSelect2Search();
+            });
+
+            $('form').on('submit', function() {
+                syncGroupsToHiddenField();
+            });
+
+            loadInitialGroups();
+        }
+
+        var $ = getAdminJQuery();
+        if (!$) {
+            return;
+        }
+
+        initBatchGroups($);
+    })();
+</script>
 {% endblock %}
 
 {% block after_field_sets %}
+{{ adminform.form.batch_groups_json }}
+<div class="module batch-groups-module">
+    <h2>{{ batch_group_title }}</h2>
+    <div class="description">
+        <p>{{ batch_group_description }}</p>
+        <p>Пустое условие означает основную норму. Заполненное условие создаёт дополнительную норму для выбранных в этой группе СИЗ.</p>
+    </div>
+
+    <div id="batch-group-list" class="batch-group-list"></div>
+
+    <div class="batch-groups-actions">
+        <button type="button" class="button" id="add-batch-group">Добавить ещё группу</button>
+    </div>
+
+    <div id="batch-groups-summary" class="help"></div>
+</div>
+
+<template id="batch-group-template">
+    <div class="batch-group" data-group-index="__index__">
+        <div class="batch-group__header">
+            <strong class="batch-group-title">Группа __index__</strong>
+            <button type="button" class="button js-remove-batch-group">Удалить группу</button>
+        </div>
+        <div class="batch-group__body">
+            <div class="batch-group__field">
+                <label>СИЗ</label>
+                <select class="js-batch-group-siz" multiple>
+                    {% for siz in batch_siz_choices %}
+                    <option value="{{ siz.id }}">{{ siz.label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="help">Можно выбрать несколько СИЗ. Они сохранятся в порядке выбора.</div>
+            </div>
+            <div class="batch-group__field">
+                <label>Условие</label>
+                <input type="text"
+                       class="vTextField js-batch-group-condition"
+                       list="batch-condition-datalist"
+                       placeholder="Оставьте пустым для основной нормы">
+                <div class="help">Пусто = основная норма. Текст = дополнительная норма.</div>
+            </div>
+        </div>
+        <div class="batch-group-summary">СИЗ не выбраны.</div>
+    </div>
+</template>
+
+<datalist id="batch-condition-datalist">
+    {% for condition in batch_condition_choices %}
+    <option value="{{ condition }}"></option>
+    {% endfor %}
+</datalist>
+
 <div class="help">
-    <p><strong>Примечание:</strong> При выборе профессии/должности нормы СИЗ будут привязаны 
-    к эталонной должности с выбранным названием, независимо от организации.</p>
+    {% if original %}
+    <p><strong>Режим изменения:</strong> верхняя часть формы редактирует текущую норму, а группы ниже создают дополнительные нормы СИЗ с тем же количеством.</p>
+    {% else %}
+    <p><strong>Примечание:</strong> При выборе профессии/должности все созданные нормы будут привязаны к эталонной должности с выбранным названием.</p>
+    {% endif %}
     <p>Для просмотра уже созданных норм используйте древовидное представление норм СИЗ.</p>
 </div>
 {{ block.super }}

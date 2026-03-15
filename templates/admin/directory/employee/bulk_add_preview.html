@@ -1,0 +1,197 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:directory_employee_changelist' %}">Сотрудники</a>
+    &rsaquo; <a href="{% url 'admin:directory_employee_bulk_add' %}">Массовый приём</a>
+    &rsaquo; Предпросмотр
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>🔍 Предпросмотр: массовый приём сотрудников</h1>
+
+<!-- Блок с параметрами -->
+<div class="preview-params">
+    <h3 style="margin-top: 0;">Параметры приёма</h3>
+    <table class="params-table">
+        <tr>
+            <th>Организация</th>
+            <td>{{ organization }}</td>
+        </tr>
+        <tr>
+            <th>Подразделение</th>
+            <td>{{ subdivision|default:"—" }}</td>
+        </tr>
+        <tr>
+            <th>Отдел</th>
+            <td>{{ department|default:"—" }}</td>
+        </tr>
+        <tr>
+            <th>Должность</th>
+            <td><strong>{{ position }}</strong></td>
+        </tr>
+        <tr>
+            <th>Дата приёма</th>
+            <td>{{ hire_date|date:"d.m.Y" }}</td>
+        </tr>
+        <tr>
+            <th>Дата начала работы</th>
+            <td>{{ start_date|date:"d.m.Y" }}</td>
+        </tr>
+        <tr>
+            <th>Вид приёма</th>
+            <td>{{ hiring_type_display }}</td>
+        </tr>
+    </table>
+</div>
+
+<!-- Итоговая статистика -->
+<div class="preview-summary">
+    <span class="summary-create">✅ Будет создано: <strong>{{ to_create|length }}</strong></span>
+    {% if to_skip %}
+    <span class="summary-skip">⏭ Пропускается: <strong>{{ to_skip|length }}</strong></span>
+    {% endif %}
+</div>
+
+<!-- Таблица сотрудников -->
+<table id="preview-table">
+    <thead>
+        <tr>
+            <th style="width: 40px;">#</th>
+            <th>ФИО (именительный)</th>
+            <th>ФИО (дательный)</th>
+            <th style="width: 160px;">Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for emp in to_create %}
+        <tr class="row-create">
+            <td>{{ forloop.counter }}</td>
+            <td>{{ emp.nominative }}</td>
+            <td class="dative">{{ emp.dative }}</td>
+            <td><span class="badge badge-create">✅ Создать</span></td>
+        </tr>
+        {% endfor %}
+        {% for name in to_skip %}
+        <tr class="row-skip">
+            <td>—</td>
+            <td>{{ name }}</td>
+            <td class="dative" style="color: #999;">—</td>
+            <td><span class="badge badge-skip">⏭ Уже существует</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if to_skip %}
+<p class="skip-notice">
+    ℹ️ Пропущенные сотрудники уже зарегистрированы в организации «{{ organization }}» и не будут изменены.
+</p>
+{% endif %}
+
+<!-- Форма подтверждения -->
+<form method="post" action="{% url 'admin:directory_employee_bulk_add' %}">
+    {% csrf_token %}
+    <input type="hidden" name="confirm" value="1">
+    <div class="submit-row">
+        <input type="submit"
+               value="✅ Подтвердить и создать {{ to_create|length }} сотрудников"
+               class="default"
+               {% if not to_create %}disabled{% endif %}>
+        <a href="{% url 'admin:directory_employee_bulk_add' %}" class="button back-btn">← Назад к форме</a>
+    </div>
+</form>
+
+<style>
+.preview-params {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    max-width: 600px;
+}
+.params-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+.params-table th {
+    text-align: left;
+    padding: 5px 12px 5px 0;
+    color: #555;
+    font-weight: normal;
+    white-space: nowrap;
+    width: 160px;
+}
+.params-table td {
+    padding: 5px 0;
+}
+.preview-summary {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 16px;
+    font-size: 15px;
+}
+.summary-create { color: #2e7d32; }
+.summary-skip   { color: #795548; }
+
+#preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+#preview-table th {
+    background: #f0f0f0;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 2px solid #ddd;
+}
+#preview-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #eee;
+}
+.row-create { background: #fff; }
+.row-skip   { background: #fafafa; color: #999; }
+.row-create:hover { background: #f5fff5; }
+.dative { color: #555; font-style: italic; }
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.badge-create {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+.badge-skip {
+    background: #f5f5f5;
+    color: #9e9e9e;
+    border: 1px solid #e0e0e0;
+}
+.skip-notice {
+    font-size: 12px;
+    color: #666;
+    margin: 8px 0 20px;
+}
+.back-btn {
+    margin-left: 12px;
+    padding: 8px 16px;
+    background: #999;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.back-btn:hover {
+    background: #777;
+    color: white;
+}
+</style>
+{% endblock %}

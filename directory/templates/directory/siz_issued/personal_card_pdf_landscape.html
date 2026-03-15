@@ -237,6 +237,10 @@
             </tr>
         </thead>
         <tbody>
+            {% if base_norms %}
+            <tr class="condition">
+                <td colspan="5">Основная норма:</td>
+            </tr>
             {% for norm in base_norms %}
             <tr>
                 <td class="name">{{ norm.siz.name }}</td>

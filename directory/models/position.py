@@ -146,6 +146,12 @@ class Position(models.Model):
         help_text="Отметьте, если должность предполагает управление служебным автомобилем"
     )
 
+    requires_siz = models.BooleanField(
+        default=True,
+        verbose_name="🛡️ Требуются СИЗ",
+        help_text="Если отключено, для этой должности не будут создаваться карточки СИЗ"
+    )
+
     siz_norms_overridden = models.BooleanField(
         default=False,
         verbose_name="🛡️ Нормы СИЗ переопределены",

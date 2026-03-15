@@ -23,6 +23,11 @@ class StructuralSubdivision(models.Model):
         related_name="subdivisions",
         verbose_name="Организация"
     )
+    skip_email_notifications = models.BooleanField(
+        default=False,
+        verbose_name='Пропустить email-уведомления',
+        help_text='Если включено, рассылки по подразделению и его отделам будут пропущены'
+    )
 
     class Meta:
         verbose_name = "🏭 Структурное подразделение"

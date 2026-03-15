@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
@@ -9,6 +11,7 @@ from import_export.admin import ImportExportModelAdmin
 from django.db.models import Count, Case, When, Value, IntegerField, Q
 from django.utils.translation import ngettext
 from django.contrib import messages
+from django.db import IntegrityError, transaction
 from django.db.models.functions import Lower
 from directory.resources.siz_norm import SIZNormResource
 from directory.resources.profession_siz_norm import ProfessionSIZNormResource
@@ -147,6 +150,7 @@ class SIZNormAdmin(ImportExportModelAdmin):
     """📊 Административный интерфейс для норм выдачи СИЗ"""
     resource_class = SIZNormResource
     form = SIZNormForm
+    change_form_template = "admin/directory/siznorm/change_form.html"
     list_display = ('position', 'siz', 'quantity', 'get_condition', 'order')
     list_filter = ('position', 'condition', 'siz')
     search_fields = ('position__position_name', 'siz__name', 'condition')
@@ -156,19 +160,93 @@ class SIZNormAdmin(ImportExportModelAdmin):
 
     fieldsets = (
         ('Основная информация', {
-            'fields': ('unique_position_name', 'siz', 'quantity', 'order')
+            'fields': ('unique_position_name', 'quantity', 'order')
         }),
         ('Условия выдачи', {
             'fields': ('condition',),
             'description': 'Укажите условие выдачи СИЗ (например, "При работе в зимнее время", "При влажной уборке" и т.д.)'
         }),
     )
-
     def get_condition(self, obj):
         """📝 Получение условия выдачи для отображения в списке"""
         return obj.condition if obj.condition else "Основная норма"
 
     get_condition.short_description = "Условие выдачи"
+
+    def current_siz_display(self, obj):
+        """Текущий СИЗ для формы редактирования."""
+        if not obj or not obj.siz:
+            return "-"
+        if obj.siz.classification:
+            return f"{obj.siz.name} ({obj.siz.classification})"
+        return obj.siz.name
+
+    current_siz_display.short_description = "Текущий СИЗ"
+
+    def get_fieldsets(self, request, obj=None):
+        if obj is None:
+            return [
+                ('Основная информация', {
+                    'fields': ('unique_position_name', 'quantity', 'order')
+                }),
+            ]
+
+        return [
+            ('Основная информация', {
+                'fields': ('unique_position_name', 'current_siz_display', 'quantity', 'order')
+            }),
+            ('Условия выдачи', {
+                'fields': ('condition',),
+                'description': 'Укажите условие выдачи СИЗ для текущей нормы.'
+            }),
+        ]
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None:
+            readonly_fields.append('current_siz_display')
+        return readonly_fields
+
+    def _get_batch_siz_choices(self):
+        choices = []
+        for siz in SIZ.objects.order_by('name', 'classification'):
+            choices.append({
+                'id': siz.pk,
+                'label': f"{siz.name} ({siz.classification})" if siz.classification else siz.name,
+            })
+        return choices
+
+    def _get_batch_condition_choices(self):
+        return list(
+            SIZNorm.objects.exclude(condition='')
+            .order_by('condition')
+            .values_list('condition', flat=True)
+            .distinct()[:200]
+        )
+
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        form = context.get('adminform').form
+        raw_groups = form.data.get('batch_groups_json') if form.is_bound else form.initial.get('batch_groups_json', '')
+        try:
+            initial_groups = json.loads(raw_groups) if raw_groups else []
+        except json.JSONDecodeError:
+            initial_groups = []
+
+        context = {
+            **context,
+            'batch_siz_choices': self._get_batch_siz_choices(),
+            'batch_condition_choices': self._get_batch_condition_choices(),
+            'batch_initial_groups_json': json.dumps(initial_groups),
+            'batch_group_title': 'Группы СИЗ для добавления' if add else 'Добавить ещё группы СИЗ',
+            'batch_group_description': (
+                'Каждая группа создаёт свои нормы СИЗ. Оставьте условие пустым для основной нормы '
+                'или заполните его для дополнительной.'
+                if add else
+                'Текущая норма редактируется выше. Ниже можно добавить ещё группы СИЗ: '
+                'пустое условие создаст основные нормы, заполненное - дополнительные.'
+            ),
+        }
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def get_form(self, request, obj=None, **kwargs):
         """Получение формы с передачей дополнительных параметров"""
@@ -184,6 +262,57 @@ class SIZNormAdmin(ImportExportModelAdmin):
 
             return FormWithPosition
         return Form
+
+    def save_model(self, request, obj, form, change):
+        """Создает дополнительные нормы при пакетном добавлении."""
+        super().save_model(request, obj, form, change)
+
+        batch_groups = form.cleaned_data.get('batch_groups') or []
+        if not batch_groups:
+            return
+
+        next_order = (obj.order or 0) + 10
+        created_count = 0
+        skipped_count = 0
+
+        for group in batch_groups:
+            group_condition = group['condition']
+            for siz in group['sizs']:
+                if siz.pk == obj.siz_id and group_condition == obj.condition:
+                    continue
+
+                if SIZNorm.objects.filter(
+                    position=obj.position,
+                    siz=siz,
+                    condition=group_condition,
+                ).exists():
+                    skipped_count += 1
+                    continue
+
+                try:
+                    with transaction.atomic():
+                        SIZNorm.objects.create(
+                            position=obj.position,
+                            siz=siz,
+                            quantity=obj.quantity,
+                            condition=group_condition,
+                            order=next_order,
+                        )
+                    next_order += 10
+                    created_count += 1
+                except IntegrityError:
+                    skipped_count += 1
+
+        if created_count:
+            messages.success(
+                request,
+                f"Добавление групп СИЗ: дополнительно создано {created_count} норм."
+            )
+        if skipped_count:
+            messages.warning(
+                request,
+                f"Добавление групп СИЗ: пропущено дублей {skipped_count}."
+            )
 
     def changelist_view(self, request, extra_context=None):
         """

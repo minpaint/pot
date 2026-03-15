@@ -393,8 +393,10 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
         if organizations.count() == 1:
             selected_organization_id = organizations.first().id
 
-        # Получаем уникальные названия профессий
-        position_names = Position.objects.values_list(
+        # Получаем уникальные названия профессий только для доступных организаций
+        position_names = Position.objects.filter(
+            organization__in=organizations
+        ).values_list(
             'position_name', flat=True
         ).distinct().order_by('position_name')
 
@@ -440,7 +442,9 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
             else:
                 organizations = Organization.objects.none()
 
-        position_names = Position.objects.values_list(
+        position_names = Position.objects.filter(
+            organization__in=organizations
+        ).values_list(
             'position_name', flat=True
         ).distinct().order_by('position_name')
 
@@ -466,9 +470,11 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
             # Получаем организацию
             organization = Organization.objects.get(pk=organization_id)
 
-            # Проверяем права доступа через AccessControlHelper
-            if not AccessControlHelper.can_access_object(request.user, organization):
-                raise PermissionDenied("У вас нет доступа к этой организации")
+            # Проверяем права доступа к организации
+            if not request.user.is_superuser:
+                if not hasattr(request.user, 'profile') or \
+                        organization not in request.user.profile.organizations.all():
+                    raise PermissionDenied("У вас нет доступа к этой организации")
 
             # Получаем вредные факторы по названию профессии
             harmful_factors = []

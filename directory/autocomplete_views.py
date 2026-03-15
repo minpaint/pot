@@ -198,23 +198,11 @@ class DocumentAutocomplete(autocomplete.Select2QuerySetView):
 
         # Считываем forwarded
         organization_id = self.forwarded.get('organization', None)
-        subdivision_id = self.forwarded.get('subdivision', None)
-        department_id = self.forwarded.get('department', None)
-
         # Базовая фильтрация по организации
         if organization_id:
             qs = qs.filter(organization_id=organization_id)
         else:
             return Document.objects.none()
-
-        # Дополнительная фильтрация по subdivision / department
-        if department_id:
-            qs = qs.filter(department_id=department_id)
-        elif subdivision_id:
-            qs = qs.filter(
-                Q(subdivision_id=subdivision_id, department__isnull=True) |
-                Q(subdivision_id=subdivision_id)
-            )
 
         # Поиск по названию документа
         if self.q:

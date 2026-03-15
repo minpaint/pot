@@ -5,338 +5,762 @@
 
 {% block content %}
 <div class="container-fluid mt-4">
-    <div class="row mb-4">
-        <div class="col">
-            <h2>🛡️ {{ title }}</h2>
-            <p class="text-muted">Генерация карточек СИЗ для сотрудников</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h2 class="mb-1">🛡️ {{ title }}</h2>
+            <p class="text-muted mb-0">Массовая генерация и отправка карточек СИЗ</p>
         </div>
     </div>
 
-    <!-- ====== НАВИГАЦИЯ ВКЛАДОК ====== -->
-    <ul class="nav nav-tabs mb-4" id="sizCardTabs" role="tablist">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="id_issue_date" class="form-label">Дата выдачи</label>
+                    <input type="date" id="id_issue_date" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4 pt-2">
+                        <input class="form-check-input" type="checkbox" id="id_test_mode">
+                        <label class="form-check-label" for="id_test_mode">
+                            🧪 Тестовый режим
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6 text-md-end" id="mass-controls">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="select-all">✓ Выбрать все</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="deselect-all">✗ Снять все</button>
+                    <span class="ms-2 text-muted" id="selected-count">Выбрано: 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Вкладки #}
+    <ul class="nav nav-tabs mb-3" id="sizTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="by-employee-tab" data-bs-toggle="tab"
-                    data-bs-target="#by-employee" type="button" role="tab">
-                👤 По сотруднику
+            <button class="nav-link active" id="tab-single-btn" data-bs-toggle="tab"
+                    data-bs-target="#tab-single" type="button" role="tab">
+                👤 По сотрудникам
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="by-subdivision-tab" data-bs-toggle="tab"
-                    data-bs-target="#by-subdivision" type="button" role="tab">
-                🏢 По подразделениям
+            <button class="nav-link" id="tab-mass-btn" data-bs-toggle="tab"
+                    data-bs-target="#tab-mass" type="button" role="tab">
+                📦 Массовая генерация
             </button>
         </li>
     </ul>
 
-    <div class="tab-content" id="sizCardTabsContent">
-        <!-- ====== ВКЛАДКА 1: ПО СОТРУДНИКУ ====== -->
-        <div class="tab-pane fade show active" id="by-employee" role="tabpanel">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="mb-3">Выберите сотрудника для работы с карточкой СИЗ</h5>
+    <div class="tab-content">
 
-                    <!-- Форма выбора сотрудника -->
-                    <div class="row mb-4">
-                        <div class="col-md-8">
-                            <label for="employee-select" class="form-label">
-                                Сотрудник <span class="text-danger">*</span>
-                            </label>
-                            <select id="employee-select" class="form-control" style="width: 100%;">
-                                <option value="">-- Начните вводить ФИО сотрудника --</option>
-                            </select>
-                            <small class="form-text text-muted">
-                                Введите не менее 3 символов для поиска сотрудника
-                            </small>
-                        </div>
-                    </div>
+    {# === ВКЛАДКА 1: Массовая генерация === #}
+    <div class="tab-pane fade" id="tab-mass" role="tabpanel">
 
-                    <!-- Информация о выбранном сотруднике (скрыта по умолчанию) -->
-                    <div id="employee-info" class="d-none">
-                        <hr>
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <h6 class="text-muted">Информация о сотруднике:</h6>
-                                <table class="table table-sm">
-                                    <tr>
-                                        <th style="width: 40%;">ФИО:</th>
-                                        <td id="employee-fio"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Должность:</th>
-                                        <td id="employee-position"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Подразделение:</th>
-                                        <td id="employee-subdivision"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Организация:</th>
-                                        <td id="employee-organization"></td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Кнопки действий -->
-                        <div class="d-flex gap-3">
-                            <a href="#" id="btn-go-to-personal-card" class="btn btn-primary">
-                                📋 Перейти к выдаче СИЗ
-                            </a>
-                            <a href="#" id="btn-download-card" class="btn btn-success">
-                                📥 Скачать карточку СИЗ
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Placeholder когда сотрудник не выбран -->
-                    <div id="employee-placeholder" class="alert alert-info">
-                        ℹ️ Выберите сотрудника из списка, чтобы увидеть доступные действия
-                    </div>
-                </div>
-            </div>
+    {% if subdivisions or orgs_with_direct_employees %}
+    <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" id="mass-generation-form">
+        {% csrf_token %}
+        <div class="mb-3 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-success" id="generate-btn">📥 Сгенерировать ZIP по выбранным подразделениям</button>
+            <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary">← Назад</a>
         </div>
 
-        <!-- ====== ВКЛАДКА 2: ПО ПОДРАЗДЕЛЕНИЯМ ====== -->
-        <div class="tab-pane fade" id="by-subdivision" role="tabpanel">
-            {% if subdivisions or orgs_no_subdivision %}
-            <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" id="mass-generation-form">
-                {% csrf_token %}
+        {% regroup subdivisions by organization as org_groups %}
 
-                <div class="row mb-3">
-                    <div class="col">
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="select-all">
-                                ✓ Выбрать все
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle" id="siz-tree-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 60px;">ZIP</th>
+                        <th>Структура</th>
+                        <th style="width: 170px;" class="text-center">Сотрудников</th>
+                        <th style="width: 340px;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in org_groups %}
+                    <tr class="table-primary">
+                        <td></td>
+                        <td><strong>🏢 {{ group.grouper.full_name_ru }}</strong></td>
+                        <td class="text-center">—</td>
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-primary js-send-org"
+                                data-org-id="{{ group.grouper.id }}"
+                                data-org-name="{{ group.grouper.short_name_ru|default:group.grouper.full_name_ru }}"
+                                data-url="{% url 'directory:siz:send_for_organization' group.grouper.id %}">
+                                ✉️ Отправить по организации
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselect-all">
-                                ✗ Снять все
+                        </td>
+                    </tr>
+
+                    {% for subdivision in group.list %}
+                    <tr>
+                        <td class="text-center">
+                            <input
+                                type="checkbox"
+                                name="subdivision_ids"
+                                value="{{ subdivision.id }}"
+                                class="form-check-input subdivision-checkbox"
+                                data-count="{{ subdivision.employees_count|default:subdivision.employees_with_norms_count }}">
+                        </td>
+                        <td>
+                            <strong class="ms-2">🏭 {{ subdivision.name }}</strong>
+                            <div class="text-muted small ms-2">ID: {{ subdivision.id }}</div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">{{ subdivision.employees_count|default:subdivision.employees_with_norms_count }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary js-send-subdivision"
+                                    data-subdivision-id="{{ subdivision.id }}"
+                                    data-subdivision-name="{{ subdivision.name }}"
+                                    data-recipients-url="{% url 'directory:siz:siz_recipients' subdivision.id %}"
+                                    data-send-url="{% url 'directory:siz:send_for_subdivision' subdivision.id %}">
+                                    ✉️ Отправить по подразделению
+                                </button>
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input js-summary-mode"
+                                        type="checkbox"
+                                        id="summary_mode_{{ subdivision.id }}"
+                                        data-subdivision-id="{{ subdivision.id }}">
+                                    <label class="form-check-label" for="summary_mode_{{ subdivision.id }}">📦 Сводный</label>
+                                </div>
+                                {% if subdivision.skip_email_notifications %}
+                                <span class="badge bg-warning text-dark">Email пропущены</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+
+                    {% for dept in subdivision.departments_with_employees %}
+                    <tr>
+                        <td></td>
+                        <td>
+                            <span class="ms-5">📂 {{ dept.name }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary">{{ dept.employees_count }}</span>
+                        </td>
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary js-send-department"
+                                data-department-id="{{ dept.id }}"
+                                data-department-name="{{ dept.name }}"
+                                data-subdivision-id="{{ subdivision.id }}"
+                                data-recipients-url="{% url 'directory:siz:siz_recipients' subdivision.id %}"
+                                data-send-url="{% url 'directory:siz:send_for_department' dept.id %}">
+                                ✉️ Отправить по отделу
                             </button>
-                        </div>
-                        <div class="d-inline-flex align-items-center ms-3">
-                            <label for="id_issue_date" class="me-2 mb-0 text-muted text-nowrap">Дата выдачи</label>
-                            <input type="date" name="issue_date" id="id_issue_date" class="form-control form-control-sm w-auto">
-                        </div>
-                        <button type="submit" class="btn btn-success ms-3" id="generate-btn">
-                            📥 Сгенерировать карточки СИЗ
-                        </button>
-                        <span class="ms-3 text-muted" id="selected-count">Выбрано: 0</span>
-                    </div>
-                </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                    {% endfor %}
 
-                <div class="card">
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover table-striped">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th style="width: 50px;">
-                                            <input type="checkbox" id="select-all-checkbox" class="form-check-input">
-                                        </th>
-                                        <th>Организация</th>
-                                        <th>Структурное подразделение</th>
-                                        <th class="text-center">Сотрудников с нормами СИЗ</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="subdivisions-tbody">
-                                    {% for subdivision in subdivisions %}
-                                    <tr class="subdivision-row" data-organization-id="{{ subdivision.organization.id }}">
-                                        <td>
-                                            <input type="checkbox"
-                                                   name="subdivision_ids"
-                                                   value="{{ subdivision.id }}"
-                                                   class="form-check-input subdivision-checkbox"
-                                                   data-count="{{ subdivision.employees_with_norms_count }}">
-                                        </td>
-                                        <td>{{ subdivision.organization.full_name_ru }}</td>
-                                        <td>
-                                            <strong>{{ subdivision.name }}</strong>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-info">{{ subdivision.employees_with_norms_count }}</span>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                    {% for item in orgs_no_subdivision %}
-                                    <tr class="subdivision-row" data-organization-id="{{ item.organization.id }}">
-                                        <td>
-                                            <input type="checkbox"
-                                                   name="organization_ids"
-                                                   value="{{ item.organization.id }}"
-                                                   class="form-check-input subdivision-checkbox"
-                                                   data-count="{{ item.employees_count }}">
-                                        </td>
-                                        <td>{{ item.organization.full_name_ru }}</td>
-                                        <td>
-                                            <em class="text-muted">Без подразделения</em>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-info">{{ item.employees_count }}</span>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+                    {# Организации без структурных подразделений, у которых есть прямые сотрудники с нормами #}
+                    {% for item in orgs_with_direct_employees %}
+                    <tr class="table-primary">
+                        <td></td>
+                        <td><strong>🏢 {{ item.org.full_name_ru }}</strong></td>
+                        <td class="text-center">—</td>
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-primary js-send-org"
+                                data-org-id="{{ item.org.id }}"
+                                data-org-name="{{ item.org.short_name_ru|default:item.org.full_name_ru }}"
+                                data-url="{% url 'directory:siz:send_for_organization' item.org.id %}">
+                                ✉️ Отправить по организации
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td><span class="ms-2 text-muted">Сотрудники без подразделения</span></td>
+                        <td class="text-center">
+                            <span class="badge bg-info">{{ item.employees_count }}</span>
+                        </td>
+                        <td>
+                            <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" style="display:inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="org_id" value="{{ item.org.id }}">
+                                <input type="hidden" name="issue_date" id="issue_date_org_{{ item.org.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success js-org-generate"
+                                        data-issue-field="issue_date_org_{{ item.org.id }}">
+                                    📥 Сгенерировать ZIP
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+    {% else %}
+    <div class="alert alert-info">
+        Не найдено сотрудников с нормами СИЗ.
+    </div>
+    {% endif %}
 
-                <div class="row mt-3">
-                    <div class="col">
-                        <button type="submit" class="btn btn-success">
-                            📥 Сгенерировать карточки СИЗ
-                        </button>
-                        <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary">
-                            ← Назад
+    </div>{# /tab-mass #}
+
+    {# === ВКЛАДКА 2: По сотрудникам === #}
+    <div class="tab-pane fade show active" id="tab-single" role="tabpanel">
+
+    {% if subdivisions or orgs_with_direct_employees %}
+    <div class="mb-2 d-flex gap-2 align-items-center">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="expand-all-tree">▼ Развернуть все</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="collapse-all-tree">▲ Свернуть все</button>
+        <span class="text-muted small ms-2">Нажмите 📥 напротив сотрудника для скачивания его карточки</span>
+    </div>
+
+    <div id="employee-tree">
+
+    {# Подразделения с сотрудниками #}
+    {% regroup subdivisions by organization as tree_org_groups %}
+    {% for org_group in tree_org_groups %}
+    <div class="card mb-2">
+        <div class="card-header py-2 bg-primary text-white d-flex justify-content-between align-items-center tree-org-header"
+             style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#tree-org-{{ org_group.grouper.id }}">
+            <strong>🏢 {{ org_group.grouper.full_name_ru }}</strong>
+            <span class="badge bg-light text-dark">
+                {% for sub in org_group.list %}{{ sub.employees_count|add:0 }}{% if not forloop.last %}+{% endif %}{% endfor %}
+            </span>
+        </div>
+        <div class="collapse show" id="tree-org-{{ org_group.grouper.id }}">
+            <div class="card-body p-0">
+            {% for subdivision in org_group.list %}
+            <div class="border-bottom">
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light tree-subdiv-header"
+                     style="cursor:pointer" data-bs-toggle="collapse"
+                     data-bs-target="#tree-sub-{{ subdivision.id }}">
+                    <span><strong>🏭 {{ subdivision.name }}</strong>
+                        <span class="badge bg-info ms-2">{{ subdivision.employees_count }}</span>
+                    </span>
+                    <span class="text-muted small">▼</span>
+                </div>
+                <div class="collapse show" id="tree-sub-{{ subdivision.id }}">
+                    <div class="ps-4">
+
+                    {# Сотрудники без отдела #}
+                    {% for emp in subdivision.main_employees %}
+                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                        <span>
+                            <span class="me-2">👤</span>
+                            <strong>{{ emp.full_name_nominative }}</strong>
+                            <span class="text-muted ms-2">— {{ emp.position.position_name }}</span>
+                        </span>
+                        <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                           class="btn btn-sm btn-outline-success py-0 px-2 ms-2 js-single-card"
+                           data-employee-id="{{ emp.id }}"
+                           title="Скачать карточку СИЗ">
+                            📥
                         </a>
                     </div>
-                </div>
-            </form>
+                    {% endfor %}
 
-            {% else %}
-            <div class="alert alert-info">
-                <h5>ℹ️ Нет данных для генерации</h5>
-                <p>Не найдено структурных подразделений с сотрудниками, для которых установлены нормы СИЗ.</p>
-                <p>Убедитесь, что:</p>
-                <ul>
-                    <li>Созданы нормы СИЗ для должностей</li>
-                    <li>Есть сотрудники на должностях с нормами СИЗ</li>
-                    <li>У вас есть доступ к организациям</li>
-                </ul>
-                <a href="{% url 'directory:employee_home' %}" class="btn btn-primary mt-2">
-                    ← Вернуться на главную
+                    {# Отделы #}
+                    {% for dept in subdivision.departments_with_employees %}
+                    <div class="border-bottom">
+                        <div class="d-flex justify-content-between align-items-center py-1 bg-white tree-dept-header"
+                             style="cursor:pointer" data-bs-toggle="collapse"
+                             data-bs-target="#tree-dept-{{ dept.id }}">
+                            <span>📂 <strong>{{ dept.name }}</strong>
+                                <span class="badge bg-secondary ms-1">{{ dept.employees_count }}</span>
+                            </span>
+                            <span class="text-muted small me-2">▼</span>
+                        </div>
+                        <div class="collapse show" id="tree-dept-{{ dept.id }}">
+                            <div class="ps-3">
+                            {% for emp in dept.employees %}
+                            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                                <span>
+                                    <span class="me-2">👤</span>
+                                    <strong>{{ emp.full_name_nominative }}</strong>
+                                    <span class="text-muted ms-2">— {{ emp.position.position_name }}</span>
+                                </span>
+                                <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                                   class="btn btn-sm btn-outline-success py-0 px-2 ms-2 js-single-card"
+                                   data-employee-id="{{ emp.id }}"
+                                   title="Скачать карточку СИЗ">
+                                    📥
+                                </a>
+                            </div>
+                            {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {# Организации без подразделений #}
+    {% for item in orgs_with_direct_employees %}
+    <div class="card mb-2">
+        <div class="card-header py-2 bg-primary text-white d-flex justify-content-between align-items-center"
+             style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#tree-org-direct-{{ item.org.id }}">
+            <strong>🏢 {{ item.org.full_name_ru }}</strong>
+            <span class="badge bg-light text-dark">{{ item.employees_count }}</span>
+        </div>
+        <div class="collapse show" id="tree-org-direct-{{ item.org.id }}">
+            <div class="card-body p-0 ps-4">
+            {% for emp in item.employees %}
+            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                <span>
+                    <span class="me-2">👤</span>
+                    <strong>{{ emp.full_name_nominative }}</strong>
+                    <span class="text-muted ms-2">— {{ emp.position.position_name }}</span>
+                </span>
+                <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                   class="btn btn-sm btn-outline-success py-0 px-2 ms-2 js-single-card"
+                   data-employee-id="{{ emp.id }}"
+                   title="Скачать карточку СИЗ">
+                    📥
                 </a>
             </div>
-            {% endif %}
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    </div>{# /employee-tree #}
+    {% else %}
+    <div class="alert alert-info">Не найдено сотрудников с нормами СИЗ.</div>
+    {% endif %}
+
+    </div>{# /tab-single #}
+
+    </div>{# /tab-content #}
+
+</div>
+
+<div class="modal fade" id="recipientsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="recipientsModalTitle">Подтверждение отправки</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="recipientsModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmSendBtn">Отправить</button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Индикатор загрузки (общий для обеих вкладок) -->
-<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-        <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem;">
-            <span class="visually-hidden">Загрузка...</span>
-        </div>
-        <p class="text-light mt-3 fs-5">Загрузка...</p>
-        <p class="text-light">Это может занять некоторое время</p>
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;">
+    <div class="position-absolute top-50 start-50 translate-middle text-center text-white">
+        <div class="spinner-border" role="status"></div>
+        <div class="mt-2">Выполняется операция...</div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // ========== КОД ДЛЯ ВКЛАДКИ "ПО ПОДРАЗДЕЛЕНИЯМ" (существующий) ==========
+(function() {
+    const storageKeys = {
+        date: 'siz_mass_issue_date',
+        testMode: 'siz_mass_test_mode'
+    };
+
+    const issueDateInput = document.getElementById('id_issue_date');
+    const testModeInput = document.getElementById('id_test_mode');
     const form = document.getElementById('mass-generation-form');
+    const selectedCountEl = document.getElementById('selected-count');
+    const loading = document.getElementById('loading-overlay');
+    const recipientsModalEl = document.getElementById('recipientsModal');
+    const recipientsModal = recipientsModalEl ? new bootstrap.Modal(recipientsModalEl) : null;
+    const recipientsModalBody = document.getElementById('recipientsModalBody');
+    const recipientsModalTitle = document.getElementById('recipientsModalTitle');
+    const confirmSendBtn = document.getElementById('confirmSendBtn');
 
-    if (form) {
-        const checkboxes = document.querySelectorAll('.subdivision-checkbox');
-        const selectAllCheckbox = document.getElementById('select-all-checkbox');
-        const selectAllBtn = document.getElementById('select-all');
-        const deselectAllBtn = document.getElementById('deselect-all');
-        const selectedCountSpan = document.getElementById('selected-count');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const generateBtn = document.getElementById('generate-btn');
-        const submitButtons = document.querySelectorAll('button[type="submit"]');
-        function getVisibleCheckboxes() {
-            return Array.from(checkboxes);
+    function showLoading(show) {
+        if (!loading) return;
+        loading.style.display = show ? 'block' : 'none';
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function postRequest(url, payload) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams(payload)
+        });
+    }
+
+    function normalizeRecipients(items) {
+        return (items || []).map(item => {
+            if (typeof item === 'string') {
+                return { email: item, source_display: 'Email' };
+            }
+            return {
+                email: item.email || '',
+                full_name: item.full_name || '',
+                position: item.position || '',
+                source_display: item.source_display || item.source || ''
+            };
+        }).filter(x => x.email);
+    }
+
+    function formatRecipientsList(items) {
+        const normalized = normalizeRecipients(items);
+        if (!normalized.length) {
+            return '<div class="text-muted">Получатели не найдены</div>';
         }
+        return '<ul class="mb-2">' + normalized.map(r =>
+            `<li>` +
+                `<code>${r.email}</code>` +
+                `${r.full_name ? ` <span>${r.full_name}</span>` : ''}` +
+                `${r.position ? ` <span class="text-muted">(${r.position})</span>` : ''}` +
+                `${r.source_display ? ` <span class="badge bg-light text-dark border ms-1">${r.source_display}</span>` : ''}` +
+            `</li>`
+        ).join('') + '</ul>';
+    }
 
-        function updateSelectedCount() {
-            const checked = document.querySelectorAll('.subdivision-checkbox:checked');
-            let totalEmployees = 0;
-            checked.forEach(cb => {
-                totalEmployees += parseInt(cb.dataset.count || 0);
-            });
-            selectedCountSpan.textContent = `Выбрано: ${checked.length} (≈${totalEmployees} карточек)`;
+    function updateSelectedCount() {
+        const cbs = Array.from(document.querySelectorAll('.subdivision-checkbox:checked'));
+        const totalCards = cbs.reduce((sum, cb) => sum + parseInt(cb.dataset.count || '0', 10), 0);
+        if (selectedCountEl) {
+            selectedCountEl.textContent = `Выбрано: ${cbs.length} (≈${totalCards} карточек)`;
+        }
+    }
 
-            // Обновляем состояние главного чекбокса с учетом видимых строк
-            const visibleCheckboxes = getVisibleCheckboxes();
-            const checkedVisible = visibleCheckboxes.filter(cb => cb.checked);
+    function persistFilters() {
+        if (issueDateInput) {
+            localStorage.setItem(storageKeys.date, issueDateInput.value || '');
+        }
+        if (testModeInput) {
+            localStorage.setItem(storageKeys.testMode, testModeInput.checked ? '1' : '0');
+        }
+    }
 
-            if (checkedVisible.length === 0) {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = false;
-            } else if (checkedVisible.length === visibleCheckboxes.length) {
-                selectAllCheckbox.checked = true;
-                selectAllCheckbox.indeterminate = false;
-            } else {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = true;
+    function restoreFilters() {
+        if (issueDateInput) {
+            const savedDate = localStorage.getItem(storageKeys.date);
+            if (savedDate) {
+                issueDateInput.value = savedDate;
             }
         }
+        if (testModeInput) {
+            const savedMode = localStorage.getItem(storageKeys.testMode);
+            testModeInput.checked = savedMode === '1';
+        }
+    }
 
-        // Обработка кликов по чекбоксам
-        checkboxes.forEach(cb => {
-            cb.addEventListener('change', updateSelectedCount);
-        });
+    async function openRecipientsModalForSubdivision(btn) {
+        const subdivisionId = btn.dataset.subdivisionId;
+        const subdivisionName = btn.dataset.subdivisionName;
+        const recipientsUrl = btn.dataset.recipientsUrl;
+        const sendUrl = btn.dataset.sendUrl;
+        const summaryModeCheckbox = document.querySelector(`.js-summary-mode[data-subdivision-id="${subdivisionId}"]`);
+        const summaryMode = summaryModeCheckbox ? summaryModeCheckbox.checked : false;
 
-        // Выбрать все (только видимые)
-        selectAllCheckbox.addEventListener('change', function() {
-            const visibleCheckboxes = getVisibleCheckboxes();
-            visibleCheckboxes.forEach(cb => {
-                cb.checked = this.checked;
-            });
-            updateSelectedCount();
-        });
-
-        selectAllBtn.addEventListener('click', function() {
-            const visibleCheckboxes = getVisibleCheckboxes();
-            visibleCheckboxes.forEach(cb => {
-                cb.checked = true;
-            });
-            updateSelectedCount();
-        });
-
-        // Снять все (только видимые)
-        deselectAllBtn.addEventListener('click', function() {
-            const visibleCheckboxes = getVisibleCheckboxes();
-            visibleCheckboxes.forEach(cb => {
-                cb.checked = false;
-            });
-            updateSelectedCount();
-        });
-
-        // Обработка отправки формы
-        form.addEventListener('submit', async function(e) {
-            const checked = document.querySelectorAll('.subdivision-checkbox:checked');
-
-            if (checked.length === 0) {
-                e.preventDefault();
-                alert('Пожалуйста, выберите хотя бы одно подразделение');
-                return false;
+        showLoading(true);
+        try {
+            const response = await fetch(recipientsUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Не удалось получить получателей');
             }
 
+            recipientsModalTitle.textContent = `Подтверждение отправки: ${subdivisionName}`;
+
+            let html = '';
+            if (data.skip_email_notifications) {
+                html += '<div class="alert alert-warning">Для подразделения включён флаг «Пропустить email-уведомления».</div>';
+            }
+
+            html += `<p><b>Подразделение:</b> ${data.subdivision_name}</p>`;
+            html += `<p><b>Сотрудников:</b> ${data.total_employees_count}</p>`;
+            html += `<p><b>Режим:</b> ${summaryMode ? '📦 Сводный архив' : 'Обычный (подразделение + отделы)'}</p>`;
+            html += '<h6>Получатели подразделения</h6>' + formatRecipientsList(data.subdivision_recipients);
+
+            if (!summaryMode && data.departments && data.departments.length) {
+                html += '<h6 class="mt-3">Получатели отделов</h6>';
+                html += data.departments.map(dept => {
+                    const fallback = dept.fallback_used ? ' <span class="badge bg-warning text-dark">fallback</span>' : '';
+                    return `<div class="mb-2"><b>${dept.department_name}</b> (${dept.employees_count})${fallback}${formatRecipientsList(dept.recipients)}</div>`;
+                }).join('');
+            }
+
+            if (testModeInput && testModeInput.checked) {
+                html += `<div class="alert alert-info mt-3 mb-0">Тестовый режим включён${data.test_email ? `, адрес: <code>${data.test_email}</code>` : ''}.</div>`;
+            }
+
+            recipientsModalBody.innerHTML = html;
+            confirmSendBtn.dataset.url = sendUrl;
+            confirmSendBtn.dataset.type = 'subdivision';
+            confirmSendBtn.dataset.summaryMode = summaryMode ? '1' : '0';
+            const hasSubdivisionRecipients = normalizeRecipients(data.subdivision_recipients).length > 0;
+            const hasDepartmentRecipients = (data.departments || []).some(d => normalizeRecipients(d.recipients).length > 0);
+            const isTestMode = testModeInput && testModeInput.checked;
+            confirmSendBtn.disabled = summaryMode
+                ? (!hasSubdivisionRecipients && !isTestMode)
+                : (!(hasSubdivisionRecipients || hasDepartmentRecipients) && !isTestMode);
+            recipientsModal.show();
+        } catch (err) {
+            alert(err.message || 'Ошибка запроса');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function openRecipientsModalForDepartment(btn) {
+        const subdivisionId = btn.dataset.subdivisionId;
+        const departmentId = parseInt(btn.dataset.departmentId, 10);
+        const departmentName = btn.dataset.departmentName;
+        const recipientsUrl = btn.dataset.recipientsUrl;
+        const sendUrl = btn.dataset.sendUrl;
+
+        showLoading(true);
+        try {
+            const response = await fetch(recipientsUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Не удалось получить получателей');
+            }
+
+            const dept = (data.departments || []).find(d => d.department_id === departmentId);
+            if (!dept) {
+                throw new Error('Для отдела нет сотрудников с нормами СИЗ');
+            }
+
+            recipientsModalTitle.textContent = `Подтверждение отправки: ${departmentName}`;
+            let html = `<p><b>Подразделение:</b> ${data.subdivision_name}</p>`;
+            html += `<p><b>Отдел:</b> ${dept.department_name}</p>`;
+            html += `<p><b>Сотрудников:</b> ${dept.employees_count}</p>`;
+            html += '<h6>Получатели отдела</h6>' + formatRecipientsList(dept.recipients);
+            if (dept.fallback_used) {
+                html += '<div class="alert alert-warning mt-2 mb-0">Используется fallback получателей подразделения.</div>';
+            }
+            if (testModeInput && testModeInput.checked) {
+                html += `<div class="alert alert-info mt-3 mb-0">Тестовый режим включён${data.test_email ? `, адрес: <code>${data.test_email}</code>` : ''}.</div>`;
+            }
+
+            recipientsModalBody.innerHTML = html;
+            confirmSendBtn.dataset.url = sendUrl;
+            confirmSendBtn.dataset.type = 'department';
+            confirmSendBtn.dataset.summaryMode = '0';
+            const isTestMode = testModeInput && testModeInput.checked;
+            confirmSendBtn.disabled = normalizeRecipients(dept.recipients).length === 0 && !isTestMode;
+            recipientsModal.show();
+        } catch (err) {
+            alert(err.message || 'Ошибка запроса');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function sendByModal() {
+        const url = confirmSendBtn.dataset.url;
+        const summaryMode = confirmSendBtn.dataset.summaryMode === '1';
+        if (!url) return;
+
+        const payload = {
+            issue_date: issueDateInput ? issueDateInput.value : '',
+            test_mode: testModeInput && testModeInput.checked ? '1' : '0',
+            summary_mode: summaryMode ? '1' : '0'
+        };
+
+        showLoading(true);
+        try {
+            const response = await postRequest(url, payload);
+            const data = await response.json();
+            if (!response.ok || data.success === false) {
+                throw new Error(data.error || data.message || 'Ошибка отправки');
+            }
+
+            const text = [
+                `Статус: ${data.status || 'ok'}`,
+                data.total_cards !== undefined ? `Карточек: ${data.total_cards}` : '',
+                data.successful_count !== undefined ? `Успешно: ${data.successful_count}` : '',
+                data.failed_count !== undefined ? `Ошибок: ${data.failed_count}` : '',
+                data.skipped_count !== undefined ? `Пропущено: ${data.skipped_count}` : ''
+            ].filter(Boolean).join('\n');
+            alert(text || 'Отправка завершена');
+            recipientsModal.hide();
+        } catch (err) {
+            alert(err.message || 'Ошибка отправки');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function sendForOrganization(btn) {
+        const url = btn.dataset.url;
+        const orgName = btn.dataset.orgName || 'организации';
+        const ok = confirm(`Отправить карточки СИЗ по всей организации «${orgName}»?`);
+        if (!ok) return;
+
+        const payload = {
+            issue_date: issueDateInput ? issueDateInput.value : '',
+            test_mode: testModeInput && testModeInput.checked ? '1' : '0',
+            summary_mode: '0'
+        };
+
+        showLoading(true);
+        try {
+            const response = await postRequest(url, payload);
+            const data = await response.json();
+            if (!response.ok || data.success === false) {
+                throw new Error(data.error || data.message || 'Ошибка отправки');
+            }
+            alert(
+                `Рассылка по организации завершена\n` +
+                `Статус: ${data.status}\n` +
+                `Подразделений: ${data.total_subdivisions}\n` +
+                `Успешно: ${data.successful_count}\n` +
+                `Ошибок: ${data.failed_count}\n` +
+                `Пропущено: ${data.skipped_count}\n` +
+                `Карточек: ${data.total_cards}`
+            );
+        } catch (err) {
+            alert(err.message || 'Ошибка отправки');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function submitGenerationForm(event) {
+        event.preventDefault();
+        if (!form) return;
+
+        const checked = document.querySelectorAll('.subdivision-checkbox:checked');
+        if (!checked.length) {
+            alert('Выберите хотя бы одно подразделение');
+            return;
+        }
+
+        showLoading(true);
+        try {
+            const formData = new FormData(form);
+            if (issueDateInput) {
+                formData.set('issue_date', issueDateInput.value || '');
+            }
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || `Ошибка сервера: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition') || '';
+            const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+                || contentDisposition.match(/filename="([^"]+)"/i);
+            const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'Карточки_СИЗ.zip';
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            alert(err.message || 'Не удалось скачать архив');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    restoreFilters();
+
+    if (issueDateInput && !issueDateInput.value) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        issueDateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    issueDateInput && issueDateInput.addEventListener('change', persistFilters);
+    testModeInput && testModeInput.addEventListener('change', persistFilters);
+
+    document.querySelectorAll('.subdivision-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateSelectedCount);
+    });
+
+    const selectAllBtn = document.getElementById('select-all');
+    const deselectAllBtn = document.getElementById('deselect-all');
+
+    selectAllBtn && selectAllBtn.addEventListener('click', () => {
+        document.querySelectorAll('.subdivision-checkbox').forEach(cb => { cb.checked = true; });
+        updateSelectedCount();
+    });
+
+    deselectAllBtn && deselectAllBtn.addEventListener('click', () => {
+        document.querySelectorAll('.subdivision-checkbox').forEach(cb => { cb.checked = false; });
+        updateSelectedCount();
+    });
+
+    form && form.addEventListener('submit', submitGenerationForm);
+
+    document.querySelectorAll('.js-send-org').forEach(btn => {
+        btn.addEventListener('click', () => sendForOrganization(btn));
+    });
+
+    document.querySelectorAll('.js-org-generate').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
             e.preventDefault();
-
-            // Показываем индикатор загрузки
-            loadingOverlay.style.display = 'block';
-            submitButtons.forEach(btn => {
-                btn.disabled = true;
-            });
-
+            const orgForm = btn.closest('form');
+            if (!orgForm) return;
+            const issueFieldId = btn.dataset.issueField;
+            if (issueFieldId && issueDateInput) {
+                document.getElementById(issueFieldId).value = issueDateInput.value || '';
+            }
+            showLoading(true);
             try {
-                const formData = new FormData(form);
-                const response = await fetch(form.action, {
+                const formData = new FormData(orgForm);
+                const response = await fetch(orgForm.action, {
                     method: 'POST',
                     body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
-
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || `Ошибка сервера: ${response.status}`);
+                    const text = await response.text();
+                    throw new Error(text || `Ошибка сервера: ${response.status}`);
                 }
-
                 const blob = await response.blob();
                 const contentDisposition = response.headers.get('Content-Disposition') || '';
                 const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
                     || contentDisposition.match(/filename="([^"]+)"/i);
                 const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'Карточки_СИЗ.zip';
-
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -346,184 +770,58 @@ document.addEventListener('DOMContentLoaded', function() {
                 a.remove();
                 window.URL.revokeObjectURL(url);
             } catch (err) {
-                alert(`Не удалось скачать архив: ${err.message}`);
+                alert(err.message || 'Не удалось скачать архив');
             } finally {
-                loadingOverlay.style.display = 'none';
-                submitButtons.forEach(btn => {
-                    btn.disabled = false;
-                });
+                showLoading(false);
             }
         });
+    });
 
-        // Инициализация
-        updateSelectedCount();
-    }
+    document.querySelectorAll('.js-send-subdivision').forEach(btn => {
+        btn.addEventListener('click', () => openRecipientsModalForSubdivision(btn));
+    });
 
-    // ========== КОД ДЛЯ ВКЛАДКИ "ПО СОТРУДНИКУ" (новый) ==========
+    document.querySelectorAll('.js-send-department').forEach(btn => {
+        btn.addEventListener('click', () => openRecipientsModalForDepartment(btn));
+    });
 
-    // Инициализация Select2 для autocomplete сотрудников
-    $('#employee-select').select2({
-        ajax: {
-            url: '{% url "directory:employee-for-commission-autocomplete" %}',
-            dataType: 'json',
-            delay: 250,
-            data: function (params) {
-                return {
-                    q: params.term, // Поисковый запрос
-                    page: params.page || 1
-                };
-            },
-            processResults: function (data) {
-                return {
-                    results: data.results,
-                    pagination: data.pagination
-                };
-            },
-            cache: true
-        },
-        minimumInputLength: 3,
-        placeholder: '-- Начните вводить ФИО сотрудника --',
-        allowClear: true,
-        language: {
-            inputTooShort: function () {
-                return 'Введите минимум 3 символа';
-            },
-            searching: function () {
-                return 'Поиск...';
-            },
-            noResults: function () {
-                return 'Сотрудники не найдены';
+    confirmSendBtn && confirmSendBtn.addEventListener('click', sendByModal);
+
+    updateSelectedCount();
+
+    // Скрывать/показывать controls для массовой генерации в зависимости от вкладки
+    const massControls = document.getElementById('mass-controls');
+    if (massControls) massControls.style.visibility = 'hidden'; // по умолчанию скрыто (активна вкладка "По сотрудникам")
+    document.querySelectorAll('#sizTabs .nav-link').forEach(btn => {
+        btn.addEventListener('shown.bs.tab', function(e) {
+            const isMass = e.target.id === 'tab-mass-btn';
+            if (massControls) massControls.style.visibility = isMass ? 'visible' : 'hidden';
+        });
+    });
+
+    // Развернуть / Свернуть все в дереве
+    document.getElementById('expand-all-tree') && document.getElementById('expand-all-tree').addEventListener('click', () => {
+        document.querySelectorAll('#employee-tree .collapse').forEach(el => {
+            el.classList.add('show');
+        });
+    });
+    document.getElementById('collapse-all-tree') && document.getElementById('collapse-all-tree').addEventListener('click', () => {
+        document.querySelectorAll('#employee-tree .collapse').forEach(el => {
+            el.classList.remove('show');
+        });
+    });
+
+    // Скачивание карточки СИЗ с подстановкой даты выдачи
+    document.querySelectorAll('.js-single-card').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const date = issueDateInput ? issueDateInput.value : '';
+            if (date) {
+                const url = new URL(this.href, window.location.origin);
+                url.searchParams.set('issue_date', date);
+                this.href = url.toString();
             }
-        }
+        });
     });
-
-    // Обработка выбора сотрудника
-    $('#employee-select').on('select2:select', function (e) {
-        const employeeId = e.params.data.id;
-        const employeeText = e.params.data.text;
-
-        // Показываем индикатор загрузки
-        $('#loading-overlay').show();
-
-        // Запрашиваем детальную информацию о сотруднике
-        fetch(`/directory/api/employee/${employeeId}/info/`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки данных сотрудника');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Заполняем информацию о сотруднике
-                $('#employee-fio').text(data.full_name_nominative || '-');
-                $('#employee-position').text(data.position_name || '-');
-                $('#employee-subdivision').text(data.subdivision_name || '-');
-                $('#employee-organization').text(data.organization_name || '-');
-
-                // Обновляем ссылки на кнопках
-                $('#btn-go-to-personal-card').attr('href',
-                    `/directory/siz/personal-card/${employeeId}/`);
-                $('#btn-download-card').attr('href',
-                    `/directory/siz/siz-card/${employeeId}/`);
-
-                // Показываем блок с информацией и кнопками
-                $('#employee-placeholder').addClass('d-none');
-                $('#employee-info').removeClass('d-none');
-            })
-            .catch(error => {
-                console.error('Ошибка:', error);
-                alert('Не удалось загрузить информацию о сотруднике');
-            })
-            .finally(() => {
-                $('#loading-overlay').hide();
-            });
-    });
-
-    // Обработка очистки выбора
-    $('#employee-select').on('select2:clear', function (e) {
-        $('#employee-info').addClass('d-none');
-        $('#employee-placeholder').removeClass('d-none');
-    });
-});
+})();
 </script>
-
-<style>
-/* Стили для вкладок */
-.nav-tabs {
-    border-bottom: 2px solid #dee2e6;
-}
-
-.nav-tabs .nav-link {
-    color: #495057;
-    font-weight: 500;
-    border: none;
-    border-bottom: 3px solid transparent;
-    padding: 0.75rem 1.5rem;
-    transition: all 0.3s ease;
-}
-
-.nav-tabs .nav-link:hover {
-    color: #0d6efd;
-    border-bottom-color: #0d6efd;
-    background-color: rgba(13, 110, 253, 0.05);
-}
-
-.nav-tabs .nav-link.active {
-    color: #0d6efd;
-    font-weight: 600;
-    border-bottom-color: #0d6efd;
-    background-color: rgba(13, 110, 253, 0.05);
-}
-
-/* Стили для вкладки "По подразделениям" */
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
-
-.subdivision-checkbox {
-    cursor: pointer;
-    width: 20px;
-    height: 20px;
-}
-
-#select-all-checkbox {
-    cursor: pointer;
-    width: 20px;
-    height: 20px;
-}
-
-/* Стили для вкладки "По сотруднику" */
-#by-employee .select2-container {
-    font-size: 1rem;
-}
-
-#by-employee .select2-selection--single {
-    height: 42px !important;
-    border: 1.5px solid #e2e8f0 !important;
-}
-
-#by-employee .select2-selection__rendered {
-    line-height: 40px !important;
-}
-
-/* Адаптация кнопок */
-#by-employee .btn {
-    padding: 0.625rem 1.25rem;
-    font-weight: 500;
-}
-
-#by-employee .gap-3 {
-    gap: 1rem !important;
-}
-
-/* Улучшенная таблица информации */
-#employee-info table th {
-    font-weight: 600;
-    color: #6c757d;
-}
-
-#employee-info table td {
-    color: #212529;
-}
-</style>
 {% endblock %}

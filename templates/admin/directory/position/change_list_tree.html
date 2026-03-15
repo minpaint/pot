@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<div id="content-main">
+<div id="content-main" class="position-tree-page">
   <div class="object-tools">
     <a href="{% url 'admin:directory_position_add' %}{% if request.GET %}?_changelist_filters={{ request.GET.urlencode|urlencode }}{% endif %}" class="addlink">
       Добавить
@@ -29,7 +29,7 @@
       </div>
     {% endif %}
 
-    <div class="tree-controls">
+    <div class="tree-controls" {% if not selected_org_id %}style="display:none"{% endif %}>
       <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
       <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
 
@@ -83,8 +83,21 @@
       </div>
     </div>
 
-    <div class="results">
+    {% if not selected_org_id %}
+    <div class="no-org-message">
+      <span class="no-org-icon">🏢</span>
+      <p>Выберите организацию в шапке страницы для просмотра должностей</p>
+    </div>
+    {% endif %}
+
+    <div class="results" {% if not selected_org_id %}style="display:none"{% endif %}>
       <table id="result_list">
+        <colgroup>
+          <col class="col-checkbox">
+          <col class="col-name">
+          <col class="col-roles">
+          <col class="col-actions">
+        </colgroup>
         <thead>
           <tr>
             <th class="column-checkbox"><input type="checkbox" id="select-all"></th>
@@ -100,7 +113,7 @@
               <td class="field-name">
                 <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
                 <span class="tree-icon">{{ tree_settings.icons.organization|default:"🏢" }}</span>
-                <strong>{{ org_data.name }}</strong>
+                <span class="tree-branch-name" title="{{ org_data.name }}"><strong>{{ org_data.name }}</strong></span>
               </td>
               <td class="field-roles"></td>
               <td class="field-actions"></td>
@@ -193,7 +206,7 @@
                 <td class="field-name">
                   <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
                   <span class="tree-icon">{{ tree_settings.icons.subdivision|default:"🏭" }}</span>
-                  {{ sub_data.name }}
+                  <span class="tree-branch-name" title="{{ sub_data.name }}">{{ sub_data.name }}</span>
                 </td>
                 <td class="field-roles"></td>
                 <td class="field-actions"></td>
@@ -286,7 +299,7 @@
                   <td class="field-name">
                     <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
                     <span class="tree-icon">{{ tree_settings.icons.department|default:"📂" }}</span>
-                    {{ dept_data.name }}
+                    <span class="tree-branch-name" title="{{ dept_data.name }}">{{ dept_data.name }}</span>
                   </td>
                   <td class="field-roles"></td>
                   <td class="field-actions"></td>
@@ -449,6 +462,84 @@
       border-radius: 10px;
     }
 
+    .position-tree-page .results {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .position-tree-page #result_list {
+      width: 100%;
+      table-layout: fixed !important;
+    }
+
+    .position-tree-page #result_list col.col-checkbox {
+      width: 36px;
+    }
+
+    .position-tree-page #result_list col.col-name {
+      width: 50%;
+    }
+
+    .position-tree-page #result_list col.col-actions {
+      width: 112px;
+    }
+
+    .position-tree-page .column-name,
+    .position-tree-page .field-name,
+    .position-tree-page .column-roles,
+    .position-tree-page .field-roles {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .position-tree-page .field-roles {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      align-content: flex-start;
+      gap: 4px 6px;
+    }
+
+    /* Структурные узлы (организация/подразделение/отдел): всегда одна строка */
+    .position-tree-page #result_list tr.tree-row[data-node-id] .field-name,
+    .position-tree-page #result_list tr.tree-row[data-node-id] .tree-branch-name,
+    .position-tree-page #result_list tr.tree-row[data-node-id] .tree-branch-name strong {
+      white-space: nowrap !important;
+      overflow-wrap: normal !important;
+      word-break: normal !important;
+    }
+
+    .position-tree-page #result_list tr.tree-row[data-node-id] .tree-branch-name {
+      display: inline-block;
+      max-width: calc(100% - 72px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+
+    .position-tree-page #result_list th.column-actions,
+    .position-tree-page #result_list td.field-actions {
+      white-space: nowrap;
+    }
+
+    .position-tree-page #result_list th.column-actions {
+      text-align: center !important;
+      padding-right: 0 !important;
+    }
+
+    .position-tree-page #result_list td.field-actions {
+      text-align: center !important;
+      padding-right: 0 !important;
+    }
+
+    .position-tree-page .field-actions a {
+      display: inline-block;
+      margin: 0 4px;
+      font-size: 16px;
+      text-decoration: none;
+    }
+
     .position-attribute {
       display: inline-block;
       margin-right: 5px;
@@ -497,6 +588,15 @@
       font-size: 12px;
       color: #9c5700;
       white-space: nowrap;
+    }
+
+    .instruction-tag,
+    .instruction-recipient,
+    .instruction-missing {
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     #floating-copy-instructions {
@@ -560,12 +660,38 @@
     }
 
     @media (max-width: 1100px) {
+      .position-tree-page #result_list col.col-name {
+        width: 48%;
+      }
+
+      .position-tree-page #result_list col.col-actions {
+        width: 104px;
+      }
+
       .tree-filter-select {
         min-width: 200px;
       }
     }
 
     @media (max-width: 900px) {
+      .position-tree-page .tree-row[data-level="1"] .field-name {
+        padding-left: 14px !important;
+      }
+
+      .position-tree-page .tree-row[data-level="2"] .field-name {
+        padding-left: 24px !important;
+      }
+
+      .position-tree-page .tree-row[data-level="3"] .field-name {
+        padding-left: 34px !important;
+      }
+
+      #floating-copy-instructions {
+        right: 12px;
+        bottom: 12px;
+        padding: 10px 12px;
+      }
+
       .tree-controls {
         align-items: stretch;
       }
@@ -581,6 +707,25 @@
     }
 
     @media (max-width: 640px) {
+      .position-tree-page #result_list col.col-name {
+        width: 44%;
+      }
+
+      .position-tree-page #result_list col.col-actions {
+        width: 96px;
+      }
+
+      .position-tree-page .field-actions a {
+        font-size: 15px;
+      }
+
+      #floating-copy-instructions {
+        right: 8px;
+        left: 8px;
+        bottom: 8px;
+        width: auto;
+      }
+
       .tree-controls {
         flex-direction: column;
         align-items: stretch;
@@ -595,6 +740,25 @@
         width: 100%;
         min-width: 0;
       }
+    }
+    .no-org-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: #666;
+      text-align: center;
+    }
+
+    .no-org-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .no-org-message p {
+      font-size: 16px;
+      margin: 0;
     }
   </style>
 

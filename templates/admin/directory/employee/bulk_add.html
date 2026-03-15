@@ -1,0 +1,353 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Главная</a>
+    &rsaquo; <a href="{% url 'admin:directory_employee_changelist' %}">Сотрудники</a>
+    &rsaquo; Массовый приём
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>📋 Массовый приём сотрудников</h1>
+
+{% if form.errors %}
+<div class="errornote">
+    <p>Пожалуйста, исправьте ошибки ниже:</p>
+    <ul>
+        {% for field in form %}
+            {% for error in field.errors %}
+            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+            {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<form method="post" id="bulk-add-form">
+    {% csrf_token %}
+
+    <div class="bulk-add-layout">
+
+        <!-- Левая колонка: параметры приёма -->
+        <div class="bulk-add-params">
+
+            <fieldset class="module aligned">
+                <h2>Место работы</h2>
+
+                <div class="form-row">
+                    <label for="id_organization" class="required">Организация:</label>
+                    {{ form.organization }}
+                    {% if form.organization.errors %}
+                    <ul class="errorlist">{% for e in form.organization.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="id_subdivision">Структурное подразделение:</label>
+                    {{ form.subdivision }}
+                    {% if form.subdivision.errors %}
+                    <ul class="errorlist">{% for e in form.subdivision.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="id_department">Отдел:</label>
+                    {{ form.department }}
+                    {% if form.department.errors %}
+                    <ul class="errorlist">{% for e in form.department.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="id_position" class="required">Должность:</label>
+                    {{ form.position }}
+                    {% if form.position.errors %}
+                    <ul class="errorlist">{% for e in form.position.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+            </fieldset>
+
+            <fieldset class="module aligned">
+                <h2>Параметры приёма</h2>
+
+                <div class="form-row">
+                    <label for="id_hire_date" class="required">Дата приёма:</label>
+                    {{ form.hire_date }}
+                    {% if form.hire_date.errors %}
+                    <ul class="errorlist">{% for e in form.hire_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="id_start_date">Дата начала работы:</label>
+                    {{ form.start_date }}
+                    {% if form.start_date.errors %}
+                    <ul class="errorlist">{% for e in form.start_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                    {% if form.start_date.help_text %}
+                    <p class="help">{{ form.start_date.help_text }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="id_hiring_type" class="required">Вид приёма:</label>
+                    {{ form.hiring_type }}
+                    {% if form.hiring_type.errors %}
+                    <ul class="errorlist">{% for e in form.hiring_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+            </fieldset>
+
+        </div>
+
+        <!-- Правая колонка: список ФИО -->
+        <div class="bulk-add-names">
+            <fieldset class="module aligned">
+                <h2>Список сотрудников</h2>
+
+                <div class="form-row">
+                    <label for="id_names_text" class="required">{{ form.names_text.label }}:</label>
+                    {{ form.names_text }}
+                    {% if form.names_text.errors %}
+                    <ul class="errorlist">{% for e in form.names_text.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                    {% if form.names_text.help_text %}
+                    <p class="help">{{ form.names_text.help_text }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="names-counter">
+                    Строк введено: <strong id="names-count">0</strong>
+                </div>
+            </fieldset>
+        </div>
+
+    </div>
+
+    <div class="submit-row">
+        <input type="submit" value="🔍 Предпросмотр" class="default">
+        <a href="{% url 'admin:directory_employee_changelist' %}" class="button cancel-btn">Отмена</a>
+    </div>
+</form>
+
+<style>
+.bulk-add-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+.bulk-add-params {
+    flex: 0 0 420px;
+}
+.bulk-add-names {
+    flex: 1;
+}
+.form-row {
+    padding: 8px 0;
+}
+.form-row label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+.form-row label.required::after {
+    content: " *";
+    color: #c00;
+}
+.form-row select,
+.form-row input[type="date"],
+.form-row input[type="text"] {
+    width: 100%;
+    max-width: 380px;
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.form-row textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: monospace;
+    resize: vertical;
+}
+.form-row .help {
+    font-size: 11px;
+    color: #666;
+    margin: 3px 0 0;
+}
+.names-counter {
+    padding: 6px 0 2px;
+    font-size: 12px;
+    color: #555;
+}
+.cancel-btn {
+    margin-left: 10px;
+    padding: 8px 15px;
+    background: #999;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.cancel-btn:hover {
+    background: #777;
+    color: white;
+}
+.errorlist {
+    color: #c00;
+    margin: 4px 0;
+    padding-left: 18px;
+    font-size: 12px;
+}
+@media (max-width: 900px) {
+    .bulk-add-layout {
+        flex-direction: column;
+    }
+    .bulk-add-params {
+        flex: none;
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+(function () {
+    const orgSelect = document.getElementById('id_organization');
+    const subSelect = document.getElementById('id_subdivision');
+    const deptSelect = document.getElementById('id_department');
+    const posSelect = document.getElementById('id_position');
+    const namesTextarea = document.getElementById('id_names_text');
+    const namesCount = document.getElementById('names-count');
+
+    const AJAX_SUBDIVISIONS = '{% url "admin:directory_employee_bulk_add_subdivisions" %}';
+    const AJAX_DEPARTMENTS  = '{% url "admin:directory_employee_bulk_add_departments" %}';
+    const AJAX_POSITIONS    = '{% url "admin:directory_employee_bulk_add_positions" %}';
+
+    function populateSelect(selectEl, items, emptyLabel) {
+        const current = selectEl.value;
+        selectEl.innerHTML = '';
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = emptyLabel;
+        selectEl.appendChild(emptyOpt);
+        items.forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.name;
+            if (String(item.id) === String(current)) {
+                opt.selected = true;
+            }
+            selectEl.appendChild(opt);
+        });
+    }
+
+    function loadSubdivisions(orgId) {
+        if (!orgId) {
+            populateSelect(subSelect, [], '--- Без подразделения ---');
+            populateSelect(deptSelect, [], '--- Без отдела ---');
+            populateSelect(posSelect, [], '--- Выберите должность ---');
+            return;
+        }
+        fetch(AJAX_SUBDIVISIONS + '?org_id=' + orgId)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                populateSelect(subSelect, data, '--- Без подразделения ---');
+                populateSelect(deptSelect, [], '--- Без отдела ---');
+                loadPositions(orgId, '', '');
+            });
+    }
+
+    function loadDepartments(subId) {
+        const orgId = orgSelect.value;
+        if (!subId) {
+            populateSelect(deptSelect, [], '--- Без отдела ---');
+            loadPositions(orgId, '', '');
+            return;
+        }
+        fetch(AJAX_DEPARTMENTS + '?sub_id=' + subId)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                populateSelect(deptSelect, data, '--- Без отдела ---');
+                loadPositions(orgId, subId, '');
+            });
+    }
+
+    function loadPositions(orgId, subId, deptId) {
+        if (!orgId) {
+            populateSelect(posSelect, [], '--- Выберите должность ---');
+            return;
+        }
+        let url = AJAX_POSITIONS + '?org_id=' + orgId;
+        if (subId)  url += '&sub_id=' + subId;
+        if (deptId) url += '&dept_id=' + deptId;
+        fetch(url)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                populateSelect(posSelect, data, '--- Выберите должность ---');
+            });
+    }
+
+    orgSelect.addEventListener('change', function () {
+        loadSubdivisions(this.value);
+    });
+
+    subSelect.addEventListener('change', function () {
+        loadDepartments(this.value);
+    });
+
+    deptSelect.addEventListener('change', function () {
+        loadPositions(orgSelect.value, subSelect.value, this.value);
+    });
+
+    // Счётчик строк
+    function updateNamesCount() {
+        const lines = namesTextarea.value.split('\n').filter(function (l) {
+            return l.trim().length > 0;
+        });
+        namesCount.textContent = lines.length;
+    }
+    namesTextarea.addEventListener('input', updateNamesCount);
+    updateNamesCount();
+
+    // При загрузке страницы — подгружаем каскад если организация уже выбрана
+    if (orgSelect.value) {
+        const preselectedSub  = subSelect.value  || '';
+        const preselectedDept = deptSelect.value || '';
+        const preselectedPos  = posSelect.value  || '';
+
+        fetch(AJAX_SUBDIVISIONS + '?org_id=' + orgSelect.value)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                populateSelect(subSelect, data, '--- Без подразделения ---');
+                if (preselectedSub) {
+                    subSelect.value = preselectedSub;
+                    return fetch(AJAX_DEPARTMENTS + '?sub_id=' + preselectedSub)
+                        .then(function (r) { return r.json(); })
+                        .then(function (depts) {
+                            populateSelect(deptSelect, depts, '--- Без отдела ---');
+                            if (preselectedDept) deptSelect.value = preselectedDept;
+                        });
+                }
+            })
+            .then(function () {
+                let url = AJAX_POSITIONS + '?org_id=' + orgSelect.value;
+                if (subSelect.value)  url += '&sub_id='  + subSelect.value;
+                if (deptSelect.value) url += '&dept_id=' + deptSelect.value;
+                return fetch(url).then(function (r) { return r.json(); });
+            })
+            .then(function (positions) {
+                populateSelect(posSelect, positions, '--- Выберите должность ---');
+                if (preselectedPos) posSelect.value = preselectedPos;
+            });
+    }
+}());
+</script>
+{% endblock %}

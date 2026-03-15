@@ -1,150 +1,350 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
 
-{% block title %}{% if object %}Редактировать оборудование{% else %}Добавить оборудование{% endif %}{% endblock %}
+{% block title %}{% if object %}Редактировать оборудование{% else %}Добавить оборудование{% endif %} — OT Online{% endblock %}
 
 {% block extra_css %}
-    {{ form.media.css }}
+{{ form.media.css }}
+<style>
+.eq-form-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+.eq-form-card .card-header {
+    border-radius: 12px 12px 0 0;
+    padding: 1rem 1.4rem;
+    font-weight: 600;
+    font-size: .95rem;
+    letter-spacing: .02em;
+}
+.eq-field-label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .35rem;
+}
+.eq-field-label .icon {
+    font-style: normal;
+    margin-right: .3em;
+}
+.eq-form-card .form-control,
+.eq-form-card .form-select,
+.eq-form-card .select2-container--bootstrap-5 .select2-selection {
+    border-radius: 8px;
+    border-color: #dee2e6;
+    font-size: .9rem;
+}
+.eq-form-card .form-control:focus,
+.eq-form-card .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 .2rem rgba(13,110,253,.15);
+}
+.eq-form-card .form-control[readonly] {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+.field-hint {
+    font-size: .75rem;
+    color: #6c757d;
+    margin-top: .25rem;
+}
+.invalid-feedback { font-size: .8rem; }
+.eq-section-divider {
+    height: 3px;
+    background: linear-gradient(90deg, #0d6efd22, transparent);
+    border: none;
+    margin: 0;
+}
+.next-date-badge {
+    position: absolute;
+    top: 50%;
+    right: .75rem;
+    transform: translateY(-50%);
+    font-size: .7rem;
+    pointer-events: none;
+}
+.next-date-wrapper { position: relative; }
+.btn-save {
+    padding: .6rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .95rem;
+}
+.page-header-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>{% if object %}✏️ Редактировать оборудование{% else %}➕ Добавить оборудование{% endif %}</h2>
+<div class="container mt-4 mb-5" style="max-width: 820px;">
 
-    <form method="post" class="mt-4" id="equipment-form">
-        {% csrf_token %}
-        {{ form|crispy }}
-
-        <div class="mt-3">
-            <button type="submit" class="btn btn-primary">💾 Сохранить</button>
-            <a href="{% url 'deadline_control:equipment:list' %}" class="btn btn-secondary">Отмена</a>
+    {# Заголовок #}
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <div class="page-header-icon bg-primary bg-opacity-10">
+            {% if object %}✏️{% else %}➕{% endif %}
         </div>
+        <div>
+            <h4 class="mb-0 fw-bold">
+                {% if object %}Редактировать оборудование{% else %}Добавить оборудование{% endif %}
+            </h4>
+            <div class="text-muted small">
+                {% if object %}{{ object.equipment_name }}{% else %}Заполните данные о единице оборудования{% endif %}
+            </div>
+        </div>
+        <a href="{% url 'deadline_control:equipment:list' %}" class="btn btn-outline-secondary btn-sm ms-auto">
+            ← Назад к списку
+        </a>
+    </div>
+
+    <form method="post" id="equipment-form" novalidate>
+        {% csrf_token %}
+
+        {# ─── Карточка 1: Основная информация ─── #}
+        <div class="card eq-form-card mb-4">
+            <div class="card-header bg-primary bg-opacity-10 text-primary">
+                🔧 Основная информация
+            </div>
+            <div class="card-body p-4">
+
+                {# Название + Инвентарный номер #}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="eq-field-label"><i class="icon">📋</i>Наименование оборудования <span class="text-danger">*</span></label>
+                        {{ form.equipment_name }}
+                        {% if form.equipment_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.equipment_name.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="eq-field-label"><i class="icon">🔖</i>Инвентарный номер <span class="text-danger">*</span></label>
+                        {{ form.inventory_number }}
+                        {% if form.inventory_number.errors %}
+                            <div class="invalid-feedback d-block">{{ form.inventory_number.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Тип + Грузоподъёмность #}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="eq-field-label"><i class="icon">🏷️</i>Тип оборудования <span class="text-danger">*</span></label>
+                        {{ form.equipment_type }}
+                        {% if form.equipment_type.errors %}
+                            <div class="invalid-feedback d-block">{{ form.equipment_type.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4" id="div_id_load_capacity_kg">
+                        <label class="eq-field-label"><i class="icon">⚖️</i>Грузоподъёмность, кг</label>
+                        {{ form.load_capacity_kg }}
+                        {% if form.load_capacity_kg.errors %}
+                            <div class="invalid-feedback d-block">{{ form.load_capacity_kg.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <hr class="eq-section-divider my-3">
+
+                {# Организация #}
+                <div class="mb-3">
+                    <label class="eq-field-label"><i class="icon">🏢</i>Организация <span class="text-danger">*</span></label>
+                    {{ form.organization }}
+                    {% if form.organization.errors %}
+                        <div class="invalid-feedback d-block">{{ form.organization.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+
+                {# Подразделение + Отдел #}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="eq-field-label"><i class="icon">🏭</i>Подразделение</label>
+                        {{ form.subdivision }}
+                        {% if form.subdivision.errors %}
+                            <div class="invalid-feedback d-block">{{ form.subdivision.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="eq-field-label"><i class="icon">📂</i>Отдел</label>
+                        {{ form.department }}
+                        {% if form.department.errors %}
+                            <div class="invalid-feedback d-block">{{ form.department.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ─── Карточка 2: Техническое обслуживание ─── #}
+        <div class="card eq-form-card mb-4">
+            <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis">
+                🔩 Техническое обслуживание
+            </div>
+            <div class="card-body p-4">
+
+                {# Периодичность + Статус #}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="eq-field-label"><i class="icon">🔁</i>Периодичность ТО, месяцев <span class="text-danger">*</span></label>
+                        {{ form.maintenance_period_months }}
+                        {% if form.maintenance_period_months.errors %}
+                            <div class="invalid-feedback d-block">{{ form.maintenance_period_months.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="eq-field-label"><i class="icon">🚦</i>Статус ТО</label>
+                        {{ form.maintenance_status }}
+                        {% if form.maintenance_status.errors %}
+                            <div class="invalid-feedback d-block">{{ form.maintenance_status.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Даты ТО #}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="eq-field-label"><i class="icon">📅</i>Дата последнего ТО <span class="text-danger">*</span></label>
+                        {{ form.last_maintenance_date }}
+                        {% if form.last_maintenance_date.errors %}
+                            <div class="invalid-feedback d-block">{{ form.last_maintenance_date.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="eq-field-label">
+                            <i class="icon">⏭️</i>Следующее ТО
+                            <span class="badge bg-secondary fw-normal ms-1" style="font-size:.65rem;vertical-align:middle;">авто</span>
+                        </label>
+                        <div class="next-date-wrapper">
+                            {{ form.next_maintenance_date }}
+                        </div>
+                        <div class="field-hint">{{ form.next_maintenance_date.help_text }}</div>
+                        {% if form.next_maintenance_date.errors %}
+                            <div class="invalid-feedback d-block">{{ form.next_maintenance_date.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ─── Ошибки формы (non-field) ─── #}
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger rounded-3 mb-4">
+            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+        {% endif %}
+
+        {# ─── Кнопки ─── #}
+        <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'deadline_control:equipment:list' %}" class="btn btn-outline-secondary btn-save">
+                Отмена
+            </a>
+            <button type="submit" class="btn btn-primary btn-save">
+                💾 {% if object %}Сохранить изменения{% else %}Создать оборудование{% endif %}
+            </button>
+        </div>
+
     </form>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-    {# Подключаем JavaScript медиа-файлы для autocomplete виджетов #}
-    {{ form.media.js }}
+{{ form.media.js }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
 
-    {# Автоматический расчёт даты следующего ТО #}
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Фоллбек-инициализация select2/dal, если по какой-то причине не поднялись автоматически
-        if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
-            jQuery('.select2-basic').each(function() {
-                const $el = jQuery(this);
-                if (!$el.hasClass('select2-hidden-accessible')) {
-                    $el.select2({ width: '100%' });
-                }
-            });
-        }
-
-        const equipmentTypeField = document.getElementById('id_equipment_type');
-        const lastMaintenanceField = document.getElementById('id_last_maintenance_date');
-        const maintenancePeriodField = document.getElementById('id_maintenance_period_months');
-        const nextMaintenanceField = document.getElementById('id_next_maintenance_date');
-        const loadCapacityField = document.getElementById('id_load_capacity_kg');
-        const loadCapacityRow = document.getElementById('div_id_load_capacity_kg');
-
-        function toggleLoadCapacity(typeName) {
-            if (!loadCapacityRow || !loadCapacityField) {
-                return;
+    if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
+        jQuery('.select2-basic').each(function() {
+            const $el = jQuery(this);
+            if (!$el.hasClass('select2-hidden-accessible')) {
+                $el.select2({ width: '100%' });
             }
-            if (typeName === 'Грузовая тележка') {
-                loadCapacityRow.style.display = '';
-                if (!loadCapacityField.value) {
-                    loadCapacityField.value = '2500';
-                }
-            } else {
-                loadCapacityRow.style.display = 'none';
-                loadCapacityField.value = '';
+        });
+    }
+
+    const equipmentTypeField = document.getElementById('id_equipment_type');
+    const lastMaintenanceField = document.getElementById('id_last_maintenance_date');
+    const maintenancePeriodField = document.getElementById('id_maintenance_period_months');
+    const nextMaintenanceField = document.getElementById('id_next_maintenance_date');
+    const loadCapacityField = document.getElementById('id_load_capacity_kg');
+    const loadCapacityRow = document.getElementById('div_id_load_capacity_kg');
+
+    function toggleLoadCapacity(typeName) {
+        if (!loadCapacityRow || !loadCapacityField) return;
+        if (typeName === 'Грузовая тележка') {
+            loadCapacityRow.style.display = '';
+            if (!loadCapacityField.value) loadCapacityField.value = '2500';
+        } else {
+            loadCapacityRow.style.display = 'none';
+            loadCapacityField.value = '';
+        }
+    }
+
+    if (equipmentTypeField) {
+        equipmentTypeField.addEventListener('change', function() {
+            const typeId = this.value;
+            if (typeId) {
+                fetch(`/deadline-control/equipment/type/${typeId}/api/`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            maintenancePeriodField.value = data.default_maintenance_period_months;
+                            calculateNextMaintenanceDate();
+                            toggleLoadCapacity(data.name);
+                        }
+                    })
+                    .catch(err => console.error('Ошибка получения данных о типе:', err));
             }
+        });
+    }
+
+    function addMonths(date, months) {
+        const result = new Date(date);
+        const targetMonth = result.getMonth() + months;
+        const targetYear = result.getFullYear() + Math.floor(targetMonth / 12);
+        const adjustedMonth = targetMonth % 12;
+        result.setFullYear(targetYear);
+        result.setMonth(adjustedMonth);
+        const lastDay = new Date(targetYear, adjustedMonth + 1, 0).getDate();
+        if (result.getDate() > lastDay) result.setDate(lastDay);
+        return result;
+    }
+
+    function calculateNextMaintenanceDate() {
+        if (!lastMaintenanceField || !maintenancePeriodField || !nextMaintenanceField) return;
+        const lastDate = lastMaintenanceField.value;
+        const periodMonths = parseInt(maintenancePeriodField.value);
+        if (lastDate && periodMonths > 0) {
+            const next = addMonths(new Date(lastDate), periodMonths);
+            const y = next.getFullYear();
+            const m = String(next.getMonth() + 1).padStart(2, '0');
+            const d = String(next.getDate()).padStart(2, '0');
+            nextMaintenanceField.value = `${y}-${m}-${d}`;
+        } else {
+            nextMaintenanceField.value = '';
         }
+    }
 
-        // ========== АВТОПОДСТАНОВКА ПЕРИОДИЧНОСТИ ТО ПРИ ВЫБОРЕ ТИПА ==========
-        if (equipmentTypeField) {
-            equipmentTypeField.addEventListener('change', function() {
-                const typeId = this.value;
+    if (lastMaintenanceField && maintenancePeriodField) {
+        lastMaintenanceField.addEventListener('change', calculateNextMaintenanceDate);
+        maintenancePeriodField.addEventListener('change', calculateNextMaintenanceDate);
+        maintenancePeriodField.addEventListener('input', calculateNextMaintenanceDate);
+        calculateNextMaintenanceDate();
+    }
 
-                if (typeId) {
-                    // Запрашиваем данные о типе оборудования через API
-                    fetch(`/deadline-control/equipment/type/${typeId}/api/`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                // Автоматически подставляем периодичность ТО
-                                maintenancePeriodField.value = data.default_maintenance_period_months;
-
-                                // Пересчитываем дату следующего ТО
-                                calculateNextMaintenanceDate();
-                                toggleLoadCapacity(data.name);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Ошибка получения данных о типе оборудования:', error);
-                        });
-                }
-            });
-        }
-
-        // Функция для добавления месяцев к дате (как в Python модели)
-        function addMonths(date, months) {
-            const result = new Date(date);
-            const targetMonth = result.getMonth() + months;
-            const targetYear = result.getFullYear() + Math.floor(targetMonth / 12);
-            const adjustedMonth = targetMonth % 12;
-
-            result.setFullYear(targetYear);
-            result.setMonth(adjustedMonth);
-
-            // Корректируем день, если он выходит за пределы месяца
-            const lastDayOfMonth = new Date(targetYear, adjustedMonth + 1, 0).getDate();
-            if (result.getDate() > lastDayOfMonth) {
-                result.setDate(lastDayOfMonth);
-            }
-
-            return result;
-        }
-
-        // Функция для расчёта и отображения следующей даты ТО
-        function calculateNextMaintenanceDate() {
-            if (!lastMaintenanceField || !maintenancePeriodField || !nextMaintenanceField) {
-                return;
-            }
-
-            const lastDate = lastMaintenanceField.value;
-            const periodMonths = parseInt(maintenancePeriodField.value);
-
-            if (lastDate && periodMonths > 0) {
-                const lastMaintenanceDate = new Date(lastDate);
-                const nextDate = addMonths(lastMaintenanceDate, periodMonths);
-
-                // Форматируем дату в YYYY-MM-DD
-                const year = nextDate.getFullYear();
-                const month = String(nextDate.getMonth() + 1).padStart(2, '0');
-                const day = String(nextDate.getDate()).padStart(2, '0');
-                nextMaintenanceField.value = `${year}-${month}-${day}`;
-            } else {
-                nextMaintenanceField.value = '';
-            }
-        }
-
-        // Пересчитываем при изменении даты последнего ТО или периодичности
-        if (lastMaintenanceField && maintenancePeriodField) {
-            lastMaintenanceField.addEventListener('change', calculateNextMaintenanceDate);
-            maintenancePeriodField.addEventListener('change', calculateNextMaintenanceDate);
-            maintenancePeriodField.addEventListener('input', calculateNextMaintenanceDate);
-
-            // Рассчитываем при загрузке страницы (для редактирования)
-            calculateNextMaintenanceDate();
-        }
-
-        if (equipmentTypeField) {
-            const selectedOption = equipmentTypeField.options[equipmentTypeField.selectedIndex];
-            const initialName = selectedOption ? selectedOption.text.trim() : '';
-            toggleLoadCapacity(initialName);
-        }
-    });
-    </script>
+    if (equipmentTypeField) {
+        const selectedOption = equipmentTypeField.options[equipmentTypeField.selectedIndex];
+        const initialName = selectedOption ? selectedOption.text.trim() : '';
+        toggleLoadCapacity(initialName);
+    }
+});
+</script>
 {% endblock %}

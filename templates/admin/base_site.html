@@ -37,6 +37,81 @@
         #header a:hover {
             color: var(--accent-color);
         }
+
+        .admin-mobile-filter-toggle {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            margin: 10px 0 12px;
+            padding: 8px 12px;
+            border: 1px solid #cdd6df;
+            border-radius: 6px;
+            background: #fff;
+            color: #2c3e50;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .admin-mobile-filter-toggle:hover {
+            background: #f4f7fa;
+        }
+
+        .admin-mobile-filter-toggle.has-active-filters {
+            border-color: #417690;
+            color: #205067;
+            background: #eef6fa;
+        }
+
+        .admin-mobile-filter-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 1050;
+            cursor: pointer;
+        }
+
+        body.has-mobile-filter #changelist-filter {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: min(420px, 92vw);
+            max-width: 92vw;
+            margin: 0;
+            padding: 14px 12px 20px;
+            overflow-y: auto;
+            background: #fff;
+            box-shadow: -10px 0 24px rgba(0, 0, 0, 0.2);
+            transform: translateX(102%);
+            transition: transform 0.25s ease;
+            z-index: 1100;
+        }
+
+        body.has-mobile-filter #changelist-filter h2 {
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        body.has-mobile-filter.filter-drawer-open #changelist-filter {
+            transform: translateX(0);
+        }
+
+        body.has-mobile-filter .admin-mobile-filter-toggle {
+            display: inline-flex;
+        }
+
+        body.has-mobile-filter.filter-drawer-open .admin-mobile-filter-overlay {
+            display: block;
+        }
+
+        body.has-mobile-filter.filter-drawer-open {
+            overflow: hidden;
+        }
     </style>
 {% endblock %}
 
@@ -52,6 +127,113 @@
     <meta name="yandex" content="noindex, nofollow">
 
     {# Дополнительные скрипты smart‑selects удалены, так как они больше не используются. #}
+    <script>
+        (function() {
+            const FILTER_ID = "changelist-filter";
+            const TOGGLE_ID = "admin-mobile-filter-toggle";
+            const OVERLAY_ID = "admin-mobile-filter-overlay";
+            const IGNORED_QUERY_KEYS = new Set([
+                "p",
+                "o",
+                "ot",
+                "q",
+                "is_popup",
+                "to_field",
+                "_facets",
+                "_popup",
+                "_to_field",
+                "_changelist_filters"
+            ]);
+
+            function getActiveFiltersCount() {
+                let count = 0;
+                const params = new URLSearchParams(window.location.search);
+                params.forEach((value, key) => {
+                    if (!value) {
+                        return;
+                    }
+                    if (!IGNORED_QUERY_KEYS.has(key)) {
+                        count += 1;
+                    }
+                });
+                return count;
+            }
+
+            function createToggle(hostNode) {
+                let toggle = document.getElementById(TOGGLE_ID);
+                if (toggle) {
+                    return toggle;
+                }
+                toggle = document.createElement("button");
+                toggle.type = "button";
+                toggle.id = TOGGLE_ID;
+                toggle.className = "admin-mobile-filter-toggle";
+                toggle.setAttribute("aria-controls", FILTER_ID);
+                toggle.setAttribute("aria-expanded", "false");
+                toggle.setAttribute("aria-label", "Открыть фильтры");
+                hostNode.parentNode.insertBefore(toggle, hostNode);
+                return toggle;
+            }
+
+            function createOverlay() {
+                let overlay = document.getElementById(OVERLAY_ID);
+                if (overlay) {
+                    return overlay;
+                }
+                overlay = document.createElement("div");
+                overlay.id = OVERLAY_ID;
+                overlay.className = "admin-mobile-filter-overlay";
+                overlay.setAttribute("aria-hidden", "true");
+                overlay.setAttribute("aria-label", "Закрыть фильтры");
+                document.body.appendChild(overlay);
+                return overlay;
+            }
+
+            function updateToggleLabel(toggle) {
+                const activeFilters = getActiveFiltersCount();
+                toggle.textContent = activeFilters > 0
+                    ? "Фильтры (" + activeFilters + ")"
+                    : "Фильтры";
+                toggle.classList.toggle("has-active-filters", activeFilters > 0);
+            }
+
+            function setDrawerState(open, toggle) {
+                const shouldOpen = Boolean(open);
+                document.body.classList.toggle("filter-drawer-open", shouldOpen);
+                toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+                toggle.setAttribute("aria-label", shouldOpen ? "Скрыть фильтры" : "Открыть фильтры");
+            }
+
+            document.addEventListener("DOMContentLoaded", function() {
+                const filter = document.getElementById(FILTER_ID);
+                if (!filter) {
+                    return;
+                }
+
+                const host = document.getElementById("changelist") || filter;
+                const toggle = createToggle(host);
+                const overlay = createOverlay();
+                document.body.classList.add("has-mobile-filter");
+                updateToggleLabel(toggle);
+                setDrawerState(false, toggle);
+
+                toggle.addEventListener("click", function() {
+                    const isOpen = document.body.classList.contains("filter-drawer-open");
+                    setDrawerState(!isOpen, toggle);
+                });
+
+                overlay.addEventListener("click", function() {
+                    setDrawerState(false, toggle);
+                });
+
+                document.addEventListener("keydown", function(event) {
+                    if (event.key === "Escape") {
+                        setDrawerState(false, toggle);
+                    }
+                });
+            });
+        })();
+    </script>
 {% endblock %}
 
 {# 📱 Блок для адаптивного дизайна – добавление meta-тега viewport. #}

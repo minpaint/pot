@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from .siz_issued import SIZIssued  # Реэкспорт для обратной совместимости импорта
 
 
 class SIZ(models.Model):
@@ -61,10 +62,8 @@ class SIZ(models.Model):
 
 class ProfessionSIZNorm(models.Model):
     """
-    📖 Эталонные нормы выдачи СИЗ для ПРОФЕССИИ (не привязаны к конкретной должности)
-
-    Эта модель хранит справочные нормы СИЗ для профессий.
-    Используется как эталон для всех должностей с одинаковым названием.
+    📖 Эталонные нормы СИЗ для профессии (справочник).
+    Используется как fallback, если у конкретной должности нет переопределённых норм.
     """
     profession_name = models.CharField(
         "Название профессии",
@@ -87,7 +86,7 @@ class ProfessionSIZNorm(models.Model):
         max_length=255,
         blank=True,
         default='',
-        help_text="Например: 'При влажной уборке помещений', 'При работе на высоте' и т.д."
+        help_text="Например: 'При влажной уборке помещений'"
     )
     order = models.PositiveIntegerField(
         "Порядок отображения",
@@ -96,7 +95,7 @@ class ProfessionSIZNorm(models.Model):
 
     class Meta:
         verbose_name = "📖 Эталонная норма СИЗ профессии"
-        verbose_name_plural = "📖 Эталонные нормы СИЗ профессий"
+        verbose_name_plural = "📖 1. Эталонные нормы СИЗ (справочник)"
         unique_together = [['profession_name', 'siz', 'condition']]
         ordering = ['profession_name', 'condition', 'order', 'siz__name']
         indexes = [
@@ -104,9 +103,7 @@ class ProfessionSIZNorm(models.Model):
         ]
 
     def __str__(self):
-        if self.condition:
-            return f"{self.profession_name} - {self.siz.name} ({self.condition})"
-        return f"{self.profession_name} - {self.siz.name}"
+        return f"{self.profession_name} — {self.siz.name}"
 
 
 class SIZNorm(models.Model):

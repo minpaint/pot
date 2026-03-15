@@ -178,7 +178,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             )
         }),
         ('🛡️ Переопределение норм СИЗ', {
-            'fields': ('siz_norms_overridden',),
+            'fields': ('requires_siz', 'siz_norms_overridden'),
             'description': '''<strong>⚠️ Включите этот флаг, если:</strong><br>
 • Для этой должности нормы СИЗ отличаются от эталонных (заполните таблицу ниже)<br>
 • Или СИЗ вообще НЕ положены (оставьте таблицу пустой → будет красный индикатор 🔴)<br><br>
@@ -269,9 +269,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         """
         try:
             extra_context = extra_context or {}
-            # Получить доступные организации для фильтра
             from directory.models import Organization, StructuralSubdivision, Department
-            from django.db.models import Count
 
             if request.user.is_superuser:
                 accessible_orgs = Organization.objects.all()
@@ -280,24 +278,12 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             else:
                 accessible_orgs = Organization.objects.none()
 
-            # Передаем список всех доступных организаций для dropdown фильтра
-            org_options = accessible_orgs.annotate(
-                position_count=Count('positions')
-            ).filter(position_count__gt=0).order_by('-position_count')
-
-            org_param = request.GET.get('organization__id__exact')
+            # Организация берётся только из глобального хэдера (сессия selected_org_id)
             selected_org_id = None
-            if org_param and org_param.isdigit():
-                selected_org_id = int(org_param)
-                # Синхронизируем сессию при явном выборе через GET
-                request.session['selected_org_id'] = selected_org_id
-            elif not org_param:
-                # Нет явного GET-фильтра — берём из сессии
-                session_org_id = request.session.get('selected_org_id')
-                if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
-                    selected_org_id = session_org_id
+            session_org_id = request.session.get('selected_org_id')
+            if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
+                selected_org_id = session_org_id
 
-            extra_context['org_options'] = org_options
             extra_context['selected_org_id'] = selected_org_id
 
             sub_param = request.GET.get('subdivision__id__exact')
@@ -518,14 +504,13 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
-        # Фильтрация по выбранной организации из dropdown или сессии
-        org_param = request.GET.get('organization__id__exact')
-        if org_param and org_param.isdigit():
-            qs = qs.filter(organization_id=int(org_param))
+        # Фильтрация по организации из глобального хэдера (сессия)
+        session_org_id = request.session.get('selected_org_id')
+        if session_org_id:
+            qs = qs.filter(organization_id=session_org_id)
         else:
-            session_org_id = request.session.get('selected_org_id')
-            if session_org_id:
-                qs = qs.filter(organization_id=session_org_id)
+            # Нет выбранной организации — возвращаем пустой queryset
+            qs = qs.none()
 
         sub_param = request.GET.get('subdivision__id__exact')
         if sub_param and sub_param.isdigit():
@@ -648,22 +633,27 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                 self.fields[
                     'equipment'].help_text = "Удерживайте 'Control' (или 'Command' на Mac), чтобы выбрать несколько значений."
                 # Фильтруем документы и оборудование по организациям
-                if hasattr(request.user, 'profile'):
+                from directory.models import Organization as _Org
+                if request.user.is_superuser or request.user.is_staff:
+                    allowed_orgs = _Org.objects.all()
+                elif hasattr(request.user, 'profile'):
                     allowed_orgs = request.user.profile.organizations.all()
-                    # Базовые queryset
-                    docs_qs = self.fields['documents'].queryset
-                    equip_qs = self.fields['equipment'].queryset
-                    # Если редактируем существующий объект
-                    if obj:
-                        # Фильтруем по организации объекта
-                        docs_qs = docs_qs.filter(organization=obj.organization)
-                        equip_qs = equip_qs.filter(organization=obj.organization)
-                    # Фильтруем по доступным организациям
-                    docs_qs = docs_qs.filter(organization__in=allowed_orgs).distinct().order_by('name')
-                    equip_qs = equip_qs.filter(
-                        organization__in=allowed_orgs).distinct().order_by('equipment_name')
-                    self.fields['documents'].queryset = docs_qs
-                    self.fields['equipment'].queryset = equip_qs
+                else:
+                    allowed_orgs = _Org.objects.none()
+                # Базовые queryset
+                docs_qs = self.fields['documents'].queryset
+                equip_qs = self.fields['equipment'].queryset
+                # Если редактируем существующий объект
+                if obj:
+                    # Фильтруем по организации объекта
+                    docs_qs = docs_qs.filter(organization=obj.organization)
+                    equip_qs = equip_qs.filter(organization=obj.organization)
+                # Фильтруем по доступным организациям
+                docs_qs = docs_qs.filter(organization__in=allowed_orgs).distinct().order_by('name')
+                equip_qs = equip_qs.filter(
+                    organization__in=allowed_orgs).distinct().order_by('equipment_name')
+                self.fields['documents'].queryset = docs_qs
+                self.fields['equipment'].queryset = equip_qs
 
         return PositionFormWithUser
 

@@ -1,7 +1,13 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from directory.models import Organization, Employee, Position
+from unittest.mock import patch, sentinel
+
+from directory.document_generators.familiarization_generator import (
+    generate_familiarization_document,
+)
+from directory.forms.position import PositionForm
+from directory.models import Organization, Employee, Position, Document
 
 
 class EmployeeTests(TestCase):
@@ -86,4 +92,131 @@ class EmployeeTests(TestCase):
             response,
             reverse('directory:employee_list'),
             status_code=302
+        )
+
+
+class FamiliarizationGeneratorTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(
+            full_name_ru="Тестовая организация",
+            short_name_ru="ТестОрг",
+            full_name_by="Тэставая арганізацыя",
+            short_name_by="ТэстАрг"
+        )
+        self.position = Position.objects.create(
+            position_name="Тестовая должность",
+            organization=self.organization
+        )
+        self.employee = Employee.objects.create(
+            full_name_nominative="Иванов Иван Иванович",
+            organization=self.organization,
+            position=self.position
+        )
+
+    @patch(
+        "directory.document_generators.familiarization_generator.get_document_template",
+        return_value=sentinel.template,
+    )
+    @patch(
+        "directory.document_generators.familiarization_generator.prepare_employee_context",
+        return_value={"current_date": "15.03.2026"},
+    )
+    @patch(
+        "directory.document_generators.familiarization_generator.generate_docx_from_template"
+    )
+    @patch(
+        "directory.views.documents.utils.get_employee_documents",
+        return_value=(None, False),
+    )
+    def test_familiarization_document_not_generated_without_documents(
+        self,
+        mock_get_employee_documents,
+        mock_generate_docx_from_template,
+        mock_prepare_employee_context,
+        mock_get_document_template,
+    ):
+        result = generate_familiarization_document(self.employee)
+
+        self.assertIsNone(result)
+        mock_get_document_template.assert_called_once_with(
+            "doc_familiarization",
+            self.employee,
+        )
+        mock_prepare_employee_context.assert_called_once_with(self.employee)
+        mock_get_employee_documents.assert_called_once_with(self.employee)
+        mock_generate_docx_from_template.assert_not_called()
+
+    @patch(
+        "directory.document_generators.familiarization_generator.get_document_template",
+        return_value=sentinel.template,
+    )
+    @patch(
+        "directory.document_generators.familiarization_generator.prepare_employee_context",
+        return_value={"current_date": "15.03.2026"},
+    )
+    @patch(
+        "directory.document_generators.familiarization_generator.generate_docx_from_template",
+        return_value={"content": b"test", "filename": "familiarization.docx"},
+    )
+    @patch(
+        "directory.views.documents.utils.get_employee_documents",
+        return_value=(["ПВТР", "Инструкция по ОТ"], True),
+    )
+    def test_familiarization_document_uses_employee_documents(
+        self,
+        mock_get_employee_documents,
+        mock_generate_docx_from_template,
+        mock_prepare_employee_context,
+        mock_get_document_template,
+    ):
+        result = generate_familiarization_document(self.employee)
+
+        self.assertEqual(
+            result,
+            {"content": b"test", "filename": "familiarization.docx"},
+        )
+        mock_get_document_template.assert_called_once_with(
+            "doc_familiarization",
+            self.employee,
+        )
+        mock_prepare_employee_context.assert_called_once_with(self.employee)
+        mock_get_employee_documents.assert_called_once_with(self.employee)
+        mock_generate_docx_from_template.assert_called_once()
+
+        args, kwargs = mock_generate_docx_from_template.call_args
+        self.assertIs(args[0], sentinel.template)
+        self.assertEqual(
+            args[1]["all_documents"],
+            ["ПВТР", "Инструкция по ОТ"],
+        )
+        self.assertEqual(args[1]["documents_list"], "DOCMARKER_START")
+        self.assertEqual(args[1]["familiarization_date"], "15.03.2026")
+        self.assertIs(args[2], self.employee)
+        self.assertIsNone(args[3])
+        self.assertEqual(kwargs["post_processor"].__name__, "process_table_rows")
+
+
+class PositionFormDocumentTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(
+            full_name_ru="Тестовая организация",
+            short_name_ru="ТестОрг",
+            full_name_by="Тэставая арганізацыя",
+            short_name_by="ТэстАрг"
+        )
+        self.position = Position.objects.create(
+            position_name="Тестовая должность",
+            organization=self.organization
+        )
+        self.general_document = Document.objects.create(
+            name="Общий документ организации",
+            organization=self.organization
+        )
+
+    def test_position_form_shows_all_organization_documents(self):
+        form = PositionForm(instance=self.position)
+
+        self.assertIn(
+            self.general_document,
+            form.fields["documents"].queryset,
         )

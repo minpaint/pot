@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<div id="content-main">
+<div id="content-main" class="document-tree-page">
     <div class="object-tools">
         <a href="{% url 'admin:directory_document_add' %}" class="addlink">
             Добавить
@@ -31,11 +31,15 @@
         </div>
         <div class="results">
             <table id="result_list">
+                <colgroup>
+                    <col class="col-checkbox">
+                    <col class="col-name">
+                    <col class="col-actions">
+                </colgroup>
                 <thead>
                     <tr>
                         <th class="column-checkbox"><input type="checkbox" id="select-all"></th>
                         <th class="column-name">НАИМЕНОВАНИЕ</th>
-                        <th class="column-roles">АТРИБУТЫ/РОЛИ</th>
                         <th class="column-actions">ДЕЙСТВИЯ</th>
                     </tr>
                 </thead>
@@ -48,7 +52,6 @@
                             <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
                             <strong>{{ org_data.name }}</strong>
                         </td>
-                        <td class="field-roles"></td>
                         <td class="field-actions"></td>
                     </tr>
                     {# Элементы без subdivision #}
@@ -63,7 +66,6 @@
                                 {{ item.name }}
                             </a>
                         </td>
-                        <td class="field-roles"></td>
                         <td class="field-actions">
                             <a href="{% url 'admin:directory_document_change' item.object.pk %}" class="edit-link">✏️</a>
                             <a href="{% url 'admin:directory_document_delete' item.object.pk %}" class="delete-link">🗑️</a>
@@ -80,7 +82,6 @@
                             <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
                             {{ sub_data.name }}
                         </td>
-                        <td class="field-roles"></td>
                         <td class="field-actions"></td>
                     </tr>
                         {# Элементы без department #}
@@ -95,7 +96,6 @@
                                     {{ item.name }}
                                 </a>
                             </td>
-                            <td class="field-roles"></td>
                             <td class="field-actions">
                                 <a href="{% url 'admin:directory_document_change' item.object.pk %}" class="edit-link">✏️</a>
                                 <a href="{% url 'admin:directory_document_delete' item.object.pk %}" class="delete-link">🗑️</a>
@@ -112,7 +112,6 @@
                                 <span class="tree-icon">{{ tree_settings.icons.department }}</span>
                                 {{ dept_data.name }}
                             </td>
-                            <td class="field-roles"></td>
                             <td class="field-actions"></td>
                         </tr>
                         {% for item in dept_data.items %}
@@ -126,7 +125,6 @@
                                     {{ item.name }}
                                 </a>
                             </td>
-                            <td class="field-roles"></td>
                             <td class="field-actions">
                                 <a href="{% url 'admin:directory_document_change' item.object.pk %}" class="edit-link">✏️</a>
                                 <a href="{% url 'admin:directory_document_delete' item.object.pk %}" class="delete-link">🗑️</a>
@@ -149,4 +147,36 @@
     <link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
     <script src="{% static 'admin/js/tree_view.js' %}"></script>
     <script src="{% static 'admin/js/tree_search.js' %}"></script>
+    <style>
+        .document-tree-page #result_list col.col-checkbox {
+            width: 36px;
+        }
+
+        .document-tree-page #result_list col.col-name {
+            width: auto;
+        }
+
+        .document-tree-page #result_list col.col-actions {
+            width: 104px;
+        }
+
+        .document-tree-page .column-name,
+        .document-tree-page .field-name {
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .document-tree-page .column-actions,
+        .document-tree-page .field-actions {
+            white-space: nowrap;
+            text-align: center !important;
+        }
+
+        .document-tree-page .field-actions a {
+            margin: 0 3px;
+            text-decoration: none;
+            font-size: 16px;
+        }
+    </style>
 {% endblock %}

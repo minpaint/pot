@@ -350,6 +350,12 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {% if base_norms %}
+                            <tr class="condition-row">
+                                <td colspan="5">Основная норма:</td>
+                                <td class="checkbox-column"></td>
+                            </tr>
+                            {% endif %}
                             {% for norm in base_norms %}
                             <tr class="siz-item-row" data-id="{{ norm.id }}">
                                 <td class="siz-name">{{ norm.siz.name }}</td>

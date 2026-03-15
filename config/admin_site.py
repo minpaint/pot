@@ -15,26 +15,14 @@ class OTAdminSite(AdminSite):
     index_title = "Панель управления"
 
     MENU_ORDER = OrderedDict([
-        (_("🔑 Администрирование доступа"), [
-            "UserProxy", "GroupProxy",
-        ]),
-        (_("📧 Уведомления"), [
-            "EmailSettings",
-            "EmailTemplateType",
-            "EmailTemplate",
-        ]),
-        (_("📨 Исходящие письма"), [
-            "InstructionJournalSendLog",
-            "MedicalNotificationSendLog",
-            "KeyDeadlineSendLog",
-            "EquipmentJournalSendLog",
-            "DocumentEmailSendLog",
-        ]),
         (_("🏢 Организация"), [
             "Organization", "Subdivision", "Department", "StructuralSubdivision",
         ]),
         (_("👥 Сотрудники и должности"), [
             "Position", "Employee", "ResponsibilityType",
+        ]),
+        (_("📑 Прием на работу"), [
+            "EmployeeHiring", "Commission",
         ]),
         (_("🏥 Медосмотры"), [
             "MedicalSettings",
@@ -55,11 +43,20 @@ class OTAdminSite(AdminSite):
         (_("🛡️ СИЗ"), [
             "SIZ", "SIZNorm",
         ]),
+        (_("📧 Уведомления"), [
+            "EmailSettings",
+            "EmailTemplateType",
+            "EmailTemplate",
+        ]),
+        (_("📨 Исходящие письма"), [
+            "InstructionJournalSendLog",
+            "MedicalNotificationSendLog",
+            "KeyDeadlineSendLog",
+            "EquipmentJournalSendLog",
+            "DocumentEmailSendLog",
+        ]),
         (_("📄 Документы и шаблоны"), [
             "Document", "DocumentTemplateType", "DocumentTemplate", "GeneratedDocument", "DocumentGenerationLog",
-        ]),
-        (_("📑 Прием на работу"), [
-            "EmployeeHiring", "Commission",
         ]),
         (_("🎓 Обучение на производстве"), [
             "ProductionTraining",
@@ -72,6 +69,9 @@ class OTAdminSite(AdminSite):
         ]),
         (_("📊 Импорт/Экспорт данных"), [
             "ImportExportMenu",
+        ]),
+        (_("🔑 Администрирование доступа"), [
+            "UserProxy", "GroupProxy",
         ]),
     ])
 
@@ -126,10 +126,10 @@ class OTAdminSite(AdminSite):
                     if m['object_name'] == model:
                         grouped_apps[section]['models'].append(m)
 
-        # Прочее
-        grouped_apps["📦 Прочее"] = {'name': "📦 Прочее", 'models': []}
+        # Экзамены
+        grouped_apps["💻 Проверка знаний"] = {'name': "💻 Проверка знаний", 'models': []}
         for m in all_models:
             if not any(m['object_name'] in models for models in self.MENU_ORDER.values()):
-                grouped_apps["📦 Прочее"]['models'].append(m)
+                grouped_apps["💻 Проверка знаний"]['models'].append(m)
 
         return [section for section in grouped_apps.values() if section['models']]

@@ -153,6 +153,10 @@ siz_patterns = [
     # Карточки СИЗ (массовая генерация)
     path('mass-generation/', siz.SIZMassGenerationView.as_view(), name='mass_generation'),
     path('mass-generation/generate/', siz.generate_siz_cards_bulk, name='mass_generation_generate'),
+    path('recipients/<int:subdivision_id>/', siz.get_siz_recipients, name='siz_recipients'),
+    path('send-for-organization/<int:organization_id>/', siz.send_siz_cards_for_organization, name='send_for_organization'),
+    path('send-for-subdivision/<int:subdivision_id>/', siz.send_siz_cards_single, name='send_for_subdivision'),
+    path('send-for-department/<int:department_id>/', siz.send_siz_cards_for_department, name='send_for_department'),
 ]
 
 # 👤 Личные карточки по ОТ

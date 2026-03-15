@@ -8,8 +8,8 @@
    ============================================================================ */
 :root {
     /* Размеры sidebar */
-    --sidebar-width-desktop: 200px;
-    --sidebar-width-tablet: 180px;
+    --sidebar-width-desktop: 230px;
+    --sidebar-width-tablet: 200px;
     --sidebar-width-mobile: 280px;
 
     /* Адаптивные отступы используя clamp() */

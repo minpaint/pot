@@ -35,8 +35,22 @@ def generate_siz_card_docx_view(request, employee_id):
     selected_norm_ids = request.GET.getlist('selected_norms', [])
     logger.info(f"Выбрано норм СИЗ: {len(selected_norm_ids)}, IDs: {selected_norm_ids}")
 
-    # Создаем контекст с выбранными нормами
-    custom_context = {'selected_norm_ids': selected_norm_ids} if selected_norm_ids else None
+    # Дата выдачи из GET-параметра
+    issue_date_str = request.GET.get('issue_date', '')
+    issue_date_display = ''
+    if issue_date_str:
+        from datetime import datetime as dt
+        try:
+            issue_date_display = dt.strptime(issue_date_str, '%Y-%m-%d').strftime('%d.%m.%Y')
+        except ValueError:
+            issue_date_display = issue_date_str
+
+    custom_context = {}
+    if selected_norm_ids:
+        custom_context['selected_norm_ids'] = selected_norm_ids
+    if issue_date_display:
+        custom_context['siz_issue_date'] = issue_date_display
+    custom_context = custom_context or None
 
     # Генерируем документ
     result = generate_siz_card_docx(employee, request.user, custom_context)

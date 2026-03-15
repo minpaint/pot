@@ -54,9 +54,3 @@ class DepartmentAdmin(OrgFilterAdminMixin, TreeViewMixin, admin.ModelAdmin):
     list_filter = ['organization', 'subdivision']
     search_fields = ['name', 'short_name']
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if not request.user.is_superuser and hasattr(request.user, 'profile'):
-            allowed_orgs = request.user.profile.organizations.all()
-            qs = qs.filter(organization__in=allowed_orgs)
-        return qs

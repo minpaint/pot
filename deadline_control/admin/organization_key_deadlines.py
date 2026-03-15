@@ -4,6 +4,7 @@ from django.utils.html import format_html
 
 from directory.models import Organization
 from deadline_control.models import KeyDeadlineItem
+from directory.admin.mixins.org_filter import OrgFilterAdminMixin
 
 
 class KeyDeadlineItemInline(admin.TabularInline):
@@ -18,7 +19,10 @@ class KeyDeadlineItemInline(admin.TabularInline):
 
 
 @admin.register(Organization)
-class OrganizationKeyDeadlinesAdmin(admin.ModelAdmin):
+class OrganizationKeyDeadlinesAdmin(OrgFilterAdminMixin, admin.ModelAdmin):
+    org_filter_lookup = 'pk'
+    org_profile_lookup = 'pk__in'
+    org_filter_get_params = ('id__exact', 'pk')
     """
     📅 Ключевые сроки организаций
     Управление всеми мероприятиями через организацию
@@ -52,14 +56,6 @@ class OrganizationKeyDeadlinesAdmin(admin.ModelAdmin):
             return format_html('<span style="color:red; font-weight:bold;">🚨 {}</span>', count)
         return format_html('<span style="color:green;">✅ 0</span>')
     overdue_items_count.short_description = "Просроченных"
-
-    def get_queryset(self, request):
-        """Фильтрация по организациям пользователя"""
-        qs = super().get_queryset(request)
-        if not request.user.is_superuser and hasattr(request.user, 'profile'):
-            allowed_orgs = request.user.profile.organizations.all()
-            qs = qs.filter(pk__in=allowed_orgs)
-        return qs
 
     class Media:
         css = {

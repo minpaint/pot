@@ -102,13 +102,6 @@ class StructuralSubdivisionAdmin(OrgFilterAdminMixin, TreeViewMixin, admin.Model
 
         return FormWithUser
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if not request.user.is_superuser and hasattr(request.user, 'profile'):
-            allowed_orgs = request.user.profile.organizations.all()
-            qs = qs.filter(organization__in=allowed_orgs)
-        return qs
-
     # ================================
     # Дополнительные URL (экспорт/импорт email)
     # ================================

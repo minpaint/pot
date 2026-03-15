@@ -38,15 +38,26 @@ def apply_session_org_filter(
 
 class OrgFilterAdminMixin:
     """
-    Миксин для AdminModelAdmin-классов, фильтрующий queryset по выбранной
-    организации из сессии.
+    Миксин для ModelAdmin-классов с единой логикой фильтрации по организации:
+    - обычные пользователи (не staff): фильтр по profile.organizations
+    - admin/superuser: фильтр по selected_org_id из сессии (хэдер)
     """
 
-    org_filter_lookup = 'organization_id'
+    org_filter_lookup = 'organization_id'      # lookup для сессионного фильтра
+    org_profile_lookup = 'organization__in'    # lookup для профильного фильтра
     org_filter_get_params = DEFAULT_ORG_GET_FILTER_KEYS
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+
+        # Обычные пользователи — фильтр по profile.organizations
+        if not (request.user.is_superuser or request.user.is_staff):
+            if hasattr(request.user, 'profile'):
+                qs = qs.filter(**{self.org_profile_lookup: request.user.profile.organizations.all()})
+            else:
+                return qs.none()
+
+        # Для всех пользователей — дополнительный фильтр по выбранной org в хэдере
         return apply_session_org_filter(
             request,
             qs,

@@ -499,8 +499,8 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             'medical_factors'  # Предзагрузка вредных факторов
         )
 
-        # Фильтрация по правам доступа
-        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+        # Фильтрация по правам доступа (только для обычных пользователей, не admin/staff)
+        if not (request.user.is_superuser or request.user.is_staff) and hasattr(request.user, 'profile'):
             allowed_orgs = request.user.profile.organizations.all()
             qs = qs.filter(organization__in=allowed_orgs)
 
@@ -632,28 +632,38 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                     'documents'].help_text = "Удерживайте 'Control' (или 'Command' на Mac), чтобы выбрать несколько значений."
                 self.fields[
                     'equipment'].help_text = "Удерживайте 'Control' (или 'Command' на Mac), чтобы выбрать несколько значений."
-                # Фильтруем документы и оборудование по организациям
+                # Фильтруем документы и оборудование по организации
                 from directory.models import Organization as _Org
                 if request.user.is_superuser or request.user.is_staff:
-                    allowed_orgs = _Org.objects.all()
+                    # Для admin: используем организацию из хэдера (сессия)
+                    session_org_id = request.session.get('selected_org_id')
+                    if session_org_id:
+                        try:
+                            session_org = _Org.objects.get(pk=session_org_id)
+                            docs_qs = self.fields['documents'].queryset.filter(organization=session_org)
+                            equip_qs = self.fields['equipment'].queryset.filter(organization=session_org)
+                        except _Org.DoesNotExist:
+                            docs_qs = self.fields['documents'].queryset.none()
+                            equip_qs = self.fields['equipment'].queryset.none()
+                    elif obj and obj.organization:
+                        # Нет org в сессии, но есть объект — показываем его org
+                        docs_qs = self.fields['documents'].queryset.filter(organization=obj.organization)
+                        equip_qs = self.fields['equipment'].queryset.filter(organization=obj.organization)
+                    else:
+                        docs_qs = self.fields['documents'].queryset.none()
+                        equip_qs = self.fields['equipment'].queryset.none()
                 elif hasattr(request.user, 'profile'):
                     allowed_orgs = request.user.profile.organizations.all()
+                    docs_qs = self.fields['documents'].queryset.filter(organization__in=allowed_orgs)
+                    equip_qs = self.fields['equipment'].queryset.filter(organization__in=allowed_orgs)
+                    if obj and obj.organization:
+                        docs_qs = docs_qs.filter(organization=obj.organization)
+                        equip_qs = equip_qs.filter(organization=obj.organization)
                 else:
-                    allowed_orgs = _Org.objects.none()
-                # Базовые queryset
-                docs_qs = self.fields['documents'].queryset
-                equip_qs = self.fields['equipment'].queryset
-                # Если редактируем существующий объект
-                if obj:
-                    # Фильтруем по организации объекта
-                    docs_qs = docs_qs.filter(organization=obj.organization)
-                    equip_qs = equip_qs.filter(organization=obj.organization)
-                # Фильтруем по доступным организациям
-                docs_qs = docs_qs.filter(organization__in=allowed_orgs).distinct().order_by('name')
-                equip_qs = equip_qs.filter(
-                    organization__in=allowed_orgs).distinct().order_by('equipment_name')
-                self.fields['documents'].queryset = docs_qs
-                self.fields['equipment'].queryset = equip_qs
+                    docs_qs = self.fields['documents'].queryset.none()
+                    equip_qs = self.fields['equipment'].queryset.none()
+                self.fields['documents'].queryset = docs_qs.distinct().order_by('name')
+                self.fields['equipment'].queryset = equip_qs.distinct().order_by('equipment_name')
 
         return PositionFormWithUser
 

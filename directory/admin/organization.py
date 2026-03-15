@@ -2,10 +2,14 @@ from django.contrib import admin
 
 from directory.models import Organization
 from directory.forms.organization import OrganizationForm
+from directory.admin.mixins.org_filter import OrgFilterAdminMixin
 
 
 @admin.register(Organization)
-class OrganizationAdmin(admin.ModelAdmin):
+class OrganizationAdmin(OrgFilterAdminMixin, admin.ModelAdmin):
+    org_filter_lookup = 'pk'
+    org_profile_lookup = 'pk__in'
+    org_filter_get_params = ('id__exact', 'pk')
     """
     🏢 Админ-класс для модели Organization
 
@@ -31,17 +35,3 @@ class OrganizationAdmin(admin.ModelAdmin):
         }),
     )
 
-    def get_form(self, request, obj=None, **kwargs):
-        """
-        Обычно Organization видят все админы, но если хотите, можно фильтровать.
-        """
-        Form = super().get_form(request, obj, **kwargs)
-        return Form
-
-    def get_queryset(self, request):
-        """Фильтрация по организациям пользователя"""
-        qs = super().get_queryset(request)
-        if not request.user.is_superuser and hasattr(request.user, 'profile'):
-            allowed_orgs = request.user.profile.organizations.all()
-            qs = qs.filter(pk__in=allowed_orgs)
-        return qs

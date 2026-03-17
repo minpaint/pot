@@ -158,5 +158,30 @@
     <link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
     <script src="{% static 'admin/js/tree_view.js' %}"></script>
     <script src="{% static 'admin/js/tree_search.js' %}"></script>
-
+    <style>
+      @media (max-width: 768px) {
+        .tree-btn { display: none; }
+        .actions { display: none; }
+        #result_list { table-layout: auto !important; }
+        #result_list .column-checkbox, #result_list .field-checkbox,
+        #result_list .column-roles,    #result_list .field-roles,
+        #result_list .column-actions,  #result_list .field-actions {
+          display: none !important;
+        }
+        #result_list .column-name,
+        #result_list .field-name {
+          width: 100% !important;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+        }
+      }
+    </style>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.innerWidth < 768 && window.treeCore) {
+          window.treeCore.expandAll();
+        }
+      });
+    </script>
 {% endblock %}

@@ -1,0 +1,15 @@
+{% extends "admin/change_list.html" %}
+{% block extrastyle %}
+{{ block.super }}
+<style>
+@media (max-width: 768px) {
+    .column-id, .field-id,
+    .column-score_display, .field-score_display,
+    .column-passed_display, .field-passed_display,
+    .column-progress_display, .field-progress_display,
+    .column-failure_reason_display, .field-failure_reason_display,
+    .column-started_at, .field-started_at,
+    .column-completed_at, .field-completed_at { display: none !important; }
+}
+</style>
+{% endblock %}

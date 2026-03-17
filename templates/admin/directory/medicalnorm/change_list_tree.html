@@ -95,4 +95,36 @@
     </div>
   </form>
 </div>
+
+    <style>
+      @media (max-width: 768px) {
+        .tree-btn { display: none; }
+        .actions { display: none; }
+
+        /* Внешняя таблица: скрываем Норм(2) и Действия(3) */
+        #result_list { table-layout: auto !important; }
+        #result_list tr > *:nth-child(2),
+        #result_list tr > *:nth-child(3) {
+          display: none !important;
+        }
+        #result_list tr > *:nth-child(1) {
+          width: 100% !important;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+        }
+
+        /* Вложенная таблица: скрываем Примечания(3) и Действия(4) */
+        .table.table-bordered { table-layout: auto !important; }
+        .table.table-bordered tr > *:nth-child(3),
+        .table.table-bordered tr > *:nth-child(4) {
+          display: none !important;
+        }
+        .table.table-bordered tr > *:nth-child(1) {
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+        }
+      }
+    </style>
 {% endblock %}

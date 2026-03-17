@@ -172,4 +172,42 @@
   <link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
   <script src="{% static 'admin/js/tree_view.js' %}"></script>
   <script src="{% static 'admin/js/tree_search.js' %}"></script>
+  <style>
+    @media (max-width: 768px) {
+      .tree-btn { display: none; }
+      .actions { display: none; }
+
+      #result_list { table-layout: auto !important; }
+
+      /* Скрываем: checkbox(1), Провести ТО(5), Действия(6) */
+      #result_list tr > *:nth-child(1),
+      #result_list tr > *:nth-child(5),
+      #result_list tr > *:nth-child(6) {
+        display: none !important;
+      }
+
+      /* Наименование — на всю ширину */
+      #result_list tr > *:nth-child(2) {
+        width: 100% !important;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+      }
+
+      /* Дата и дни — компактно */
+      .date-cell, .days-cell,
+      #result_list tr > *:nth-child(3),
+      #result_list tr > *:nth-child(4) {
+        white-space: nowrap;
+        font-size: 12px;
+      }
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.innerWidth < 768 && window.treeCore) {
+        window.treeCore.expandAll();
+      }
+    });
+  </script>
 {% endblock %}

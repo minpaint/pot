@@ -17,5 +17,12 @@
     .object-tools li a.addlink {
       padding-left: 16px;
     }
+    @media (max-width: 768px) {
+      .column-question_number_display, .field-question_number_display,
+      .column-category, .field-category,
+      .column-image_preview, .field-image_preview,
+      .column-answers_count, .field-answers_count,
+      .column-created, .field-created { display: none !important; }
+    }
   </style>
 {% endblock %}

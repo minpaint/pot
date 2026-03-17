@@ -178,5 +178,35 @@
             text-decoration: none;
             font-size: 16px;
         }
+
+        @media (max-width: 768px) {
+            .document-tree-page .tree-btn { display: none; }
+            .document-tree-page .actions { display: none; }
+            .document-tree-page #result_list { table-layout: auto !important; }
+            .document-tree-page #result_list .column-checkbox,
+            .document-tree-page #result_list .field-checkbox,
+            .document-tree-page #result_list col.col-checkbox,
+            .document-tree-page #result_list .column-actions,
+            .document-tree-page #result_list .field-actions,
+            .document-tree-page #result_list col.col-actions {
+                display: none !important;
+                width: 0 !important;
+            }
+            .document-tree-page #result_list col.col-name,
+            .document-tree-page #result_list .column-name,
+            .document-tree-page #result_list .field-name {
+                width: 100% !important;
+                word-break: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+        }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.innerWidth < 768 && window.treeCore) {
+                window.treeCore.expandAll();
+            }
+        });
+    </script>
 {% endblock %}

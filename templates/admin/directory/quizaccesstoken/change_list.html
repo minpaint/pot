@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% block extrastyle %}
+{{ block.super }}
+<style>
+@media (max-width: 768px) {
+    .column-valid_from, .field-valid_from,
+    .column-valid_until, .field-valid_until,
+    .column-used_at, .field-used_at,
+    .column-access_link_display, .field-access_link_display,
+    .column-created_by, .field-created_by,
+    .column-created, .field-created { display: none !important; }
+}
+</style>
+{% endblock %}

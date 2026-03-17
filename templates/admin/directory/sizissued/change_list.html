@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+{% block extrastyle %}
+{{ block.super }}
+<style>
+@media (max-width: 768px) {
+    .column-issue_date, .field-issue_date,
+    .column-quantity, .field-quantity,
+    .column-status_color, .field-status_color,
+    .column-is_returned, .field-is_returned,
+    .column-return_date, .field-return_date { display: none !important; }
+}
+</style>
+{% endblock %}

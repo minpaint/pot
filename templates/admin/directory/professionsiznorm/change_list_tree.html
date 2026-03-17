@@ -265,4 +265,40 @@
         }
     });
     </script>
+
+    <style>
+      @media (max-width: 768px) {
+        .tree-btn { display: none; }
+        .actions { display: none; }
+
+        /* Внешняя таблица: скрываем checkbox, количество, действия */
+        #result_list { table-layout: auto !important; }
+        #result_list .column-checkbox, #result_list .field-checkbox,
+        #result_list .column-roles,    #result_list .field-roles,
+        #result_list .column-actions,  #result_list .field-actions {
+          display: none !important;
+        }
+        #result_list .column-name, #result_list .field-name {
+          width: 100% !important;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+        }
+
+        /* Вложенная таблица СИЗ: скрываем checkbox(1), классиф.(3), ед.изм.(4), срок(6), действия(7) */
+        .table.table-bordered { table-layout: auto !important; }
+        .table.table-bordered tr > *:nth-child(1),
+        .table.table-bordered tr > *:nth-child(3),
+        .table.table-bordered tr > *:nth-child(4),
+        .table.table-bordered tr > *:nth-child(6),
+        .table.table-bordered tr > *:nth-child(7) {
+          display: none !important;
+        }
+        .table.table-bordered tr > *:nth-child(2) {
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+        }
+      }
+    </style>
 {% endblock %}

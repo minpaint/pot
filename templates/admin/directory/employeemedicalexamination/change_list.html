@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+{% block extrastyle %}
+{{ block.super }}
+<style>
+@media (max-width: 768px) {
+    .column-date_completed, .field-date_completed,
+    .column-next_date, .field-next_date { display: none !important; }
+}
+</style>
+{% endblock %}

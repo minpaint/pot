@@ -1,6 +1,34 @@
 {% extends "admin/index.html" %}
 {% load i18n static %}
 
+{% block extrahead %}
+{{ block.super }}
+<style>
+@media (max-width: 768px) {
+    /* Скрываем последний td (всегда changelink/viewlink) в стандартных блоках */
+    #content-main .module table tr > td:last-child {
+        display: none !important;
+    }
+    /* th с именем модели растягивается на освободившееся место */
+    #content-main .module table th[scope="row"] {
+        width: 100% !important;
+        white-space: normal !important;
+    }
+
+    /* Кастомные блоки (импорт, сервис) — скрываем колонку с описанием */
+    .app-directory.module table td {
+        display: none !important;
+    }
+    .app-directory.module table th[scope="row"] {
+        display: block;
+        width: 100% !important;
+        white-space: normal !important;
+        padding: 6px 8px;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div id="content-main">
 {{ block.super }}

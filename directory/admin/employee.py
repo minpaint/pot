@@ -373,6 +373,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         from directory.document_generators.familiarization_generator import generate_familiarization_document
         from directory.document_generators.ot_card_generator import generate_personal_ot_card
         from directory.document_generators.journal_example_generator import generate_journal_example
+        from directory.document_generators.vvodny_journal_generator import generate_vvodny_journal
         from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
 
         context = self.admin_site.each_context(request)
@@ -398,8 +399,30 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                     'title': 'Генерация документов при приёме',
                     'employees': employees,
                     'doc_types': doc_types,
+                    'today_date': date.today().strftime('%Y-%m-%d'),
                 })
                 return render(request, 'admin/directory/employee/bulk_hiring_docs.html', context)
+
+            # Параметры инструктажа для личной карточки ОТ
+            override_instruction = request.POST.get('override_instruction') == 'on'
+            if override_instruction:
+                from datetime import datetime as dt
+                instruction_date_raw = request.POST.get('instruction_date', '')
+                instruction_type_override = request.POST.get('instruction_type', 'Первичный на рабочем месте')
+                if instruction_date_raw:
+                    try:
+                        instruction_date_fixed = dt.strptime(instruction_date_raw, '%Y-%m-%d').strftime('%d.%m.%Y')
+                    except ValueError:
+                        instruction_date_fixed = instruction_date_raw
+                else:
+                    instruction_date_fixed = date.today().strftime('%d.%m.%Y')
+                ot_card_custom_context = {
+                    'instruction_date': instruction_date_fixed,
+                    'instruction_type': instruction_type_override,
+                }
+            else:
+                # По умолчанию: дата трудоустройства сотрудника, первичный инструктаж
+                ot_card_custom_context = None  # будет заполняться per-employee ниже
 
             generator_map = {
                 'all_orders': generate_all_orders,
@@ -407,8 +430,11 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 'doc_familiarization': generate_familiarization_document,
                 'personal_ot_card': generate_personal_ot_card,
                 'journal_example': generate_journal_example,
+                'vvodny_journal_template': generate_vvodny_journal,
                 'siz_card': generate_siz_card_docx,
             }
+            # Документы, которые получают instruction_date (по умолчанию — hire_date сотрудника)
+            JOURNAL_DOC_TYPES = {'personal_ot_card', 'journal_example', 'vvodny_journal_template'}
 
             zip_buffer = io.BytesIO()
             total_docs = 0
@@ -426,6 +452,13 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                         try:
                             if doc_type == 'doc_familiarization':
                                 result = generator_func(employee=employee, user=request.user, document_list=None)
+                            elif doc_type in JOURNAL_DOC_TYPES:
+                                if override_instruction:
+                                    ctx = ot_card_custom_context
+                                else:
+                                    hire_date_str = employee.hire_date.strftime('%d.%m.%Y') if employee.hire_date else date.today().strftime('%d.%m.%Y')
+                                    ctx = {'instruction_date': hire_date_str, 'instruction_type': 'Первичный на рабочем месте'}
+                                result = generator_func(employee=employee, user=request.user, custom_context=ctx)
                             else:
                                 result = generator_func(employee=employee, user=request.user)
                             if not result:
@@ -468,6 +501,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'title': 'Генерация документов при приёме',
             'employees': employees,
             'doc_types': doc_types,
+            'today_date': date.today().strftime('%Y-%m-%d'),
         })
         return render(request, 'admin/directory/employee/bulk_hiring_docs.html', context)
 

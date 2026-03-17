@@ -86,7 +86,21 @@
     {% if not selected_org_id %}
     <div class="no-org-message">
       <span class="no-org-icon">🏢</span>
-      <p>Выберите организацию в шапке страницы для просмотра должностей</p>
+      {% if global_org_options|length > 1 %}
+        <p>Выберите организацию для просмотра должностей</p>
+        <form method="post" action="{% url 'directory:set_organization' %}" class="no-org-select-form">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+          <select name="org_id" onchange="this.form.submit()" class="no-org-select">
+            <option value="">— Выберите организацию —</option>
+            {% for org in global_org_options %}
+            <option value="{{ org.id }}">{{ org.short_name_ru|default:org.full_name_ru }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      {% else %}
+        <p>Загрузка...</p>
+      {% endif %}
     </div>
     {% endif %}
 
@@ -741,6 +755,113 @@
         min-width: 0;
       }
     }
+
+    @media (max-width: 768px) {
+      /* Кнопки развернуть/свернуть — скрываем (авто-expand на мобиле) */
+      .position-tree-page .tree-btn {
+        display: none;
+      }
+
+      /* tree-controls — компактная сетка */
+      .position-tree-page .tree-controls {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+
+      /* Лейблы фильтров (🏭 Подразделение: / 📂 Отдел:) — скрываем */
+      .position-tree-page .tree-filter-container > label {
+        display: none;
+      }
+
+      /* Каждый фильтр — половина строки */
+      .position-tree-page .tree-filter-container {
+        flex: 1 1 45%;
+        min-width: 0;
+      }
+
+      .position-tree-page .tree-filter-select {
+        width: 100%;
+        min-width: 0;
+        font-size: 13px;
+        padding: 6px 8px;
+      }
+
+      /* Чекбокс «Нет инструкций» — не растягиваем */
+      .position-tree-page .tree-filter-checkbox {
+        flex: 0 0 auto;
+      }
+      .position-tree-page .tree-filter-checkbox label {
+        display: flex !important;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+      }
+
+      /* Поиск — на всю строку */
+      .position-tree-page .tree-search-container {
+        flex: 1 1 100%;
+      }
+      .position-tree-page .tree-search {
+        width: 100%;
+        font-size: 13px;
+      }
+
+      /* Отключаем фиксированную таблицу — пусть браузер сам считает ширины */
+      .position-tree-page #result_list {
+        table-layout: auto !important;
+      }
+
+      /* Скрываем колонку атрибутов — основная причина горизонтального скролла */
+      .position-tree-page #result_list .column-roles,
+      .position-tree-page #result_list .field-roles,
+      .position-tree-page #result_list th.column-roles,
+      .position-tree-page #result_list col.col-roles {
+        display: none !important;
+        width: 0 !important;
+      }
+
+      /* Скрываем чекбоксы */
+      .position-tree-page #result_list .column-checkbox,
+      .position-tree-page #result_list .field-checkbox,
+      .position-tree-page #result_list th.column-checkbox,
+      .position-tree-page #result_list col.col-checkbox {
+        display: none !important;
+        width: 0 !important;
+      }
+
+      /* Скрываем колонку действий */
+      .position-tree-page #result_list .column-actions,
+      .position-tree-page #result_list .field-actions,
+      .position-tree-page #result_list col.col-actions {
+        display: none !important;
+        width: 0 !important;
+      }
+
+      /* Имена — на всю ширину, перенос слов */
+      .position-tree-page #result_list col.col-name {
+        width: 100% !important;
+      }
+      .position-tree-page #result_list th.column-name,
+      .position-tree-page #result_list td.field-name {
+        width: 100% !important;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+      }
+
+      /* Уменьшаем отступы иерархии */
+      .position-tree-page .tree-row[data-level="0"] .field-name { padding-left: 2px !important; }
+      .position-tree-page .tree-row[data-level="1"] .field-name { padding-left: 10px !important; }
+      .position-tree-page .tree-row[data-level="2"] .field-name { padding-left: 18px !important; }
+      .position-tree-page .tree-row[data-level="3"] .field-name { padding-left: 26px !important; }
+
+      /* Скрываем панель массовых действий */
+      .position-tree-page .actions {
+        display: none;
+      }
+    }
     .no-org-message {
       display: flex;
       flex-direction: column;
@@ -758,7 +879,29 @@
 
     .no-org-message p {
       font-size: 16px;
-      margin: 0;
+      margin: 0 0 16px;
+    }
+
+    .no-org-select-form {
+      margin-top: 4px;
+    }
+
+    .no-org-select {
+      font-size: 15px;
+      padding: 10px 14px;
+      border: 2px solid #417690;
+      border-radius: 6px;
+      background: #fff;
+      color: #2c3e50;
+      cursor: pointer;
+      min-width: 240px;
+      max-width: 90vw;
+    }
+
+    .no-org-select:focus {
+      outline: none;
+      border-color: #0b5394;
+      box-shadow: 0 0 6px rgba(11, 83, 148, 0.3);
     }
   </style>
 
@@ -802,6 +945,12 @@
           applyParam(url, 'no_instructions', this.checked ? '1' : '');
           window.location.href = url.toString();
         });
+      }
+
+      // На мобильных устройствах всегда разворачиваем дерево
+      // (переопределяем сохранённое в localStorage свёрнутое состояние)
+      if (window.innerWidth < 768 && window.treeCore) {
+        window.treeCore.expandAll();
       }
     });
   </script>

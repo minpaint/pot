@@ -65,7 +65,7 @@ def generate_familiarization_document(
             {
                 "documents_list": "DOCMARKER_START",
                 "all_documents": document_list,
-                "familiarization_date": context.get("current_date"),
+                "familiarization_date": "",
             }
         )
         if custom_context:

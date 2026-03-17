@@ -47,12 +47,34 @@
           {% for dt in doc_types %}
           <div style="padding: 10px 12px; margin-bottom: 6px; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer;"
                onclick="toggleCheck(this)">
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 500; font-size: 14px;">
-              <input type="checkbox" name="document_types" value="{{ dt.code }}"
-                     style="width: 16px; height: 16px; cursor: pointer;" checked
-                     onclick="event.stopPropagation()">
-              {{ dt.name }}
-            </label>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 500; font-size: 14px; white-space: nowrap;">
+                <input type="checkbox" name="document_types" value="{{ dt.code }}"
+                       style="width: 16px; height: 16px; cursor: pointer;" checked
+                       onclick="event.stopPropagation()">
+                {{ dt.name }}
+              </label>
+              {% if dt.code == 'personal_ot_card' %}
+              <div id="ot-card-params" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;" onclick="event.stopPropagation()">
+                <input type="date" name="instruction_date" id="instruction_date"
+                       style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 13px; background: #f5f5f5; color: #aaa;"
+                       value="{{ today_date }}" disabled>
+                <select name="instruction_type" id="instruction_type"
+                        style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 13px; background: #f5f5f5; color: #aaa;"
+                        disabled>
+                  <option value="Первичный на рабочем месте">Первичный на рабочем месте</option>
+                  <option value="Повторный">Повторный</option>
+                  <option value="Внеплановый">Внеплановый</option>
+                  <option value="Целевой">Целевой</option>
+                </select>
+                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; font-size: 13px; color: #555; cursor: pointer; margin: 0;">
+                  <input type="checkbox" name="override_instruction" id="override_instruction" onclick="toggleInstructionOverride(this)"
+                         style="width: 14px; height: 14px; cursor: pointer;">
+                  Изменить
+                </label>
+              </div>
+              {% endif %}
+            </div>
             {% if dt.description %}
             <p style="margin: 4px 0 0 26px; font-size: 12px; color: #888;">{{ dt.description }}</p>
             {% endif %}
@@ -88,13 +110,43 @@
 </div>
 
 <script>
+function toggleInstructionOverride(cb) {
+  const dateInput = document.getElementById('instruction_date');
+  const typeSelect = document.getElementById('instruction_type');
+  const enabled = cb.checked;
+  dateInput.disabled = !enabled;
+  typeSelect.disabled = !enabled;
+  dateInput.style.background = enabled ? '#f0f7ff' : '#f5f5f5';
+  dateInput.style.color = enabled ? '' : '#aaa';
+  dateInput.style.borderColor = enabled ? '#b8d4f0' : '#ccc';
+  typeSelect.style.background = enabled ? '#f0f7ff' : '#f5f5f5';
+  typeSelect.style.color = enabled ? '' : '#aaa';
+  typeSelect.style.borderColor = enabled ? '#b8d4f0' : '#ccc';
+}
 function toggleCheck(row) {
-  const cb = row.querySelector('input[type=checkbox]');
+  const cb = row.querySelector('input[name=document_types]');
   cb.checked = !cb.checked;
+  updateOtCardParams();
 }
 function setAll(val) {
   document.querySelectorAll('input[name=document_types]').forEach(cb => cb.checked = val);
+  updateOtCardParams();
 }
+function updateOtCardParams() {
+  const otCardCb = document.querySelector('input[name=document_types][value=personal_ot_card]');
+  const paramsBlock = document.getElementById('ot-card-params');
+  if (paramsBlock) {
+    paramsBlock.style.display = (otCardCb && otCardCb.checked) ? 'flex' : 'none';
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  // Обновить видимость при загрузке
+  updateOtCardParams();
+  // Следим за изменением чекбоксов
+  document.querySelectorAll('input[name=document_types]').forEach(function(cb) {
+    cb.addEventListener('change', updateOtCardParams);
+  });
+});
 document.querySelector('form').addEventListener('submit', function(e) {
   const checked = document.querySelectorAll('input[name=document_types]:checked');
   if (checked.length === 0) {
@@ -102,6 +154,11 @@ document.querySelector('form').addEventListener('submit', function(e) {
     alert('Выберите хотя бы один тип документа.');
     return;
   }
+  // Включаем disabled поля перед отправкой, чтобы они попали в POST
+  const dateInput = document.getElementById('instruction_date');
+  const typeSelect = document.getElementById('instruction_type');
+  if (dateInput) dateInput.disabled = false;
+  if (typeSelect) typeSelect.disabled = false;
   document.getElementById('generate-btn').disabled = true;
   document.getElementById('generate-btn').textContent = '⏳ Генерация…';
   document.getElementById('loading-msg').style.display = 'block';

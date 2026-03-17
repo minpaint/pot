@@ -34,11 +34,15 @@
         </div>
         <div class="results">
             <table id="result_list">
+                <colgroup>
+                    <col class="col-checkbox">
+                    <col class="col-name">
+                    <col class="col-actions">
+                </colgroup>
                 <thead>
                     <tr>
                         <th class="column-checkbox"><input type="checkbox" id="select-all"></th>
                         <th class="column-name">НАИМЕНОВАНИЕ</th>
-                        <th class="column-roles">АТРИБУТЫ/РОЛИ</th>
                         <th class="column-actions">ДЕЙСТВИЯ</th>
                     </tr>
                 </thead>
@@ -51,10 +55,8 @@
                             <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
                             <strong>{{ org_data.name }}</strong>
                         </td>
-                        <td class="field-roles"></td>
                         <td class="field-actions"></td>
                     </tr>
-                    {# Элементы без subdivision #}
                     {% for item in org_data.items %}
                     <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
                         <td class="field-checkbox">
@@ -62,11 +64,8 @@
                         </td>
                         <td class="field-name">
                             <span class="tree-icon">{{ tree_settings.icons.item }}</span>
-                            <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}">
-                                {{ item.name }}
-                            </a>
+                            <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}">{{ item.name }}</a>
                         </td>
-                        <td class="field-roles"></td>
                         <td class="field-actions">
                             <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}" class="edit-link">✏️</a>
                             <a href="{% url 'admin:directory_structuralsubdivision_delete' item.pk %}" class="delete-link">🗑️</a>
@@ -74,7 +73,6 @@
                         </td>
                     </tr>
                     {% endfor %}
-                    {# Подразделения #}
                     {% for sub, sub_data in org_data.subdivisions.items %}
                     <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
                         <td class="field-checkbox"></td>
@@ -83,10 +81,8 @@
                             <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
                             {{ sub_data.name }}
                         </td>
-                        <td class="field-roles"></td>
                         <td class="field-actions"></td>
                     </tr>
-                        {# Элементы без department #}
                         {% for item in sub_data.items %}
                         <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
                             <td class="field-checkbox">
@@ -94,11 +90,8 @@
                             </td>
                             <td class="field-name">
                                 <span class="tree-icon">{{ tree_settings.icons.item }}</span>
-                                <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}">
-                                    {{ item.name }}
-                                </a>
+                                <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}">{{ item.name }}</a>
                             </td>
-                            <td class="field-roles"></td>
                             <td class="field-actions">
                                 <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}" class="edit-link">✏️</a>
                                 <a href="{% url 'admin:directory_structuralsubdivision_delete' item.pk %}" class="delete-link">🗑️</a>
@@ -106,7 +99,6 @@
                             </td>
                         </tr>
                         {% endfor %}
-                        {# Отделы #}
                         {% for dept, dept_data in sub_data.departments.items %}
                         <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
                             <td class="field-checkbox"></td>
@@ -115,7 +107,6 @@
                                 <span class="tree-icon">{{ tree_settings.icons.department }}</span>
                                 {{ dept_data.name }}
                             </td>
-                            <td class="field-roles"></td>
                             <td class="field-actions"></td>
                         </tr>
                         {% for item in dept_data.items %}
@@ -125,11 +116,8 @@
                             </td>
                             <td class="field-name">
                                 <span class="tree-icon">{{ tree_settings.icons.item }}</span>
-                                <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}">
-                                    {{ item.name }}
-                                </a>
+                                <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}">{{ item.name }}</a>
                             </td>
-                            <td class="field-roles"></td>
                             <td class="field-actions">
                                 <a href="{% url 'admin:directory_structuralsubdivision_change' item.pk %}" class="edit-link">✏️</a>
                                 <a href="{% url 'admin:directory_structuralsubdivision_delete' item.pk %}" class="delete-link">🗑️</a>
@@ -152,4 +140,77 @@
     <link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
     <script src="{% static 'admin/js/tree_view.js' %}"></script>
     <script src="{% static 'admin/js/tree_search.js' %}"></script>
+    <style>
+        #result_list {
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        #result_list col.col-checkbox { width: 36px; }
+        #result_list col.col-actions  { width: 110px; }
+
+        #result_list th.column-name,
+        #result_list td.field-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Структурные узлы (org/sub/dept) — имя тоже в одну строку */
+        #result_list tr.tree-row[data-node-id] .tree-branch-name {
+            display: inline-block;
+            max-width: calc(100% - 72px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        #result_list th.column-actions,
+        #result_list td.field-actions {
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        #result_list td.field-actions a {
+            display: inline-block;
+            margin: 0 3px;
+            font-size: 16px;
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            .tree-btn { display: none; }
+
+            #result_list {
+                table-layout: auto;
+            }
+
+            #result_list .column-checkbox,
+            #result_list .field-checkbox,
+            #result_list col.col-checkbox,
+            #result_list .column-actions,
+            #result_list .field-actions,
+            #result_list col.col-actions {
+                display: none !important;
+                width: 0 !important;
+            }
+
+            #result_list col.col-name,
+            #result_list th.column-name,
+            #result_list td.field-name {
+                width: 100% !important;
+                white-space: normal;
+                overflow-wrap: break-word;
+            }
+
+            .actions { display: none; }
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.innerWidth < 768 && window.treeCore) {
+                window.treeCore.expandAll();
+            }
+        });
+    </script>
 {% endblock %}

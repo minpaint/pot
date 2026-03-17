@@ -457,14 +457,76 @@
         flex-basis: 100%;
       }
 
-.employee-tree-page #result_list {
-        min-width: 920px;
+      /* Отключаем фиксированную таблицу */
+      .employee-tree-page #result_list {
+        min-width: 0 !important;
+        table-layout: auto !important;
       }
 
-      .employee-tree-page .field-actions a {
-        margin-right: 4px;
+      /* Скрываем чекбоксы */
+      .employee-tree-page #result_list .column-checkbox,
+      .employee-tree-page #result_list .field-checkbox,
+      .employee-tree-page #result_list th.column-checkbox,
+      .employee-tree-page #result_list col.col-checkbox {
+        display: none !important;
+        width: 0 !important;
+      }
+
+      /* Скрываем второстепенные колонки */
+      .employee-tree-page #result_list .column-safety,
+      .employee-tree-page #result_list .field-safety,
+      .employee-tree-page #result_list .column-internship,
+      .employee-tree-page #result_list .field-internship,
+      .employee-tree-page #result_list .column-commission,
+      .employee-tree-page #result_list .field-commission,
+      .employee-tree-page #result_list col.col-safety,
+      .employee-tree-page #result_list col.col-internship,
+      .employee-tree-page #result_list col.col-commission {
+        display: none !important;
+        width: 0 !important;
+      }
+
+      /* Скрываем статус и действия */
+      .employee-tree-page #result_list .column-status,
+      .employee-tree-page #result_list .field-status,
+      .employee-tree-page #result_list .column-actions,
+      .employee-tree-page #result_list .field-actions,
+      .employee-tree-page #result_list col.col-status,
+      .employee-tree-page #result_list col.col-actions {
+        display: none !important;
+        width: 0 !important;
+      }
+
+      /* Имена — на всю ширину */
+      .employee-tree-page #result_list col.col-name {
+        width: 100% !important;
+      }
+      .employee-tree-page #result_list th.column-name,
+      .employee-tree-page #result_list td.field-name {
+        width: 100% !important;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+      }
+
+      /* Уменьшаем отступы иерархии */
+      .employee-tree-page .tree-row[data-level="0"] .field-name { padding-left: 2px !important; }
+      .employee-tree-page .tree-row[data-level="1"] .field-name { padding-left: 10px !important; }
+      .employee-tree-page .tree-row[data-level="2"] .field-name { padding-left: 18px !important; }
+      .employee-tree-page .tree-row[data-level="3"] .field-name { padding-left: 26px !important; }
+
+      /* Скрываем панель массовых действий */
+      .employee-tree-page .actions {
+        display: none;
       }
     }
   </style>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.innerWidth < 768 && window.treeCore) {
+        window.treeCore.expandAll();
+      }
+    });
+  </script>
 {% endblock %}

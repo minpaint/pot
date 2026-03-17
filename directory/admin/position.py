@@ -278,11 +278,16 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             else:
                 accessible_orgs = Organization.objects.none()
 
-            # Организация берётся только из глобального хэдера (сессия selected_org_id)
+            # Организация берётся из сессии (selected_org_id)
             selected_org_id = None
             session_org_id = request.session.get('selected_org_id')
             if session_org_id and accessible_orgs.filter(id=session_org_id).exists():
                 selected_org_id = session_org_id
+            elif not session_org_id and accessible_orgs.count() == 1:
+                # Авто-выбор единственной организации
+                first_org = accessible_orgs.first()
+                request.session['selected_org_id'] = first_org.id
+                selected_org_id = first_org.id
 
             extra_context['selected_org_id'] = selected_org_id
 

@@ -281,76 +281,59 @@ class HiringTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['title'] = _('Приемы на работу')
 
-        # Получаем доступные организации через AccessControlHelper
         allowed_orgs = AccessControlHelper.get_accessible_organizations(
             self.request.user, self.request
         )
 
-        # Создаем древовидную структуру данных
+        # Один запрос — группируем в памяти (убираем N+1)
+        all_hirings = list(self.get_queryset())
+
+        # Индексируем по (org_id, sub_id, dept_id)
+        from collections import defaultdict
+        by_key = defaultdict(list)
+        for h in all_hirings:
+            by_key[(h.organization_id, h.subdivision_id, h.department_id)].append(h)
+
         tree_data = []
-
         for org in allowed_orgs:
-            org_hirings = self.get_queryset().filter(
-                organization=org,
-                subdivision__isnull=True,
-                department__isnull=True
-            )
+            org_hirings = by_key[(org.id, None, None)]
+            subdivisions_data = []
 
-            if not org_hirings.exists() and not org.subdivisions.exists():
-                continue  # Пропускаем пустые организации
+            for subdivision in org.subdivisions.prefetch_related('departments').all():
+                sub_hirings = by_key[(org.id, subdivision.id, None)]
+                departments_data = []
 
-            org_data = {
-                'id': org.id,
-                'name': org.short_name_ru or org.full_name_ru,
-                'hirings': list(org_hirings),
-                'subdivisions': []
-            }
-
-            # Получаем подразделения
-            for subdivision in org.subdivisions.all():
-                sub_hirings = self.get_queryset().filter(
-                    organization=org,
-                    subdivision=subdivision,
-                    department__isnull=True
-                )
-
-                if not sub_hirings.exists() and not subdivision.departments.exists():
-                    continue  # Пропускаем пустые подразделения
-
-                sub_data = {
-                    'id': subdivision.id,
-                    'name': subdivision.name,
-                    'hirings': list(sub_hirings),
-                    'departments': []
-                }
-
-                # Получаем отделы
                 for department in subdivision.departments.all():
-                    dept_hirings = self.get_queryset().filter(
-                        organization=org,
-                        subdivision=subdivision,
-                        department=department
-                    )
+                    dept_hirings = by_key[(org.id, subdivision.id, department.id)]
+                    if dept_hirings:
+                        departments_data.append({
+                            'id': department.id,
+                            'name': department.name,
+                            'hirings': dept_hirings,
+                        })
 
-                    if not dept_hirings.exists():
-                        continue  # Пропускаем пустые отделы
+                if sub_hirings or departments_data:
+                    sub_total = len(sub_hirings) + sum(len(d['hirings']) for d in departments_data)
+                    subdivisions_data.append({
+                        'id': subdivision.id,
+                        'name': subdivision.name,
+                        'hirings': sub_hirings,
+                        'departments': departments_data,
+                        'total': sub_total,
+                    })
 
-                    dept_data = {
-                        'id': department.id,
-                        'name': department.name,
-                        'hirings': list(dept_hirings)
-                    }
-
-                    sub_data['departments'].append(dept_data)
-
-                org_data['subdivisions'].append(sub_data)
-
-            tree_data.append(org_data)
+            if org_hirings or subdivisions_data:
+                org_total = len(org_hirings) + sum(s['total'] for s in subdivisions_data)
+                tree_data.append({
+                    'id': org.id,
+                    'name': org.short_name_ru or org.full_name_ru,
+                    'hirings': org_hirings,
+                    'subdivisions': subdivisions_data,
+                    'total': org_total,
+                })
 
         context['tree_data'] = tree_data
         context['hiring_types'] = dict(EmployeeHiring.HIRING_TYPE_CHOICES)
-
-        # Параметры фильтрации
         context['current_hiring_type'] = self.request.GET.get('hiring_type', '')
         context['current_is_active'] = self.request.GET.get('is_active', '')
         context['search_query'] = self.request.GET.get('search', '')

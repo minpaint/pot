@@ -5,8 +5,8 @@ from django.conf.urls.static import static
 from django.views.static import serve
 from django.http import HttpResponse, Http404
 from directory.error_handlers import error_400, error_403, error_404, error_500
-# Импортируем дашборд контроля сроков как главную страницу
-from deadline_control.views.dashboard import DashboardView
+# Главная страница - обновлённый HomePageView с дашбордом
+from directory.views.home import HomePageView
 # Импортируем AJAX view для древовидных представлений
 from directory.views.admin_tree_ajax import load_tree_children
 import os
@@ -64,8 +64,8 @@ urlpatterns = [
     # Диагностика заголовков (ВРЕМЕННО для отладки CSRF)
     path('debug-headers/', debug_headers, name='debug_headers'),
 
-    # Главная страница - Дашборд контроля сроков
-    path('', DashboardView.as_view(), name='home'),
+    # Главная страница - дашборд + быстрый доступ + статистика + сотрудники
+    path('', HomePageView.as_view(), name='home'),
 
     # Admin actions для EmployeeHiring (ВАЖНО: ПЕРЕД admin.site.urls!)
     path('admin/hiring/', include('directory.urls_admin_hiring')),

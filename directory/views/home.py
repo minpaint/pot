@@ -16,7 +16,8 @@ from directory.models import (
     StructuralSubdivision,
     Department,
     Employee,
-    Position
+    Position,
+    EmployeeHiring,
 )
 from directory.utils.permissions import AccessControlHelper
 
@@ -86,6 +87,11 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context['org_options'] = accessible_orgs
         context['selected_org_id'] = selected_org_id
         context['show_tree'] = selected_org_id is not None
+
+        # 📊 Дашборд контроля сроков, статистика, последние приёмы
+        context['deadline_dashboard'] = self._get_deadline_dashboard(accessible_orgs)
+        context['stats'] = self._get_stats(accessible_orgs)
+        context['recent_hirings'] = self._get_recent_hirings(accessible_orgs)
 
         # 🚫 Если организация не выбрана, не строим дерево
         if not context['show_tree']:
@@ -285,6 +291,73 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context['is_paginated'] = paginator.num_pages > 1
 
         return context
+
+    def _get_deadline_dashboard(self, accessible_orgs):
+        """Вычисляет данные дашборда контроля сроков по организациям."""
+        from deadline_control.models import Equipment, KeyDeadlineItem
+        from deadline_control.models.medical_norm import EmployeeMedicalExamination
+
+        today = timezone.now().date()
+        warning_date = today + timedelta(days=14)
+        per_org = []
+
+        for org in accessible_orgs:
+            # Оборудование
+            eq_list = Equipment.objects.filter(organization=org).values_list(
+                'next_maintenance_date', flat=True
+            )
+            eq_overdue = sum(1 for d in eq_list if d and d < today)
+            eq_upcoming = sum(1 for d in eq_list if d and today <= d <= warning_date)
+
+            # Ключевые сроки
+            items_qs = KeyDeadlineItem.objects.filter(organization=org, is_active=True)
+            dl_overdue = items_qs.filter(next_date__lt=today).count()
+            dl_upcoming = items_qs.filter(next_date__gte=today, next_date__lte=warning_date).count()
+
+            # Медосмотры
+            med_qs = EmployeeMedicalExamination.objects.filter(employee__organization=org)
+            med_overdue = med_qs.filter(next_date__lt=today).count()
+            med_upcoming = med_qs.filter(next_date__gte=today, next_date__lte=warning_date).count()
+
+            overdue_total = eq_overdue + dl_overdue + med_overdue
+            upcoming_total = eq_upcoming + dl_upcoming + med_upcoming
+
+            per_org.append({
+                'org': org,
+                'equipment': {'overdue': eq_overdue, 'upcoming': eq_upcoming},
+                'deadlines': {'overdue': dl_overdue, 'upcoming': dl_upcoming},
+                'medical': {'overdue': med_overdue, 'upcoming': med_upcoming},
+                'overdue_total': overdue_total,
+                'upcoming_total': upcoming_total,
+            })
+
+        total_overdue = sum(item['overdue_total'] for item in per_org)
+        total_upcoming = sum(item['upcoming_total'] for item in per_org)
+        return {'per_org': per_org, 'total_overdue': total_overdue, 'total_upcoming': total_upcoming}
+
+    def _get_stats(self, accessible_orgs):
+        """Возвращает сводную статистику по доступным организациям."""
+        from deadline_control.models import Equipment
+        org_ids = list(accessible_orgs.values_list('id', flat=True))
+        return {
+            'employees_active': Employee.objects.filter(organization_id__in=org_ids, status='active').count(),
+            'employees_candidate': Employee.objects.filter(organization_id__in=org_ids, status='candidate').count(),
+            'employees_fired': Employee.objects.filter(organization_id__in=org_ids, status='fired').count(),
+            'orgs': len(org_ids),
+            'subdivisions': StructuralSubdivision.objects.filter(organization_id__in=org_ids).count(),
+            'positions': Position.objects.filter(organization_id__in=org_ids).count(),
+            'equipment': Equipment.objects.filter(organization_id__in=org_ids).count(),
+        }
+
+    def _get_recent_hirings(self, accessible_orgs):
+        """Возвращает последние 7 записей о приёме на работу."""
+        org_ids = list(accessible_orgs.values_list('id', flat=True))
+        return (
+            EmployeeHiring.objects
+            .filter(organization_id__in=org_ids)
+            .select_related('employee', 'organization', 'position')
+            .order_by('-hiring_date', '-created_at')[:7]
+        )
 
 
 class SetOrganizationView(LoginRequiredMixin, View):

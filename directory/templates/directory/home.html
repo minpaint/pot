@@ -76,7 +76,93 @@ border-color: #5a32a3;
 }
 
 /* Компактный дашборд */
-.deadline-dashboard { margin-bottom: 1rem; }
+.deadline-dashboard { margin-bottom: 0.75rem; }
+
+/* Критичный бар */
+.critical-bar {
+    background: #dc3545;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.critical-bar a { color: #ffd;  text-decoration: underline; }
+
+/* Быстрый доступ */
+.quick-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 6px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s, transform 0.15s;
+    min-height: 72px;
+    text-align: center;
+}
+.quick-tile:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+    color: inherit;
+    text-decoration: none;
+}
+.quick-tile .qt-icon { font-size: 1.5rem; line-height: 1; margin-bottom: 3px; }
+.quick-tile .qt-label { font-size: 0.72rem; font-weight: 600; color: #495057; }
+.quick-tile .qt-count { font-size: 0.68rem; color: #6c757d; }
+
+/* Статистика */
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.82rem;
+}
+.stat-item:last-child { border-bottom: none; }
+.stat-icon { font-size: 1rem; width: 20px; text-align: center; }
+.stat-label { color: #6c757d; flex: 1; }
+.stat-value { font-weight: 700; color: #343a40; }
+
+/* Лента событий */
+.event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.8rem;
+}
+.event-item:last-child { border-bottom: none; }
+.event-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #28a745; margin-top: 4px; flex-shrink: 0;
+}
+.event-date { color: #6c757d; white-space: nowrap; font-size: 0.72rem; }
+.event-name { font-weight: 600; color: #212529; }
+.event-sub { color: #6c757d; font-size: 0.72rem; }
+
+/* Секция дерева */
+.tree-section-header {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0.75rem 0 0.4rem;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #dee2e6;
+}
 
 .dc-card {
     display: block;
@@ -141,6 +227,16 @@ display: none;
 {% block content %}
 <div class="container-fluid px-0">
 
+<!-- 🔴 Критичный бар (только если есть просрочки) -->
+{% if deadline_dashboard.total_overdue > 0 %}
+<div class="critical-bar">
+    <span>🔴 Просрочено: {{ deadline_dashboard.total_overdue }} объект{{ deadline_dashboard.total_overdue|pluralize:",,ов" }}</span>
+    {% for item in deadline_dashboard.per_org %}{% if item.overdue_total > 0 %}
+    <a href="{% url 'deadline_control:dashboard' %}?org={{ item.org.id }}">{{ item.org.short_name_ru }} ({{ item.overdue_total }})</a>
+    {% endif %}{% endfor %}
+</div>
+{% endif %}
+
 <!-- ⏰ Дашборд контроля сроков -->
 <div class="deadline-dashboard">
     <div class="text-muted small mb-2">⏰ Контроль сроков</div>
@@ -164,9 +260,154 @@ display: none;
         {% endfor %}
     </div>
     {% else %}
-    <div class="text-muted small">✅ Нет данных</div>
+    <div class="text-muted small">Нет данных по организациям</div>
     {% endif %}
 </div>
+
+<!-- 📊 Три зоны: быстрый доступ / статистика / лента событий -->
+<div class="row g-2 mb-3">
+
+    <!-- ЗОНА A: Быстрый доступ -->
+    <div class="col-12 col-md-5 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-1 px-2" style="background:#f8f9fa;">
+                <span class="fw-bold" style="font-size:0.8rem;">⚡ Быстрый доступ</span>
+            </div>
+            <div class="card-body p-2">
+                <div class="row g-2">
+                    <div class="col-4">
+                        <a href="{% url 'directory:employee_home' %}" class="quick-tile">
+                            <div class="qt-icon">👥</div>
+                            <div class="qt-label">Сотрудники</div>
+                            <div class="qt-count">{{ stats.employees_active }}</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'directory:hiring:hiring_list' %}" class="quick-tile">
+                            <div class="qt-icon">📋</div>
+                            <div class="qt-label">Приёмы</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'directory:siz:siz_list' %}" class="quick-tile">
+                            <div class="qt-icon">🛡️</div>
+                            <div class="qt-label">СИЗ</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'deadline_control:medical:list' %}" class="quick-tile">
+                            <div class="qt-icon">🏥</div>
+                            <div class="qt-label">Медосмотры</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'deadline_control:equipment:list' %}" class="quick-tile">
+                            <div class="qt-icon">⚙️</div>
+                            <div class="qt-label">Оборудование</div>
+                            <div class="qt-count">{{ stats.equipment }}</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'deadline_control:key_deadline:list' %}" class="quick-tile">
+                            <div class="qt-icon">📅</div>
+                            <div class="qt-label">Сроки</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'directory:quiz:quiz_list' %}" class="quick-tile">
+                            <div class="qt-icon">📝</div>
+                            <div class="qt-label">Квизы</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'directory:commissions:commission_list' %}" class="quick-tile">
+                            <div class="qt-icon">👔</div>
+                            <div class="qt-label">Комиссии</div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'directory:documents:document_list' %}" class="quick-tile">
+                            <div class="qt-icon">📄</div>
+                            <div class="qt-label">Документы</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЗОНА B: Статистика -->
+    <div class="col-6 col-md-3 col-lg-2">
+        <div class="card h-100">
+            <div class="card-header py-1 px-2" style="background:#f8f9fa;">
+                <span class="fw-bold" style="font-size:0.8rem;">📊 Статистика</span>
+            </div>
+            <div class="card-body p-2">
+                <div class="stat-item">
+                    <span class="stat-icon">👥</span>
+                    <span class="stat-label">Сотрудники</span>
+                    <span class="stat-value">{{ stats.employees_active }}</span>
+                </div>
+                {% if stats.employees_candidate > 0 %}
+                <div class="stat-item">
+                    <span class="stat-icon">📝</span>
+                    <span class="stat-label">Кандидаты</span>
+                    <span class="stat-value text-warning">{{ stats.employees_candidate }}</span>
+                </div>
+                {% endif %}
+                <div class="stat-item">
+                    <span class="stat-icon">🏢</span>
+                    <span class="stat-label">Организации</span>
+                    <span class="stat-value">{{ stats.orgs }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">🏭</span>
+                    <span class="stat-label">Подразделения</span>
+                    <span class="stat-value">{{ stats.subdivisions }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">💼</span>
+                    <span class="stat-label">Должности</span>
+                    <span class="stat-value">{{ stats.positions }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">⚙️</span>
+                    <span class="stat-label">Оборудование</span>
+                    <span class="stat-value">{{ stats.equipment }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЗОНА C: Последние приёмы -->
+    <div class="col-6 col-md-4 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center" style="background:#f8f9fa;">
+                <span class="fw-bold" style="font-size:0.8rem;">🕐 Последние приёмы</span>
+                <a href="{% url 'directory:hiring:hiring_list' %}" class="text-muted" style="font-size:0.72rem;">все →</a>
+            </div>
+            <div class="card-body p-2">
+                {% if recent_hirings %}
+                {% for h in recent_hirings %}
+                <div class="event-item">
+                    <div class="event-dot"></div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="event-name text-truncate">{{ h.employee.full_name_nominative }}</div>
+                        <div class="event-sub text-truncate">{{ h.position.position_name|default:"—" }} · {{ h.organization.short_name_ru|default:"" }}</div>
+                    </div>
+                    <div class="event-date">{{ h.hiring_date|date:"d.m" }}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="text-muted small p-2">Нет записей о приёме</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="tree-section-header">👥 Сотрудники</div>
 
 {% if show_tree %}
  <!-- 🎯 Панель с действиями -->

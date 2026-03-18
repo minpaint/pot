@@ -70,11 +70,9 @@
                         <tr>
                             <th>Дата приема</th>
                             <th>ФИО</th>
-                            <th>Вид приема</th>
-                            <th>Организация</th>
-                            <th>Подразделение</th>
-                            <th>Отдел</th>
                             <th>Должность</th>
+                            <th>Вид приема</th>
+                            <th>Подразделение / Отдел</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -88,15 +86,15 @@
                                             {{ hiring.employee.full_name_nominative }}
                                         </a>
                                     </td>
+                                    <td>{{ hiring.position.position_name }}</td>
                                     <td>
                                         <span class="badge badge-{{ hiring.hiring_type }}">
                                             {{ hiring.get_hiring_type_display }}
                                         </span>
                                     </td>
-                                    <td>{{ hiring.organization.short_name_ru }}</td>
-                                    <td>{{ hiring.subdivision.name|default:"-" }}</td>
-                                    <td>{{ hiring.department.name|default:"-" }}</td>
-                                    <td>{{ hiring.position.position_name }}</td>
+                                    <td>
+                                        {{ hiring.subdivision.name|default:"-" }}{% if hiring.department.name %} / {{ hiring.department.name }}{% endif %}
+                                    </td>
                                     <td>
                                         <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="btn btn-primary btn-sm">
                                             <i class="fas fa-file-alt"></i> Документы приема

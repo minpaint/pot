@@ -96,6 +96,12 @@ h6 { font-size: var(--font-size-h6); }
     overflow-wrap: break-word !important;
 }
 
+/* Бейджи в таблицах — разрешаем перенос длинного текста */
+.table .badge {
+    white-space: normal;
+    word-break: break-word;
+}
+
 /* Защита от переполнения карточек */
 .card {
     max-width: 100% !important;
@@ -206,8 +212,6 @@ div {
 @media (min-width: 1200px) {
     .content-area {
         padding: 30px;
-        max-width: 1400px;
-        margin: 0 auto;
     }
 }
 

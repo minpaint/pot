@@ -43,47 +43,6 @@ width: 100%;
 }
 }
 
-/* Адаптивность дашборда для разных устройств */
-@media (max-width: 991.98px) {
-    .deadline-dashboard .col-lg-4 {
-        flex: 0 0 50%;
-        max-width: 50%;
-    }
-}
-
-@media (max-width: 767.98px) {
-    .deadline-dashboard .col-md-6 {
-        flex: 0 0 100%;
-        max-width: 100%;
-    }
-
-    .deadline-dashboard .card-header {
-        font-size: 0.9rem;
-    }
-
-    .deadline-dashboard .card-body {
-        font-size: 0.85rem;
-    }
-
-    .deadline-dashboard .badge {
-        font-size: 0.7rem;
-    }
-}
-
-@media (max-width: 575.98px) {
-    .deadline-dashboard h6 {
-        font-size: 1rem;
-    }
-
-    .deadline-dashboard .card {
-        margin-bottom: 0.5rem;
-    }
-
-    .deadline-dashboard .btn-sm {
-        font-size: 0.7rem;
-        padding: 0.2rem 0.4rem;
-    }
-}
 
 /* Стили для карточек быстрых действий */
 .quick-actions-card {
@@ -116,80 +75,47 @@ background-color: #5a32a3;
 border-color: #5a32a3;
 }
 
-/* Стили для дашборда контроля сроков */
-.deadline-dashboard {
-margin-bottom: 1.5rem;
+/* Компактный дашборд */
+.deadline-dashboard { margin-bottom: 1rem; }
+
+.dc-card {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    border-top: 3px solid #dee2e6;
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s, transform 0.15s;
+    height: 100%;
+}
+.dc-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+    color: inherit;
+    text-decoration: none;
+}
+.dc-card.dc-danger  { border-top-color: #dc3545; background: #fff8f8; }
+.dc-card.dc-warning { border-top-color: #ffc107; background: #fffef0; }
+.dc-card.dc-ok      { border-top-color: #28a745; }
+
+.dc-card-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #343a40;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.deadline-dashboard .card-header {
-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-color: white;
-font-weight: bold;
-}
-
-.deadline-dashboard .card-body {
-/* Исправление выпирания текста */
-word-wrap: break-word;
-overflow-wrap: break-word;
-hyphens: auto;
-}
-
-.deadline-dashboard .card-body > div > div {
-/* Для длинных строк типа "Оборудование: 5 ед. просрочено" */
-overflow: hidden;
-text-overflow: ellipsis;
-display: -webkit-box;
--webkit-line-clamp: 2; /* Максимум 2 строки */
--webkit-box-orient: vertical;
-line-height: 1.4;
-margin-bottom: 0.25rem;
-}
-
-.deadline-org-card {
-border-left: 4px solid #667eea;
-transition: all 0.3s ease;
-}
-
-.deadline-org-card:hover {
-box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-transform: translateY(-2px);
-}
-
-.deadline-stat {
-text-align: center;
-padding: 0.5rem;
-}
-
-.deadline-stat .stat-number {
-font-size: 1.8rem;
-font-weight: bold;
-line-height: 1;
-}
-
-.deadline-stat .stat-label {
-font-size: 0.75rem;
-color: #6c757d;
-margin-top: 0.25rem;
-}
-
-.stat-overdue {
-color: #dc3545;
-}
-
-.stat-warning {
-color: #ffc107;
-}
-
-.stat-ok {
-color: #28a745;
-}
-
-.org-name {
-font-weight: 600;
-color: #495057;
-border-bottom: 2px solid #667eea;
-padding-bottom: 0.5rem;
-margin-bottom: 1rem;
+.dc-card-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 /* Dropdown для быстрых действий на мобильных */
@@ -216,70 +142,29 @@ display: none;
 <div class="container-fluid px-0">
 
 <!-- ⏰ Дашборд контроля сроков -->
-<div class="mb-3 deadline-dashboard">
-    <h6 class="mb-2">⏰ Контроль сроков</h6>
+<div class="deadline-dashboard">
+    <div class="text-muted small mb-2">⏰ Контроль сроков</div>
     {% if deadline_dashboard.per_org %}
-        <div class="row g-2">
-            {% for item in deadline_dashboard.per_org %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 {% if item.overdue_total > 0 %}border-danger{% elif item.upcoming_total > 0 %}border-warning{% else %}border-success{% endif %}">
-                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                        <strong class="small">🏢 {{ item.org.short_name_ru }}</strong>
-                        <span class="small">
-                            {% if item.overdue_total > 0 %}
-                            <span class="badge bg-danger">🚨 {{ item.overdue_total }}</span>
-                            {% endif %}
-                            {% if item.upcoming_total > 0 %}
-                            <span class="badge bg-warning text-dark">⚠️ {{ item.upcoming_total }}</span>
-                            {% endif %}
-                            {% if item.overdue_total == 0 and item.upcoming_total == 0 %}
-                            <span class="badge bg-success">✅</span>
-                            {% endif %}
-                        </span>
-                    </div>
-                    <div class="card-body py-2">
-                        {% if item.overdue_total > 0 or item.upcoming_total > 0 %}
-                        <div class="small">
-                            {% if item.equipment.overdue > 0 %}
-                            <div class="text-danger">🔧 Оборудование: <strong>{{ item.equipment.overdue }}</strong> ед. просрочено</div>
-                            {% endif %}
-                            {% if item.equipment.upcoming > 0 %}
-                            <div class="text-warning">🔧 Оборудование: <strong>{{ item.equipment.upcoming }}</strong> ед. скоро</div>
-                            {% endif %}
-                            {% if item.deadlines.overdue > 0 %}
-                            <div class="text-danger">📅 Мероприятия: <strong>{{ item.deadlines.overdue }}</strong> просрочено</div>
-                            {% endif %}
-                            {% if item.deadlines.upcoming > 0 %}
-                            <div class="text-warning">📅 Мероприятия: <strong>{{ item.deadlines.upcoming }}</strong> скоро</div>
-                            {% endif %}
-                            {% if item.medical.overdue > 0 %}
-                            <div class="text-danger">🏥 Медосмотры: <strong>{{ item.medical.overdue }}</strong> сотр. просрочено</div>
-                            {% endif %}
-                            {% if item.medical.upcoming > 0 %}
-                            <div class="text-warning">🏥 Медосмотры: <strong>{{ item.medical.upcoming }}</strong> сотр. скоро</div>
-                            {% endif %}
-                        </div>
-                        {% else %}
-                        <div class="text-success small text-center">
-                            ✅ Все сроки под контролем
-                        </div>
-                        {% endif %}
-                    </div>
-                    <div class="card-footer py-2 text-center">
-                        <a href="{% url 'deadline_control:dashboard' %}?org={{ item.org.id }}" class="btn btn-sm btn-outline-primary">
-                            📊 Подробнее
-                        </a>
-                    </div>
+    <div class="row g-2">
+        {% for item in deadline_dashboard.per_org %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <a href="{% url 'deadline_control:dashboard' %}?org={{ item.org.id }}" class="dc-card {% if item.overdue_total > 0 %}dc-danger{% elif item.upcoming_total > 0 %}dc-warning{% else %}dc-ok{% endif %}">
+                <div class="dc-card-name">{{ item.org.short_name_ru }}</div>
+                <div class="dc-card-stats">
+                    {% if item.equipment.overdue > 0 %}<span class="text-danger">🔧{{ item.equipment.overdue }}!</span>{% endif %}
+                    {% if item.equipment.upcoming > 0 %}<span class="text-warning">🔧{{ item.equipment.upcoming }}</span>{% endif %}
+                    {% if item.deadlines.overdue > 0 %}<span class="text-danger">📅{{ item.deadlines.overdue }}!</span>{% endif %}
+                    {% if item.deadlines.upcoming > 0 %}<span class="text-warning">📅{{ item.deadlines.upcoming }}</span>{% endif %}
+                    {% if item.medical.overdue > 0 %}<span class="text-danger">🏥{{ item.medical.overdue }}!</span>{% endif %}
+                    {% if item.medical.upcoming > 0 %}<span class="text-warning">🏥{{ item.medical.upcoming }}</span>{% endif %}
+                    {% if item.overdue_total == 0 and item.upcoming_total == 0 %}<span class="text-success">✅</span>{% endif %}
                 </div>
-            </div>
-            {% endfor %}
+            </a>
         </div>
+        {% endfor %}
+    </div>
     {% else %}
-        <div class="card">
-            <div class="card-body text-muted small text-center py-3">
-                ✅ Нет данных для отображения
-            </div>
-        </div>
+    <div class="text-muted small">✅ Нет данных</div>
     {% endif %}
 </div>
 
@@ -323,27 +208,20 @@ display: none;
  Действия <span id="selectedCount" class="badge bg-light text-dark ms-1">0</span>
  </button>
  <ul class="dropdown-menu" aria-labelledby="actionsDropdown">
- <li><a class="dropdown-item" href="#" id="btnIssueSIZ">
- <i class="fas fa-hard-hat"></i> Выдать СИЗ
-</a></li>
- <li><a class="dropdown-item" href="#" id="btnMedicalReferralDropdown">
- <i class="fas fa-stethoscope"></i> Выдать направление
-</a></li>
- <!-- Добавляем новый пункт выпадающего меню -->
- <li><a class="dropdown-item" href="#" id="btnGenerateDocuments">
- <i class="fas fa-file-alt"></i> Сгенерировать документы
-</a></li>
+ <li><a class="dropdown-item" href="#" id="btnIssueSIZ">🛡️ Выдать СИЗ</a></li>
+ <li><a class="dropdown-item" href="#" id="btnMedicalReferralDropdown">🏥 Выдать направление</a></li>
+ <li><a class="dropdown-item" href="#" id="btnGenerateDocuments">📄 Сгенерировать документы</a></li>
  </ul>
  </div>
 
  <!-- Добавляем кнопку генерации документов -->
  <button id="generateDocumentsBtn" class="btn btn-danger btn-sm me-1" style="display: none;">
- <i class="fas fa-file-alt"></i> <span class="d-none d-md-inline">Документы</span>
+ 📄 <span class="d-none d-md-inline">Документы</span>
 </button>
 
  <!-- Кнопка выдачи направления на медосмотр -->
  <button id="btnMedicalReferral" class="btn btn-info btn-sm" style="display: none;" data-bs-toggle="modal" data-bs-target="#medicalReferralModal">
- <i class="fas fa-stethoscope"></i> <span class="d-none d-md-inline">Направление</span>
+ 🏥 <span class="d-none d-md-inline">Направление</span>
 </button>
 
  <div id="selectedCounter" class="select-count text-muted ms-2" style="display: none;">
@@ -393,17 +271,9 @@ display: none;
  </td>
  <td>
  <div class="btn-group btn-group-sm">
- <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">
- <i class="fas fa-stethoscope"></i>
- </button>
- <a href="{% url 'directory:documents:document_selection' employee.id %}"
- class="btn btn-outline-danger" title="Создать документы">
- <i class="fas fa-file-alt"></i>
- </a>
- <a href="{% url 'directory:siz:siz_personal_card' employee.id %}"
- class="btn btn-outline-success" title="Выдать СИЗ">
- <i class="fas fa-hard-hat"></i>
- </a>
+ <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">🏥</button>
+ <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-outline-danger" title="Создать документы">📄</a>
+ <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-outline-success" title="Выдать СИЗ">🛡️</a>
  </div>
  </td>
  </tr>
@@ -438,18 +308,9 @@ display: none;
  </td>
  <td>
  <div class="btn-group btn-group-sm">
- <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">
- <i class="fas fa-stethoscope"></i>
- </button>
- <!-- Добавляем кнопку генерации документов в строке сотрудника -->
- <a href="{% url 'directory:documents:document_selection' employee.id %}"
- class="btn btn-outline-danger" title="Создать документы">
- <i class="fas fa-file-alt"></i>
- </a>
- <a href="{% url 'directory:siz:siz_personal_card' employee.id %}"
- class="btn btn-outline-success" title="Выдать СИЗ">
- <i class="fas fa-hard-hat"></i>
- </a>
+ <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">🏥</button>
+ <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-outline-danger" title="Создать документы">📄</a>
+ <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-outline-success" title="Выдать СИЗ">🛡️</a>
  </div>
  </td>
  </tr>
@@ -486,18 +347,9 @@ display: none;
  </td>
  <td>
  <div class="btn-group btn-group-sm">
- <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">
- <i class="fas fa-stethoscope"></i>
- </button>
- <!-- Добавляем кнопку генерации документов в строке сотрудника -->
- <a href="{% url 'directory:documents:document_selection' employee.id %}"
- class="btn btn-outline-danger" title="Создать документы">
- <i class="fas fa-file-alt"></i>
- </a>
- <a href="{% url 'directory:siz:siz_personal_card' employee.id %}"
- class="btn btn-outline-success" title="Выдать СИЗ">
- <i class="fas fa-hard-hat"></i>
- </a>
+ <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">🏥</button>
+ <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-outline-danger" title="Создать документы">📄</a>
+ <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-outline-success" title="Выдать СИЗ">🛡️</a>
  </div>
  </td>
  </tr>
@@ -534,18 +386,9 @@ display: none;
  </td>
  <td>
  <div class="btn-group btn-group-sm">
- <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">
- <i class="fas fa-stethoscope"></i>
- </button>
- <!-- Добавляем кнопку генерации документов в строке сотрудника -->
- <a href="{% url 'directory:documents:document_selection' employee.id %}"
- class="btn btn-outline-danger" title="Создать документы">
- <i class="fas fa-file-alt"></i>
- </a>
- <a href="{% url 'directory:siz:siz_personal_card' employee.id %}"
- class="btn btn-outline-success" title="Выдать СИЗ">
- <i class="fas fa-hard-hat"></i>
- </a>
+ <button type="button" class="btn btn-outline-info btn-medical-referral" data-employee-id="{{ employee.id }}" title="Направление на МО">🏥</button>
+ <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-outline-danger" title="Создать документы">📄</a>
+ <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-outline-success" title="Выдать СИЗ">🛡️</a>
  </div>
  </td>
  </tr>
@@ -653,7 +496,7 @@ display: none;
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title" id="medicalReferralModalLabel">
-                    <i class="fas fa-stethoscope"></i> Выдача направления на медосмотр
+                    🏥 Выдача направления на медосмотр
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

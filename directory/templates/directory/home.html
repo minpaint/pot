@@ -336,51 +336,8 @@ display: none;
         </div>
     </div>
 
-    <!-- ЗОНА B: Статистика -->
-    <div class="col-6 col-md-3 col-lg-2">
-        <div class="card h-100">
-            <div class="card-header py-1 px-2" style="background:#f8f9fa;">
-                <span class="fw-bold" style="font-size:0.8rem;">📊 Статистика</span>
-            </div>
-            <div class="card-body p-2">
-                <div class="stat-item">
-                    <span class="stat-icon">👥</span>
-                    <span class="stat-label">Сотрудники</span>
-                    <span class="stat-value">{{ stats.employees_active }}</span>
-                </div>
-                {% if stats.employees_candidate > 0 %}
-                <div class="stat-item">
-                    <span class="stat-icon">📝</span>
-                    <span class="stat-label">Кандидаты</span>
-                    <span class="stat-value text-warning">{{ stats.employees_candidate }}</span>
-                </div>
-                {% endif %}
-                <div class="stat-item">
-                    <span class="stat-icon">🏢</span>
-                    <span class="stat-label">Организации</span>
-                    <span class="stat-value">{{ stats.orgs }}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-icon">🏭</span>
-                    <span class="stat-label">Подразделения</span>
-                    <span class="stat-value">{{ stats.subdivisions }}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-icon">💼</span>
-                    <span class="stat-label">Должности</span>
-                    <span class="stat-value">{{ stats.positions }}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-icon">⚙️</span>
-                    <span class="stat-label">Оборудование</span>
-                    <span class="stat-value">{{ stats.equipment }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- ЗОНА C: Последние приёмы -->
-    <div class="col-6 col-md-4 col-lg-6">
+    <div class="col-12 col-md-7 col-lg-8">
         <div class="card h-100">
             <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center" style="background:#f8f9fa;">
                 <span class="fw-bold" style="font-size:0.8rem;">🕐 Последние приёмы</span>

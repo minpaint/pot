@@ -82,26 +82,17 @@ def generate_siz_card_docx(
                 position=employee.position
             ).select_related('siz')
 
-            # Если нормы не найдены, ищем эталонную должность
+            # Если нормы не найдены, берём из эталонных норм (ProfessionSIZNorm) по названию профессии
             if not all_norms_query.exists():
-                logger.info("Нормы не найдены для конкретной должности, ищем эталонную...")
-                from directory.models import Position
+                logger.info("Нормы не найдены для конкретной должности, ищем в эталонных нормах...")
+                from directory.models.siz import ProfessionSIZNorm
 
-                positions_with_same_name = Position.objects.filter(
-                    position_name=employee.position.position_name
-                ).order_by('organization__full_name_ru')
+                all_norms_query = ProfessionSIZNorm.objects.filter(
+                    profession_name__iexact=employee.position.position_name
+                ).select_related('siz')
 
-                reference_position = None
-                for pos in positions_with_same_name:
-                    if SIZNorm.objects.filter(position=pos).exists():
-                        reference_position = pos
-                        break
-
-                if reference_position:
-                    logger.info(f"Найдена эталонная должность ID={reference_position.id}")
-                    all_norms_query = SIZNorm.objects.filter(
-                        position=reference_position
-                    ).select_related('siz')
+                if all_norms_query.exists():
+                    logger.info(f"Найдено {all_norms_query.count()} эталонных норм для профессии '{employee.position.position_name}'")
 
             for norm in all_norms_query:
                 cost = norm.siz.cost

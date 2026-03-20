@@ -271,7 +271,6 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
         # Получаем нормы СИЗ для должности сотрудника
         if self.object.position:
             from directory.models.siz import SIZNorm
-            from directory.models.position import Position
             import logging
             logger = logging.getLogger(__name__)
 
@@ -286,31 +285,20 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
 
             logger.info(f"Найдено норм СИЗ для должности: {norms.count()}")
 
-            # Если нормы не найдены, ищем эталонную должность с таким же названием
-            if norms.count() == 0:
-                logger.info("Нормы не найдены для конкретной должности, ищем эталонную должность...")
+            # Если нормы не найдены, берём из эталонных норм (ProfessionSIZNorm) по названию профессии
+            if not norms.exists():
+                logger.info("Нормы не найдены для конкретной должности, ищем в эталонных нормах...")
+                from directory.models.siz import ProfessionSIZNorm
 
-                # Получаем все должности с таким же названием
-                positions_with_same_name = Position.objects.filter(
-                    position_name=self.object.position.position_name
-                ).order_by('organization__full_name_ru')
+                norms = ProfessionSIZNorm.objects.filter(
+                    profession_name__iexact=self.object.position.position_name
+                ).select_related('siz')
 
-                # Ищем первую должность с нормами (эталонную)
-                reference_position = None
-                for pos in positions_with_same_name:
-                    if SIZNorm.objects.filter(position=pos).exists():
-                        reference_position = pos
-                        break
-
-                if reference_position:
-                    logger.info(f"Найдена эталонная должность ID={reference_position.id} "
-                              f"в организации {reference_position.organization.short_name_ru}")
-                    norms = SIZNorm.objects.filter(
-                        position=reference_position
-                    ).select_related('siz')
-                    logger.info(f"Загружено норм СИЗ из эталонной должности: {norms.count()}")
+                if norms.exists():
+                    logger.info(f"Найдено {norms.count()} эталонных норм для профессии '{self.object.position.position_name}'")
+                    context['norms_from_reference'] = True
                 else:
-                    logger.warning(f"Эталонная должность для '{self.object.position.position_name}' не найдена")
+                    logger.warning(f"Эталонные нормы для профессии '{self.object.position.position_name}' не найдены")
 
             # Базовые нормы (без условий)
             context['base_norms'] = norms.filter(condition='')

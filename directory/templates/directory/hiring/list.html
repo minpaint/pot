@@ -2,189 +2,285 @@
 {% load static %}
 {% load i18n %}
 
+{% block title %}📋 Приёмы на работу{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Панель фильтров ── */
+.hl-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+.hl-topbar label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.hl-topbar select,
+.hl-topbar input[type="text"] {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    background: #fff;
+}
+.hl-topbar select:focus,
+.hl-topbar input[type="text"]:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Карточка ── */
+.hl-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 24px;
+}
+.hl-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hl-card-header .hdr-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.hl-card-header .hdr-count { font-size: 0.8rem; opacity: 0.8; }
+
+/* ── Таблица ── */
+.hl-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.hl-table th {
+    padding: 9px 14px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.hl-table td {
+    padding: 10px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+}
+.hl-table tr:last-child td { border-bottom: none; }
+.hl-table tbody tr:hover td { background: #f0f7ff; }
+.hl-table tr.inactive td { opacity: 0.5; }
+
+/* ── Бейджи типов ── */
+.type-badge {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+}
+.type-new        { background: #d4edda; color: #155724; }
+.type-transfer   { background: #cce5ff; color: #004085; }
+.type-return     { background: #e2d9f3; color: #4a1e9e; }
+.type-contractor { background: #fde5cd; color: #7d3c00; }
+.type-part_time  { background: #d1ecf1; color: #0c5460; }
+
+.active-dot   { color: #28a745; font-size: 0.8rem; }
+.inactive-dot { color: #adb5bd; font-size: 0.8rem; }
+
+.emp-name { font-weight: 700; color: #212529; }
+.position-name { color: #6c757d; font-size: 0.83rem; }
+.sub-path { font-size: 0.82rem; color: #6c757d; }
+
+/* ── Пагинация ── */
+.hl-pagination { display: flex; justify-content: center; gap: 4px; margin-top: 20px; flex-wrap: wrap; }
+.hl-pagination a, .hl-pagination span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: #495057;
+    background: #fff;
+    transition: all 0.15s;
+}
+.hl-pagination a:hover { background: #f0f7ff; border-color: #3498db; color: #3498db; }
+.hl-pagination .current { background: #3498db; border-color: #3498db; color: #fff; font-weight: 600; }
+.hl-pagination .disabled { opacity: 0.45; pointer-events: none; }
+
+/* ── Адаптив ── */
+@media (max-width: 767px) {
+    .hl-table thead { display: none; }
+    .hl-table tbody tr { display: block; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .hl-table td { display: flex; justify-content: space-between; align-items: center; padding: 4px 14px; border: none; }
+    .hl-table td::before { content: attr(data-label); font-size: 0.7rem; color: #999; font-weight: 600; margin-right: 8px; flex-shrink: 0; }
+    .hl-table td.td-acts { justify-content: flex-end; }
+    .hl-table td.td-acts::before { content: none; }
+    .hl-topbar { flex-direction: column; align-items: stretch; }
+    .hl-topbar select, .hl-topbar input[type="text"] { width: 100%; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <h1>{{ title }} - Табличное представление</h1>
+<div class="container-fluid mt-3">
 
-    <!-- Фильтры -->
-    <div class="card mb-4">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="fas fa-filter"></i> Фильтры
-            </h5>
+    <!-- Верхняя панель: фильтры + действия -->
+    <form method="get" class="hl-topbar">
+        <div>
+            <label>Вид приёма</label>
+            <select name="hiring_type">
+                <option value="">Все виды</option>
+                {% for value, label in hiring_types %}
+                    <option value="{{ value }}" {% if current_hiring_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="card-body">
-            <form method="get" class="form-inline">
-                <div class="row">
-                    <div class="col-md-3 mb-2">
-                        <label for="hiring_type">Вид приема:</label>
-                        <select name="hiring_type" id="hiring_type" class="form-control">
-                            <option value="">Все виды</option>
-                            {% for value, label in hiring_types %}
-                                <option value="{{ value }}" {% if current_hiring_type == value %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label for="is_active">Статус:</label>
-                        <select name="is_active" id="is_active" class="form-control">
-                            <option value="">Все</option>
-                            <option value="true" {% if current_is_active == 'true' %}selected{% endif %}>Активные</option>
-                            <option value="false" {% if current_is_active == 'false' %}selected{% endif %}>Неактивные</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <label for="search">Поиск:</label>
-                        <input type="text" name="search" id="search" class="form-control" value="{{ search_query }}" placeholder="ФИО, должность...">
-                    </div>
-                    <div class="col-md-2 mb-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary mr-2"><i class="fas fa-search"></i> Применить</button>
-                        <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-secondary"><i class="fas fa-undo"></i> Сбросить</a>
-                    </div>
-                </div>
-            </form>
+        <div>
+            <label>Статус</label>
+            <select name="is_active">
+                <option value="">Все</option>
+                <option value="true"  {% if current_is_active == 'true'  %}selected{% endif %}>✅ Активные</option>
+                <option value="false" {% if current_is_active == 'false' %}selected{% endif %}>⬜ Неактивные</option>
+            </select>
         </div>
-    </div>
+        <div>
+            <label>Поиск</label>
+            <input type="text" name="search" value="{{ search_query }}" placeholder="ФИО, должность…" style="min-width: 200px;">
+        </div>
+        <div style="padding-bottom:1px;">
+            <button type="submit" class="btn btn-sm btn-primary">🔍 Применить</button>
+            <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary ms-1">✖ Сбросить</a>
+        </div>
+        <div class="ms-auto" style="padding-bottom:1px;">
+            <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-sm btn-success">➕ Принять на работу</a>
+        </div>
+    </form>
 
-    <!-- Кнопки действий -->
-    <div class="mb-3">
-        <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-success">
-            <i class="fas fa-plus"></i> Новый прием на работу
-        </a>
-        <a href="{% url 'directory:hiring:hiring_tree' %}" class="btn btn-info">
-            <i class="fas fa-sitemap"></i> Древовидное представление
-        </a>
-    </div>
-
-    <!-- Таблица приемов -->
-    <div class="card">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="fas fa-list"></i> Список приемов на работу
-            </h5>
+    <!-- Карточка со списком -->
+    <div class="hl-card">
+        <div class="hl-card-header">
+            <span>📋</span>
+            <span class="hdr-title">Приёмы на работу</span>
+            {% if is_paginated %}
+            <span class="hdr-count">стр. {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} &nbsp;·&nbsp; {{ page_obj.paginator.count }} записей</span>
+            {% else %}
+            <span class="hdr-count">{{ hiring_records|length }} записей</span>
+            {% endif %}
         </div>
-        <div class="card-body p-0">
+
+        <div style="background:#fff;">
+            {% if hiring_records %}
             <div class="table-responsive">
-                <table class="table table-hover table-striped mb-0">
-                    <thead class="thead-light">
+                <table class="hl-table">
+                    <thead>
                         <tr>
-                            <th>Дата приема</th>
-                            <th>ФИО</th>
+                            <th>Дата</th>
+                            <th>Сотрудник</th>
                             <th>Должность</th>
-                            <th>Вид приема</th>
-                            <th>Подразделение / Отдел</th>
-                            <th>Действия</th>
+                            <th>Вид приёма</th>
+                            <th>Подразделение</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% if hiring_records %}
-                            {% for hiring in hiring_records %}
-                                <tr class="{% if not hiring.is_active %}text-muted{% endif %}">
-                                    <td>{{ hiring.hiring_date|date:"d.m.Y" }}</td>
-                                    <td>
-                                        <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="{% if not hiring.is_active %}text-muted{% endif %}">
-                                            {{ hiring.employee.full_name_nominative }}
-                                        </a>
-                                    </td>
-                                    <td>{{ hiring.position.position_name }}</td>
-                                    <td>
-                                        <span class="badge badge-{{ hiring.hiring_type }}">
-                                            {{ hiring.get_hiring_type_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {{ hiring.subdivision.name|default:"-" }}{% if hiring.department.name %} / {{ hiring.department.name }}{% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="btn btn-primary btn-sm">
-                                            <i class="fas fa-file-alt"></i> Документы приема
-                                        </a>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="8" class="text-center py-3">
-                                    <div class="alert alert-info mb-0">
-                                        <i class="fas fa-info-circle"></i> Записи о приеме на работу не найдены.
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endif %}
+                        {% for h in hiring_records %}
+                        <tr class="{% if not h.is_active %}inactive{% endif %}">
+                            <td data-label="Дата" style="white-space:nowrap;">
+                                {{ h.hiring_date|date:"d.m.Y" }}
+                            </td>
+                            <td data-label="Сотрудник">
+                                <a href="{% url 'directory:hiring:hiring_detail' h.pk %}" class="text-decoration-none">
+                                    <span class="emp-name">{{ h.employee.full_name_nominative }}</span>
+                                </a>
+                                {% if not h.is_active %}<span class="inactive-dot ms-1" title="Неактивен">⬜</span>{% endif %}
+                            </td>
+                            <td data-label="Должность">
+                                <span class="position-name">{{ h.position.position_name }}</span>
+                            </td>
+                            <td data-label="Вид приёма">
+                                <span class="type-badge type-{{ h.hiring_type }}">
+                                    {{ h.get_hiring_type_display }}
+                                </span>
+                            </td>
+                            <td data-label="Подразделение">
+                                <span class="sub-path">
+                                    {% if h.subdivision %}{{ h.subdivision.name }}{% if h.department %} / {{ h.department.name }}{% endif %}{% else %}<span style="color:#ccc;">—</span>{% endif %}
+                                </span>
+                            </td>
+                            <td class="td-acts text-end" style="white-space:nowrap;">
+                                <a href="{% url 'directory:hiring:hiring_detail' h.pk %}" class="btn btn-sm btn-outline-primary" style="font-size:0.78rem; padding:3px 10px;" title="Документы приёма">
+                                    📄 Документы
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
+
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <div style="font-size:2.5rem;">📋</div>
+                <p class="mt-2">Записи о приёме не найдены</p>
+                {% if search_query or current_hiring_type or current_is_active %}
+                    <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary">✖ Сбросить фильтры</a>
+                {% else %}
+                    <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-sm btn-success">➕ Принять первого сотрудника</a>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
     </div>
 
     <!-- Пагинация -->
     {% if is_paginated %}
-        <div class="mt-3">
-            <nav aria-label="Пагинация">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1{% if request.GET.hiring_type %}&hiring_type={{ request.GET.hiring_type }}{% endif %}{% if request.GET.is_active %}&is_active={{ request.GET.is_active }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                                <i class="fas fa-angle-double-left"></i>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.hiring_type %}&hiring_type={{ request.GET.hiring_type }}{% endif %}{% if request.GET.is_active %}&is_active={{ request.GET.is_active }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                                <i class="fas fa-angle-left"></i>
-                            </a>
-                        </li>
-                    {% endif %}
+    {% with pg=page_obj params=request.GET.urlencode %}
+    <div class="hl-pagination">
+        {% if pg.has_previous %}
+            <a href="?page=1{% if params %}&{{ params }}{% endif %}">«</a>
+            <a href="?page={{ pg.previous_page_number }}{% if params %}&{{ params }}{% endif %}">‹</a>
+        {% else %}
+            <span class="disabled">«</span>
+            <span class="disabled">‹</span>
+        {% endif %}
 
-                    <li class="page-item disabled">
-                        <span class="page-link">
-                            Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
-                        </span>
-                    </li>
+        {% for num in pg.paginator.page_range %}
+            {% if pg.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > pg.number|add:"-3" and num < pg.number|add:"3" %}
+                <a href="?page={{ num }}{% if params %}&{{ params }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
 
-                    {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.hiring_type %}&hiring_type={{ request.GET.hiring_type }}{% endif %}{% if request.GET.is_active %}&is_active={{ request.GET.is_active }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                                <i class="fas fa-angle-right"></i>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.hiring_type %}&hiring_type={{ request.GET.hiring_type }}{% endif %}{% if request.GET.is_active %}&is_active={{ request.GET.is_active }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                                <i class="fas fa-angle-double-right"></i>
-                            </a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
+        {% if pg.has_next %}
+            <a href="?page={{ pg.next_page_number }}{% if params %}&{{ params }}{% endif %}">›</a>
+            <a href="?page={{ pg.paginator.num_pages }}{% if params %}&{{ params }}{% endif %}">»</a>
+        {% else %}
+            <span class="disabled">›</span>
+            <span class="disabled">»</span>
+        {% endif %}
+    </div>
+    {% endwith %}
     {% endif %}
+
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    .badge-new {
-        background-color: #28a745;
-        color: white;
-    }
-
-    .badge-transfer {
-        background-color: #007bff;
-        color: white;
-    }
-
-    .badge-return {
-        background-color: #6f42c1;
-        color: white;
-    }
-
-    .badge-contractor {
-        background-color: #fd7e14;
-        color: white;
-    }
-
-    .badge-part_time {
-        background-color: #17a2b8;
-        color: white;
-    }
-</style>
 {% endblock %}

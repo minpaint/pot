@@ -1,0 +1,57 @@
+<table class="eq-table">
+    <thead>
+        <tr>
+            <th>Наименование</th>
+            <th>Инв. №</th>
+            <th>Последнее ТО</th>
+            <th>Следующее ТО</th>
+            <th>Дней до ТО</th>
+            <th>Статус</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for eq in items %}
+        {% with days=eq.days_until_maintenance %}
+        <tr class="{% if days is not None and days < 0 %}row-danger{% elif days is not None and days <= 14 %}row-warn{% endif %}">
+            <td data-label="Наименование">
+                <a href="{% url 'deadline_control:equipment:detail' eq.pk %}" class="text-decoration-none">
+                    {{ eq.equipment_name }}
+                </a>
+            </td>
+            <td data-label="Инв. №"><span class="inv-num">{{ eq.inventory_number }}</span></td>
+            <td data-label="Последнее ТО">
+                {% if eq.last_maintenance_date %}{{ eq.last_maintenance_date|date:"d.m.Y" }}{% else %}<span class="no-data">—</span>{% endif %}
+            </td>
+            <td data-label="Следующее ТО">
+                {% if eq.next_maintenance_date %}{{ eq.next_maintenance_date|date:"d.m.Y" }}{% else %}<span class="no-data">—</span>{% endif %}
+            </td>
+            <td data-label="Дней до ТО">
+                {% if days is not None %}
+                    {% if days < 0 %}<span class="days-pill p-overdue">{{ days }} д.</span>
+                    {% elif days <= 14 %}<span class="days-pill p-soon">{{ days }} д.</span>
+                    {% else %}<span class="days-pill p-ok">{{ days }} д.</span>{% endif %}
+                {% else %}
+                    <span class="days-pill p-none">—</span>
+                {% endif %}
+            </td>
+            <td data-label="Статус">
+                {% if days is not None and days < 0 %}
+                    <span class="status-badge bg-danger text-white">🔴 Просрочено</span>
+                {% elif days is not None and days <= 14 %}
+                    <span class="status-badge bg-warning text-dark">🟡 Скоро</span>
+                {% elif eq.last_maintenance_date %}
+                    <span class="status-badge bg-success text-white">🟢 OK</span>
+                {% else %}
+                    <span class="status-badge" style="background:#e9ecef;color:#6c757d;">⚪ Нет дат</span>
+                {% endif %}
+            </td>
+            <td class="td-acts text-end" style="white-space:nowrap;">
+                <a href="{% url 'deadline_control:equipment:update' eq.pk %}" class="btn btn-sm btn-outline-primary btn-act" title="Редактировать">✏️</a>
+                <a href="{% url 'deadline_control:equipment:delete' eq.pk %}" class="btn btn-sm btn-outline-danger btn-act ms-1" title="Удалить">🗑️</a>
+            </td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+    </tbody>
+</table>

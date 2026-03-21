@@ -1,21 +1,23 @@
 # deadline_control/urls.py
 from django.urls import path, include
+from django.views.generic import RedirectView
 from deadline_control.views import equipment, key_deadline, dashboard, medical, medical_referral
 
 app_name = 'deadline_control'
 
 # ⚙️ ТО оборудования
 equipment_patterns = [
-    path('', equipment.EquipmentListView.as_view(), name='list'),  # По умолчанию табличное
-    path('table/', equipment.EquipmentListView.as_view(), name='list_table'),  # Табличное
-    path('tree/', equipment.EquipmentTreeView.as_view(), name='list_tree'),  # Древовидное
+    path('', equipment.EquipmentUnifiedView.as_view(), name='list'),
+    # Обратная совместимость — редиректы на единое представление
+    path('table/', RedirectView.as_view(pattern_name='deadline_control:equipment:list', permanent=False), name='list_table'),
+    path('tree/', RedirectView.as_view(pattern_name='deadline_control:equipment:list', permanent=False), name='list_tree'),
+    path('journal/', RedirectView.as_view(pattern_name='deadline_control:equipment:list', permanent=False), name='journal'),
     path('create/', equipment.EquipmentCreateView.as_view(), name='create'),
     path('<int:pk>/', equipment.EquipmentDetailView.as_view(), name='detail'),
     path('<int:pk>/update/', equipment.EquipmentUpdateView.as_view(), name='update'),
     path('<int:pk>/delete/', equipment.EquipmentDeleteView.as_view(), name='delete'),
     path('<int:pk>/perform-maintenance/', equipment.perform_maintenance, name='perform_maintenance'),
     path('type/<int:type_id>/api/', equipment.equipment_type_api, name='type_api'),
-    path('journal/', equipment.EquipmentJournalView.as_view(), name='journal'),
     path('journal/send-sample/<int:subdivision_id>/', equipment.send_equipment_journal_sample, name='send_journal_sample'),
     path('journal/send-organization/<int:organization_id>/', equipment.send_equipment_journals_for_organization, name='send_journals_organization'),
     path('journal/preview/<int:organization_id>/', equipment.preview_mass_send_equipment_journals, name='preview_journals'),

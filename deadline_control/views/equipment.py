@@ -1181,3 +1181,273 @@ def generate_equipment_journal_view(request):
         'deadline_control/equipment/generate_journal.html',
         {'form': form, 'title': 'Генерация журнала оборудования'}
     )
+
+
+class EquipmentUnifiedView(LoginRequiredMixin, TemplateView):
+    """
+    Единое представление ТО оборудования.
+    Дерево: Организация → Подразделение → Тип оборудования → Оборудование.
+    Включает: просмотр дат ТО, генерацию и отправку журналов.
+    """
+    template_name = 'deadline_control/equipment/unified.html'
+
+    # Типы оборудования, для которых формируются журналы
+    JOURNAL_TYPE_NAMES = ['Лестница', 'Грузовая тележка']
+
+    def _get_inspection_date(self):
+        raw = self.request.GET.get('inspection_date') or self.request.POST.get('inspection_date')
+        d = parse_date(raw) if raw else None
+        return d or date.today()
+
+    def _get_journal_types(self):
+        from deadline_control.models import EquipmentType
+        return list(EquipmentType.objects.filter(
+            is_active=True,
+            name__in=self.JOURNAL_TYPE_NAMES
+        ).order_by('name'))
+
+    def _get_queryset(self):
+        qs = Equipment.objects.select_related(
+            'organization', 'subdivision', 'department', 'equipment_type'
+        )
+        return AccessControlHelper.filter_queryset(qs, self.request.user, self.request).order_by(
+            'organization__short_name_ru',
+            'subdivision__name',
+            'equipment_type__name',
+            'equipment_name',
+        )
+
+    def _build_tree(self, equipment_qs, allowed_orgs):
+        """
+        Строит структуру:
+        [
+          {
+            org, equipment_count,
+            subdivisions: [
+              {
+                sub, equipment_count,
+                types: [
+                  {
+                    eq_type (или None), type_label, type_icon, equipment_count,
+                    items: [Equipment, ...]
+                  }
+                ]
+              }
+            ],
+            no_subdivision: [  # оборудование без подразделения
+              { eq_type, type_label, type_icon, equipment_count, items }
+            ]
+          }
+        ]
+        """
+        TYPE_ICONS = {
+            'Лестница': '🪜',
+            'Грузовая тележка': '🛒',
+        }
+
+        # org_id → sub_id → type_name → [equipment]
+        buckets = {}
+        for org in allowed_orgs:
+            buckets[org.id] = {'org': org, 'subs': {}, 'no_sub': {}}
+
+        for eq in equipment_qs:
+            org = eq.organization
+            if not org or org.id not in buckets:
+                continue
+            sub_key = eq.subdivision.id if eq.subdivision else None
+            sub_label = eq.subdivision.name if eq.subdivision else None
+            type_key = eq.equipment_type.name if eq.equipment_type else '__other__'
+            type_label = eq.equipment_type.name if eq.equipment_type else 'Прочее'
+            type_icon = TYPE_ICONS.get(type_label, '⚙️')
+
+            if sub_key is None:
+                no_sub = buckets[org.id]['no_sub']
+                if type_key not in no_sub:
+                    no_sub[type_key] = {
+                        'eq_type': eq.equipment_type,
+                        'type_label': type_label,
+                        'type_icon': type_icon,
+                        'items': [],
+                    }
+                no_sub[type_key]['items'].append(eq)
+            else:
+                subs = buckets[org.id]['subs']
+                if sub_key not in subs:
+                    subs[sub_key] = {
+                        'sub': eq.subdivision,
+                        'types': {},
+                    }
+                types = subs[sub_key]['types']
+                if type_key not in types:
+                    types[type_key] = {
+                        'eq_type': eq.equipment_type,
+                        'type_label': type_label,
+                        'type_icon': type_icon,
+                        'items': [],
+                    }
+                types[type_key]['items'].append(eq)
+
+        result = []
+        for org in allowed_orgs:
+            b = buckets.get(org.id)
+            if not b:
+                continue
+
+            subdivisions = []
+            total = 0
+
+            # Подразделения
+            for sub_id, sub_data in sorted(b['subs'].items(), key=lambda x: x[1]['sub'].name or ''):
+                type_groups = []
+                sub_count = 0
+                for _, tg in sorted(sub_data['types'].items(), key=lambda x: x[1]['type_label']):
+                    tg['equipment_count'] = len(tg['items'])
+                    sub_count += tg['equipment_count']
+                    type_groups.append(tg)
+                subdivisions.append({
+                    'sub': sub_data['sub'],
+                    'types': type_groups,
+                    'equipment_count': sub_count,
+                })
+                total += sub_count
+
+            # Без подразделения
+            no_sub_groups = []
+            for _, tg in sorted(b['no_sub'].items(), key=lambda x: x[1]['type_label']):
+                tg['equipment_count'] = len(tg['items'])
+                total += tg['equipment_count']
+                no_sub_groups.append(tg)
+
+            if total == 0:
+                continue
+
+            result.append({
+                'org': org,
+                'equipment_count': total,
+                'subdivisions': subdivisions,
+                'no_sub_groups': no_sub_groups,
+            })
+
+        return result
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        inspection_date = self._get_inspection_date()
+
+        allowed_orgs = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
+
+        # Фильтр по выбранной организации из глобального селектора в хэдере
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            allowed_orgs = [o for o in allowed_orgs if o.id == int(selected_org_id)]
+
+        qs = self._get_queryset()
+        if selected_org_id:
+            qs = qs.filter(organization_id=selected_org_id)
+
+        context['tree_data'] = self._build_tree(qs, allowed_orgs)
+        context['inspection_date'] = inspection_date.isoformat()
+        context['journal_type_names'] = self.JOURNAL_TYPE_NAMES
+        context['title'] = '⚙️ ТО оборудования'
+        return context
+
+    def post(self, request, *args, **kwargs):
+        from deadline_control.models import EquipmentType
+        from io import BytesIO
+        from zipfile import ZipFile
+        from directory.document_generators.equipment_journal_generator import (
+            generate_equipment_journal_for_subdivision
+        )
+
+        action = request.POST.get('action')
+        inspection_date = self._get_inspection_date()
+        equipment_type_id = request.POST.get('equipment_type_id')
+        subdivision_id = request.POST.get('subdivision_id')
+        organization_id = request.POST.get('organization_id')
+
+        # Сохраняем параметры в сессию для функций email
+        if equipment_type_id:
+            request.session['equipment_journal_params'] = {
+                'equipment_type_id': equipment_type_id,
+                'inspection_date': inspection_date.isoformat(),
+            }
+
+        try:
+            equipment_type = EquipmentType.objects.get(pk=equipment_type_id, is_active=True)
+        except (EquipmentType.DoesNotExist, TypeError, ValueError):
+            messages.error(request, 'Тип оборудования не найден')
+            return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())
+
+        if action == 'download_subdivision':
+            # Журнал для одного подразделения
+            from directory.models import StructuralSubdivision
+            subdivision = get_object_or_404(StructuralSubdivision, pk=subdivision_id)
+            eq_list = list(Equipment.objects.filter(
+                subdivision=subdivision,
+                equipment_type=equipment_type
+            ).select_related('organization', 'subdivision', 'department', 'equipment_type'))
+
+            if not eq_list:
+                messages.warning(request, 'Нет оборудования для генерации журнала')
+                return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())
+
+            doc = generate_equipment_journal_for_subdivision(
+                equipment=eq_list,
+                equipment_type=equipment_type,
+                inspection_date=inspection_date,
+                subdivision=subdivision,
+                subdivision_name=subdivision.name,
+            )
+            if not doc:
+                messages.error(request, 'Ошибка при генерации журнала')
+                return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())
+
+            response = HttpResponse(
+                doc['content'],
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"'
+            return response
+
+        elif action == 'download_organization':
+            # Общий журнал по всей организации (один файл, все подразделения)
+            eq_list = list(Equipment.objects.filter(
+                organization_id=organization_id,
+                equipment_type=equipment_type
+            ).select_related('organization', 'subdivision', 'department', 'equipment_type'))
+
+            if not eq_list:
+                messages.warning(request, 'Нет оборудования для генерации журнала')
+                return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())
+
+            doc = generate_equipment_journal_for_subdivision(
+                equipment=eq_list,
+                equipment_type=equipment_type,
+                inspection_date=inspection_date,
+                subdivision=None,
+                subdivision_name='Все подразделения',
+                use_two_level_location=True,
+            )
+            if not doc:
+                messages.error(request, 'Ошибка при генерации журнала')
+                return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())
+
+            response = HttpResponse(
+                doc['content'],
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"'
+            return response
+
+        elif action == 'email_subdivision':
+            # Отправить образец на email — делегируем существующей функции
+            return send_equipment_journal_sample(request, int(subdivision_id))
+
+        elif action == 'mass_preview':
+            # Предпросмотр массовой рассылки для организации
+            return preview_mass_send_equipment_journals(request, int(organization_id))
+
+        messages.error(request, 'Неизвестное действие')
+        return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())

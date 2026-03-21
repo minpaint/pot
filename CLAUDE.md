@@ -701,3 +701,312 @@ git config user.email "dev@ot-online.local"
 3. Создать осмысленный commit message
 4. Запушить в нужную ветку (обычно develop)
 5. Показать ссылку на GitHub
+
+---
+
+## Frontend Design System (UI Guidelines)
+
+**ВАЖНО:** Все новые и переработанные страницы фронтенда ОБЯЗАНЫ следовать единому дизайн-системе, описанной ниже. Это не пожелание — это стандарт проекта.
+
+### Эталонные страницы
+
+При создании новых страниц ориентируйся на эти реализованные образцы:
+- `templates/deadline_control/equipment/unified.html` — дерево Орг→Подразделение→Тип→Оборудование
+- `templates/directory/hiring/list.html` — список с фильтрами и пагинацией
+- `templates/directory/siz/mass_generation.html` — двухвкладочная страница с деревом и таблицей
+
+### Обязательные правила
+
+#### 1. Заголовки карточек организации — только градиент
+
+```css
+background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+color: #fff;
+```
+
+**Запрещено:** `bg-primary`, `bg-dark`, `card-header` с Bootstrap-цветами.
+
+#### 2. Иконки — только эмодзи
+
+Использовать встроенные Unicode-эмодзи: 🏢 🏭 📂 👤 📋 ⚙️ 🛡️ 📅 🔍 ✉️ 📥 ✏️ 🗑️ ➕ и т.д.
+
+**Запрещено:** FontAwesome, Bootstrap Icons, любые иконочные шрифты.
+
+#### 3. Панель фильтров / управления — стиль topbar
+
+```css
+.XXX-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+.XXX-topbar label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+```
+
+**Запрещено:** `<form class="row g-3">` / `card.card-body` для панели фильтров.
+
+#### 4. Карточки-контейнеры
+
+```css
+.XXX-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+}
+```
+
+**Запрещено:** стандартный Bootstrap `card` с `border` и `card-header bg-*`.
+
+#### 5. Таблицы
+
+```css
+.XXX-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.XXX-table th {
+    padding: 9px 14px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.XXX-table td { padding: 10px 14px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
+.XXX-table tbody tr:hover td { background: #f0f7ff; }
+```
+
+**Запрещено:** `table-striped`, `table-bordered`, `table-dark`, `table-primary` на строках.
+
+#### 6. Бейджи статусов / счётчиков
+
+Использовать кастомные pill-бейджи с цветовым кодированием, не Bootstrap `badge bg-*`:
+
+```css
+/* Светлый бейдж на градиентном фоне (заголовки орг) */
+.cnt-badge { background: rgba(255,255,255,0.25); color: #fff; ... }
+
+/* Тёмный бейдж на белом фоне */
+.cnt-badge-dark { background: #e3eef8; color: #1a5276; ... }
+```
+
+Для статусных бейджей задавать явные цвета по смыслу:
+- 🔴 Просрочено / Ошибка: `background: #fde8e8; color: #c0392b;`
+- 🟡 Скоро / Предупреждение: `background: #fff3cd; color: #856404;`
+- 🟢 OK / Активен: `background: #d1f5d3; color: #1e7e34;`
+- ⚪ Нет данных / Неактивен: `background: #f0f0f0; color: #999;`
+
+#### 7. Сворачиваемые деревья
+
+Использовать кастомный JavaScript `toggleBlock()` / `toggleSizBlock()`, **не** Bootstrap collapse (`data-bs-toggle="collapse"`):
+
+```javascript
+function toggleBlock(headerEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.getBoundingClientRect(); // reflow
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+    }
+}
+```
+
+CSS анимация:
+```css
+.collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
+.collapsible.collapsed { max-height: 0 !important; opacity: 0; }
+```
+
+#### 8. Иерархия дерева (Орг → Подразделение → Отдел → Элемент)
+
+| Уровень | Фон | Отступ слева |
+|---------|-----|-------------|
+| Организация | Градиент `#2c3e50 → #3498db`, белый текст | 18px |
+| Подразделение | `#f8f9fa`, тёмный текст `#2c3e50` | 28px |
+| Отдел | `#fafafa`, текст `#495057` | 44px |
+| Элемент (строка) | `#fff`, hover `#f0f7ff` | 60px |
+
+#### 9. Пагинация
+
+```css
+.XXX-pagination { display: flex; justify-content: center; gap: 4px; margin-top: 20px; }
+.XXX-pagination a, .XXX-pagination span {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 36px; height: 36px; padding: 0 10px;
+    border: 1px solid #dee2e6; border-radius: 6px;
+    font-size: 0.85rem; text-decoration: none; color: #495057; background: #fff;
+}
+.XXX-pagination .current { background: #3498db; border-color: #3498db; color: #fff; font-weight: 600; }
+```
+
+**Запрещено:** Bootstrap `pagination` с `page-item` / `page-link`.
+
+#### 10. Вкладки
+
+Кастомные кнопки-вкладки, не Bootstrap nav-tabs:
+
+```css
+.XXX-tab-btn { padding: 8px 18px; font-weight: 600; color: #6c757d; background: #f8f9fa;
+    border: 1px solid #dee2e6; border-bottom: none; border-radius: 8px 8px 0 0; }
+.XXX-tab-btn.active {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff; border-color: #3498db;
+}
+```
+
+#### 11. Мобильная адаптация — обязательно
+
+**КРИТИЧНО:** При переработке любой страницы ОБЯЗАТЕЛЬНО проверить и сохранить адаптивность. Каждый шаблон должен содержать блок `@media (max-width: 767px)` с полным набором правил ниже.
+
+##### Чеклист адаптивности (проверять при каждом изменении шаблона)
+
+- [ ] Topbar/actionbar/treebar стекаются вертикально
+- [ ] Кнопки в панелях растягиваются на всю ширину (`width: 100%`)
+- [ ] Поля ввода (`input`, `select`) растягиваются на всю ширину
+- [ ] Таблицы: либо карточный паттерн (`display: block`), либо горизонтальный скролл с уменьшенными отступами
+- [ ] Дерево: отступы уровней уменьшены примерно вдвое
+- [ ] `margin-left: auto` убирается у счётчиков/кнопок (иначе прилипают к правому краю)
+- [ ] Вкладки (`tab-btn`) переносятся (`flex-wrap: wrap`)
+
+##### Паттерн А — обычная таблица (списки, фильтры)
+
+Применяется для: `/hiring/list/`, `/siz/mass-generation/` (вкладка «Массовая генерация»)
+
+Требуется **добавить `data-label`** ко всем `<td>` в HTML:
+```html
+<td data-label="Сотрудник">{{ emp.full_name }}</td>
+<td data-label="Должность">{{ emp.position }}</td>
+```
+
+CSS:
+```css
+@media (max-width: 767px) {
+    .XXX-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .XXX-topbar input, .XXX-topbar select { width: 100%; box-sizing: border-box; }
+
+    .XXX-table thead { display: none; }
+    .XXX-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
+    .XXX-table td {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 4px 12px; border: none; font-size: 0.82rem;
+    }
+    .XXX-table td::before {
+        content: attr(data-label);
+        font-size: 0.7rem; color: #999; font-weight: 600;
+        margin-right: 8px; flex-shrink: 0;
+    }
+    /* Ячейки с кнопками — без метки, выровнять вправо */
+    .XXX-table td.td-acts { justify-content: flex-end; }
+    .XXX-table td.td-acts::before { content: none; }
+}
+```
+
+##### Паттерн Б — tree-таблица с toggle (дерево Орг→Под→Отдел→Сотрудник)
+
+Применяется для: `/ot-card/mass-generation/`, `/documents/instruction-journal/`
+
+**Нельзя делать `display: block` на строках** — ломается логика `tree_view.js` (скрытие/показ дочерних строк по `data-parent-id`). Вместо этого: скрывать второстепенные колонки + уменьшать отступы + горизонтальный скролл как fallback.
+
+```css
+@media (max-width: 767px) {
+    /* Панели управления */
+    .XXX-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .XXX-topbar input, .XXX-topbar select { width: 100%; box-sizing: border-box; }
+    .XXX-actionbar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .XXX-actionbar .btn { width: 100%; text-align: center; }
+    .XXX-selected-info { margin-left: 0; text-align: center; }
+    .XXX-treebar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .XXX-treebar input[type="text"] { max-width: 100%; width: 100%; }
+    .XXX-treebar .btn { width: 100%; }
+
+    /* Таблица: скрыть второстепенные колонки (оставить чекбокс + имя) */
+    #result_list th:nth-child(3), #result_list td:nth-child(3),
+    #result_list th:nth-child(4), #result_list td:nth-child(4) { display: none; }
+
+    /* Уменьшить шрифт и padding */
+    #result_list { font-size: 0.82rem; }
+    #result_list th, #result_list td { padding: 6px 8px; }
+
+    /* Уменьшить отступы уровней дерева (~вдвое от desktop) */
+    .tree-row[data-level="0"] .field-name { padding-left: 4px; }
+    .tree-row[data-level="1"] .field-name { padding-left: 14px; }
+    .tree-row[data-level="2"] .field-name { padding-left: 24px; }
+    .tree-row[data-level="3"] .field-name { padding-left: 34px; }
+
+    /* Кнопки внутри строк дерева — компактнее */
+    .group-generate-btn { font-size: 0.68rem; padding: 1px 5px; }
+    .tree-row[data-node-id] .btn { font-size: 0.7rem; padding: 2px 6px; }
+}
+```
+
+##### Паттерн В — flexbox-дерево (без таблицы)
+
+Применяется для: `/siz/mass-generation/` (вкладка «По сотрудникам»), иерархические карточки
+
+```css
+@media (max-width: 767px) {
+    /* Уменьшить отступы заголовков уровней */
+    .org-header { padding: 10px 14px; }
+    .sub-header { padding: 8px 14px 8px 18px; }
+    .dept-header { padding: 6px 14px 6px 24px; }
+    /* Строки элементов — уменьшить отступ и разрешить перенос */
+    .emp-row { padding-left: 28px; flex-wrap: wrap; gap: 4px; }
+    /* Вкладки переносятся */
+    .XXX-tabs { flex-wrap: wrap; }
+    .XXX-tab-btn { flex: 1; text-align: center; }
+}
+```
+
+##### Правило единой карточки для панелей (actionbar + treebar + table)
+
+Когда три блока стоят друг за другом — обернуть в единый контейнер:
+```html
+<div class="XXX-card">          <!-- border-radius: 10px; overflow: hidden; box-shadow -->
+    <div class="XXX-actionbar"> <!-- border-bottom: 1px solid #dee2e6 -->
+    <div class="XXX-treebar">   <!-- border-bottom: 1px solid #dee2e6 -->
+    <div class="XXX-tree-wrap"> <!-- просто overflow: hidden -->
+</div>
+```
+Это гарантирует скругление углов у шапки таблицы и нижнего края — без отдельных `border-radius` на каждом блоке.
+
+### Размещение стилей
+
+Все кастомные стили размещать в `{% block extra_css %}<style>...</style>{% endblock %}` внутри шаблона. Общие переиспользуемые стили можно выносить в `static/css/`.
+
+### Чего НЕ делать
+
+- ❌ Не использовать Bootstrap 4 классы (`mr-`, `ml-`, `float-left` и т.д.) — только Bootstrap 5
+- ❌ Не использовать `card-header bg-primary/bg-dark/bg-success` — только градиент
+- ❌ Не использовать FontAwesome или любые иконочные шрифты
+- ❌ Не использовать `table-striped`, `table-bordered`, `table-hover` из Bootstrap для основных таблиц
+- ❌ Не использовать Bootstrap `pagination` компонент
+- ❌ Не использовать Bootstrap `nav-tabs` / `nav-pills` для вкладок
+- ❌ Не использовать inline `style="color: blue"` для брендовых цветов — только CSS-классы
+- ❌ **Не удалять и не урезать блок `@media (max-width: 767px)`** при переработке шаблона
+- ❌ **Не делать `display: block` на строках tree-таблицы** (с `data-parent-id` / `tree_view.js`) — ломает логику сворачивания дерева
+- ❌ **Не оставлять `margin-left: auto`** у элементов внутри flex-контейнера на мобильном — прижимает к правому краю
+- ❌ **Не забывать `data-label`** на `<td>` при использовании паттерна А (иначе `::before` покажет пустую строку)

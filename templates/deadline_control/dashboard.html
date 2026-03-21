@@ -2,466 +2,492 @@
 {% load static %}
 {% load medical_filters %}
 
-{% block title %}⏰ Контроль сроков - Dashboard{% endblock %}
+{% block title %}⏰ Контроль сроков{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Плавная прокрутка */
-    html {
-        scroll-behavior: smooth;
+/* ── Заголовок страницы ── */
+.db-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.db-page-header .db-title { font-weight: 600; font-size: 1.05rem; flex: 1; }
+.db-page-header .db-sub   { font-size: 0.82rem; opacity: 0.85; }
+
+/* ── Карточки статистики ── */
+.db-stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.db-stat-card {
+    border: none;
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-decoration: none;
+    display: block;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    cursor: pointer;
+}
+.db-stat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 16px rgba(0,0,0,0.13); }
+.db-stat-card .db-stat-num {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.db-stat-card .db-stat-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.db-stat-card .db-stat-hint  { font-size: 0.7rem; margin-top: 2px; opacity: 0.75; }
+
+.db-stat-red    { background: #fde8e8; color: #c0392b; }
+.db-stat-yellow { background: #fff3cd; color: #856404; }
+.db-stat-blue   { background: #e3eef8; color: #1a5276; }
+.db-stat-green  { background: #d1f5d3; color: #1e7e34; }
+.db-stat-purple { background: #ede8f8; color: #5b2d8e; }
+
+/* ── Секции ── */
+.db-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 24px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.db-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.2;
+}
+.db-section-overdue  { color: #c0392b; }
+.db-section-upcoming { color: #856404; }
+
+/* ── Карточки блоков ── */
+.db-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 14px;
+}
+.db-card-header {
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 0.86rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.db-card-header-red    { background: #fde8e8; color: #c0392b; border-bottom: 1px solid #f5c6cb; }
+.db-card-header-yellow { background: #fff3cd; color: #856404; border-bottom: 1px solid #ffeeba; }
+
+/* ── Таблицы ── */
+.db-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.db-table th {
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.db-table td {
+    padding: 9px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+    background: #fff;
+}
+.db-table tbody tr:hover td { background: #f0f7ff; }
+
+/* ── Бейджи ── */
+.db-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.db-badge-red    { background: #fde8e8; color: #c0392b; }
+.db-badge-yellow { background: #fff3cd; color: #856404; }
+.db-badge-blue   { background: #e3eef8; color: #1a5276; }
+
+/* ── Быстрые действия ── */
+.db-actions {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.db-actions-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #9aa0ac;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-right: 4px;
+}
+
+/* ── «Всё хорошо» ── */
+.db-all-ok {
+    text-align: center;
+    padding: 40px 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+}
+.db-all-ok .db-ok-icon { font-size: 3rem; line-height: 1; margin-bottom: 10px; }
+.db-all-ok .db-ok-title { font-size: 1.1rem; font-weight: 600; color: #1e7e34; }
+.db-all-ok .db-ok-sub   { font-size: 0.85rem; color: #6c757d; margin-top: 4px; }
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .db-stats { grid-template-columns: repeat(2, 1fr); }
+    .db-stats .db-stat-card:last-child { grid-column: 1 / -1; }
+    .db-stat-card .db-stat-num { font-size: 1.6rem; }
+
+    .db-actions { flex-direction: column; align-items: stretch; }
+    .db-actions .btn { width: 100%; text-align: center; }
+    .db-actions-label { display: none; }
+
+    /* Таблицы → карточный паттерн */
+    .db-table thead { display: none; }
+    .db-table tbody tr {
+        display: block;
+        border-bottom: 1px solid #eee;
+        padding: 8px 0;
     }
-
-    /* Анимация для карточек */
-    .stat-card {
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
+    .db-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 12px;
+        border: none;
+        font-size: 0.82rem;
     }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    .db-table td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        color: #999;
+        font-weight: 600;
+        margin-right: 8px;
+        flex-shrink: 0;
     }
-
-    /* Исправление переполнения текста в таблицах */
-    .table td, .table th {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 200px;
-    }
-
-    .card-header h5 {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        word-break: break-word;
-        hyphens: auto;
-    }
-
-    /* Исправление переполнения заголовков карточек на всех размерах */
-    .card-header {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-
-    /* Адаптация быстрых действий для мобильных */
-    @media (max-width: 767px) {
-        .quick-actions-buttons {
-            display: none;
-        }
-
-        .quick-actions-dropdown {
-            display: block !important;
-        }
-
-        .table {
-            font-size: 0.85rem;
-        }
-
-        .table td, .table th {
-            padding: 0.5rem 0.25rem;
-        }
-
-        /* Компактные заголовки карточек на мобильных */
-        .card-header h5 {
-            font-size: 0.9rem;
-            line-height: 1.3;
-        }
-
-        .card-header h3 {
-            font-size: 1.1rem;
-        }
-
-        /* Уменьшение padding карточек */
-        .card-body {
-            padding: 0.75rem;
-        }
-
-        .card-header {
-            padding: 0.75rem;
-        }
-    }
-
-    @media (min-width: 768px) {
-        .quick-actions-dropdown {
-            display: none;
-        }
-
-        .quick-actions-buttons {
-            display: block;
-        }
-    }
+    .db-table td.td-acts { justify-content: flex-end; }
+    .db-table td.td-acts::before { content: none; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="mb-0">⏰ Контроль сроков</h2>
+<div class="container-fluid mt-3">
 
-        <div></div>
+    <!-- ── Заголовок ── -->
+    <div class="db-page-header">
+        <span>⏰</span>
+        <span class="db-title">Контроль сроков</span>
+        {% if selected_org %}
+        <span class="db-sub">🏢 {{ selected_org.short_name_ru|default:selected_org.full_name_ru }}</span>
+        {% endif %}
     </div>
 
-    <!-- Общая статистика -->
-    <div class="row mt-4">
-        <div class="col-md">
-            <a href="#overdue-section" class="text-decoration-none" style="color: inherit;">
-                <div class="card bg-danger text-white h-100 stat-card">
-                    <div class="card-body">
-                        <h5 class="card-title">🚨 Просрочено</h5>
-                        <h2 class="card-text">{{ total_overdue }}</h2>
-                        <small>требуют немедленного внимания</small>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md">
-            <a href="#upcoming-section" class="text-decoration-none" style="color: inherit;">
-                <div class="card bg-warning text-dark h-100 stat-card">
-                    <div class="card-body">
-                        <h5 class="card-title">⚠️ Скоро истекает</h5>
-                        <h2 class="card-text">{{ total_upcoming }}</h2>
-                        <small>в течение 14 дней</small>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md">
-            <a href="{% url 'deadline_control:equipment:list' %}" class="text-decoration-none" style="color: inherit;">
-                <div class="card bg-info text-white h-100 stat-card">
-                    <div class="card-body">
-                        <h5 class="card-title">⚙️ Оборудование</h5>
-                        <h2 class="card-text">{{ total_equipment }}</h2>
-                        <small>на контроле</small>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md">
-            <a href="{% url 'deadline_control:key_deadline:list' %}" class="text-decoration-none" style="color: inherit;">
-                <div class="card bg-success text-white h-100 stat-card">
-                    <div class="card-body">
-                        <h5 class="card-title">📅 Мероприятия</h5>
-                        <h2 class="card-text">{{ total_deadlines }}</h2>
-                        <small>в графике</small>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md">
-            <a href="{% url 'deadline_control:medical:list' %}" class="text-decoration-none" style="color: inherit;">
-                <div class="card bg-primary text-white h-100 stat-card">
-                    <div class="card-body">
-                        <h5 class="card-title">🏥 Медосмотры</h5>
-                        <h2 class="card-text">{{ total_medical }}</h2>
-                        <small>на контроле</small>
-                    </div>
-                </div>
-            </a>
-        </div>
+    <!-- ── Статистика ── -->
+    <div class="db-stats">
+        <a href="#overdue-section" class="db-stat-card db-stat-red">
+            <div class="db-stat-num">{{ total_overdue }}</div>
+            <div class="db-stat-label">🚨 Просрочено</div>
+            <div class="db-stat-hint">требуют внимания</div>
+        </a>
+        <a href="#upcoming-section" class="db-stat-card db-stat-yellow">
+            <div class="db-stat-num">{{ total_upcoming }}</div>
+            <div class="db-stat-label">⚠️ Скоро истекает</div>
+            <div class="db-stat-hint">в течение 14 дней</div>
+        </a>
+        <a href="{% url 'deadline_control:equipment:list' %}" class="db-stat-card db-stat-blue">
+            <div class="db-stat-num">{{ total_equipment }}</div>
+            <div class="db-stat-label">⚙️ Оборудование</div>
+            <div class="db-stat-hint">на контроле</div>
+        </a>
+        <a href="{% url 'deadline_control:key_deadline:list' %}" class="db-stat-card db-stat-green">
+            <div class="db-stat-num">{{ total_deadlines }}</div>
+            <div class="db-stat-label">📅 Мероприятия</div>
+            <div class="db-stat-hint">в графике</div>
+        </a>
+        <a href="{% url 'deadline_control:medical:list' %}" class="db-stat-card db-stat-purple">
+            <div class="db-stat-num">{{ total_medical }}</div>
+            <div class="db-stat-label">🏥 Медосмотры</div>
+            <div class="db-stat-hint">на контроле</div>
+        </a>
     </div>
 
-    <!-- СЕКЦИЯ ПРОСРОЧЕННЫХ ЭЛЕМЕНТОВ -->
+    <!-- ════ ПРОСРОЧЕННЫЕ ════ -->
     {% if total_overdue > 0 %}
-    <div class="row mt-5" id="overdue-section">
-        <div class="col-md-12">
-            <h3 class="text-danger">🚨 Просроченные элементы</h3>
-            <hr class="border-danger">
-        </div>
+    <div class="db-section-title db-section-overdue" id="overdue-section">
+        🚨 Просроченные элементы
     </div>
     {% endif %}
 
     <!-- Просроченное оборудование -->
     {% if overdue_equipment %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-danger">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">🚨 Просроченное ТО оборудования ({{ overdue_equipment_count }})</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Оборудование</th>
-                                <th>Организация</th>
-                                <th>Следующее ТО</th>
-                                <th>Просрочено дней</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for eq in overdue_equipment %}
-                            <tr>
-                                <td><strong>{{ eq.equipment_name }}</strong></td>
-                                <td>{{ eq.organization.short_name_ru }}</td>
-                                <td>{{ eq.next_maintenance_date|date:"d.m.Y" }}</td>
-                                <td><span class="badge bg-danger text-white">{{ eq.days_overdue }}</span></td>
-                                <td>
-                                    <a href="{% url 'deadline_control:equipment:detail' eq.pk %}" class="btn btn-sm btn-primary">Подробнее</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="db-card">
+        <div class="db-card-header db-card-header-red">
+            🚨 Просроченное ТО оборудования
+            <span class="db-badge db-badge-red" style="margin-left:auto;">{{ overdue_equipment_count }}</span>
         </div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Оборудование</th>
+                    <th>Организация</th>
+                    <th>Следующее ТО</th>
+                    <th>Просрочено дней</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for eq in overdue_equipment %}
+                <tr>
+                    <td data-label="Оборудование"><strong>{{ eq.equipment_name }}</strong></td>
+                    <td data-label="Организация">{{ eq.organization.short_name_ru }}</td>
+                    <td data-label="Следующее ТО">{{ eq.next_maintenance_date|date:"d.m.Y" }}</td>
+                    <td data-label="Просрочено дней"><span class="db-badge db-badge-red">{{ eq.days_overdue }} дн.</span></td>
+                    <td class="td-acts">
+                        <a href="{% url 'deadline_control:equipment:detail' eq.pk %}" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:2px 8px;">Подробнее</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
     <!-- Просроченные мероприятия -->
     {% if overdue_deadlines %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-danger">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">🚨 Просроченные мероприятия ({{ overdue_deadlines_count }})</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Мероприятие</th>
-                                <th>Категория</th>
-                                <th>Следующая дата</th>
-                                <th>Просрочено дней</th>
-                                <th>Ответственный</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in overdue_deadlines %}
-                            <tr>
-                                <td><strong>{{ item.name }}</strong></td>
-                                <td>{{ item.category.name }}</td>
-                                <td>{{ item.next_date|date:"d.m.Y" }}</td>
-                                <td><span class="badge bg-danger text-white">{{ item.days_overdue }}</span></td>
-                                <td>{{ item.responsible_person|default:"-" }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="db-card">
+        <div class="db-card-header db-card-header-red">
+            🚨 Просроченные мероприятия
+            <span class="db-badge db-badge-red" style="margin-left:auto;">{{ overdue_deadlines_count }}</span>
         </div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Мероприятие</th>
+                    <th>Категория</th>
+                    <th>Дата</th>
+                    <th>Просрочено дней</th>
+                    <th>Ответственный</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in overdue_deadlines %}
+                <tr>
+                    <td data-label="Мероприятие"><strong>{{ item.name }}</strong></td>
+                    <td data-label="Категория">{{ item.category.name }}</td>
+                    <td data-label="Дата">{{ item.next_date|date:"d.m.Y" }}</td>
+                    <td data-label="Просрочено дней"><span class="db-badge db-badge-red">{{ item.days_overdue }} дн.</span></td>
+                    <td data-label="Ответственный">{{ item.responsible_person|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
     <!-- Просроченные медосмотры -->
     {% if overdue_medical %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-danger">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">🚨 Просроченные медосмотры ({{ overdue_medical_count }})</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Сотрудник</th>
-                                <th>Организация</th>
-                                <th>Вредные факторы</th>
-                                <th>Следующий осмотр</th>
-                                <th>Просрочено дней</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for employee in overdue_medical %}
-                            <tr>
-                                <td><strong>{{ employee.full_name_nominative }}</strong></td>
-                                <td>{{ employee.organization.short_name_ru }}</td>
-                                <td>
-                                    {% for factor in employee.medical_status_info.factors %}
-                                        <span class="badge bg-warning text-dark">{{ factor.short_name }}</span>
-                                    {% endfor %}
-                                </td>
-                                <td>{{ employee.medical_status_info.next_date|date:"d.m.Y" }}</td>
-                                <td><span class="badge bg-danger text-white">{{ employee.medical_status_info.days_until|abs_value }}</span></td>
-                                <td>
-                                    <a href="{% url 'deadline_control:medical:list' %}" class="btn btn-sm btn-primary">Подробнее</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="db-card">
+        <div class="db-card-header db-card-header-red">
+            🚨 Просроченные медосмотры
+            <span class="db-badge db-badge-red" style="margin-left:auto;">{{ overdue_medical_count }}</span>
         </div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Сотрудник</th>
+                    <th>Организация</th>
+                    <th>Факторы</th>
+                    <th>Следующий осмотр</th>
+                    <th>Просрочено дней</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in overdue_medical %}
+                <tr>
+                    <td data-label="Сотрудник"><strong>{{ employee.full_name_nominative }}</strong></td>
+                    <td data-label="Организация">{{ employee.organization.short_name_ru }}</td>
+                    <td data-label="Факторы">
+                        {% for factor in employee.medical_status_info.factors %}
+                        <span class="db-badge db-badge-yellow">{{ factor.short_name }}</span>
+                        {% endfor %}
+                    </td>
+                    <td data-label="Следующий осмотр">{{ employee.medical_status_info.next_date|date:"d.m.Y" }}</td>
+                    <td data-label="Просрочено дней"><span class="db-badge db-badge-red">{{ employee.medical_status_info.days_until|abs_value }} дн.</span></td>
+                    <td class="td-acts">
+                        <a href="{% url 'deadline_control:medical:list' %}" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:2px 8px;">Подробнее</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
-    <!-- СЕКЦИЯ ПРЕДСТОЯЩИХ ЭЛЕМЕНТОВ -->
+    <!-- ════ ПРЕДСТОЯЩИЕ ════ -->
     {% if total_upcoming > 0 %}
-    <div class="row mt-5" id="upcoming-section">
-        <div class="col-md-12">
-            <h3 class="text-warning">⚠️ Предстоящие элементы (в течение 14 дней)</h3>
-            <hr class="border-warning">
-        </div>
+    <div class="db-section-title db-section-upcoming" id="upcoming-section">
+        ⚠️ Предстоящие (в течение 14 дней)
     </div>
     {% endif %}
 
     <!-- Скоро ТО оборудования -->
     {% if upcoming_equipment %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">⚠️ Скоро ТО оборудования ({{ upcoming_equipment_count }})</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Оборудование</th>
-                                <th>Организация</th>
-                                <th>Следующее ТО</th>
-                                <th>Осталось дней</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for eq in upcoming_equipment %}
-                            <tr>
-                                <td><strong>{{ eq.equipment_name }}</strong></td>
-                                <td>{{ eq.organization.short_name_ru }}</td>
-                                <td>{{ eq.next_maintenance_date|date:"d.m.Y" }}</td>
-                                <td><span class="badge bg-warning text-dark">{{ eq.days_until_maintenance }}</span></td>
-                                <td>
-                                    <a href="{% url 'deadline_control:equipment:detail' eq.pk %}" class="btn btn-sm btn-primary">Подробнее</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="db-card">
+        <div class="db-card-header db-card-header-yellow">
+            ⚠️ Скоро ТО оборудования
+            <span class="db-badge db-badge-yellow" style="margin-left:auto;">{{ upcoming_equipment_count }}</span>
         </div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Оборудование</th>
+                    <th>Организация</th>
+                    <th>Следующее ТО</th>
+                    <th>Осталось дней</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for eq in upcoming_equipment %}
+                <tr>
+                    <td data-label="Оборудование"><strong>{{ eq.equipment_name }}</strong></td>
+                    <td data-label="Организация">{{ eq.organization.short_name_ru }}</td>
+                    <td data-label="Следующее ТО">{{ eq.next_maintenance_date|date:"d.m.Y" }}</td>
+                    <td data-label="Осталось дней"><span class="db-badge db-badge-yellow">{{ eq.days_until_maintenance }} дн.</span></td>
+                    <td class="td-acts">
+                        <a href="{% url 'deadline_control:equipment:detail' eq.pk %}" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:2px 8px;">Подробнее</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
     <!-- Предстоящие мероприятия -->
     {% if upcoming_deadlines %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">⚠️ Предстоящие мероприятия ({{ upcoming_deadlines_count }})</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Мероприятие</th>
-                                <th>Категория</th>
-                                <th>Следующая дата</th>
-                                <th>Осталось дней</th>
-                                <th>Ответственный</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in upcoming_deadlines %}
-                            <tr>
-                                <td><strong>{{ item.name }}</strong></td>
-                                <td>{{ item.category.name }}</td>
-                                <td>{{ item.next_date|date:"d.m.Y" }}</td>
-                                <td><span class="badge bg-warning text-dark">{{ item.days_until_next }}</span></td>
-                                <td>{{ item.responsible_person|default:"-" }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="db-card">
+        <div class="db-card-header db-card-header-yellow">
+            ⚠️ Предстоящие мероприятия
+            <span class="db-badge db-badge-yellow" style="margin-left:auto;">{{ upcoming_deadlines_count }}</span>
         </div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Мероприятие</th>
+                    <th>Категория</th>
+                    <th>Дата</th>
+                    <th>Осталось дней</th>
+                    <th>Ответственный</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in upcoming_deadlines %}
+                <tr>
+                    <td data-label="Мероприятие"><strong>{{ item.name }}</strong></td>
+                    <td data-label="Категория">{{ item.category.name }}</td>
+                    <td data-label="Дата">{{ item.next_date|date:"d.m.Y" }}</td>
+                    <td data-label="Осталось дней"><span class="db-badge db-badge-yellow">{{ item.days_until_next }} дн.</span></td>
+                    <td data-label="Ответственный">{{ item.responsible_person|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
     <!-- Предстоящие медосмотры -->
     {% if upcoming_medical %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">⚠️ Предстоящие медосмотры ({{ upcoming_medical_count }})</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Сотрудник</th>
-                                <th>Организация</th>
-                                <th>Вредные факторы</th>
-                                <th>Следующий осмотр</th>
-                                <th>Осталось дней</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for employee in upcoming_medical %}
-                            <tr>
-                                <td><strong>{{ employee.full_name_nominative }}</strong></td>
-                                <td>{{ employee.organization.short_name_ru }}</td>
-                                <td>
-                                    {% for factor in employee.medical_status_info.factors %}
-                                        <span class="badge bg-warning text-dark">{{ factor.short_name }}</span>
-                                    {% endfor %}
-                                </td>
-                                <td>{{ employee.medical_status_info.next_date|date:"d.m.Y" }}</td>
-                                <td><span class="badge bg-warning text-dark">{{ employee.medical_status_info.days_until }}</span></td>
-                                <td>
-                                    <a href="{% url 'deadline_control:medical:list' %}" class="btn btn-sm btn-primary">Подробнее</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="db-card">
+        <div class="db-card-header db-card-header-yellow">
+            ⚠️ Предстоящие медосмотры
+            <span class="db-badge db-badge-yellow" style="margin-left:auto;">{{ upcoming_medical_count }}</span>
         </div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Сотрудник</th>
+                    <th>Организация</th>
+                    <th>Факторы</th>
+                    <th>Следующий осмотр</th>
+                    <th>Осталось дней</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in upcoming_medical %}
+                <tr>
+                    <td data-label="Сотрудник"><strong>{{ employee.full_name_nominative }}</strong></td>
+                    <td data-label="Организация">{{ employee.organization.short_name_ru }}</td>
+                    <td data-label="Факторы">
+                        {% for factor in employee.medical_status_info.factors %}
+                        <span class="db-badge db-badge-yellow">{{ factor.short_name }}</span>
+                        {% endfor %}
+                    </td>
+                    <td data-label="Следующий осмотр">{{ employee.medical_status_info.next_date|date:"d.m.Y" }}</td>
+                    <td data-label="Осталось дней"><span class="db-badge db-badge-yellow">{{ employee.medical_status_info.days_until }} дн.</span></td>
+                    <td class="td-acts">
+                        <a href="{% url 'deadline_control:medical:list' %}" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:2px 8px;">Подробнее</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
-    <!-- Если всё в порядке -->
+    <!-- ── Всё хорошо ── -->
     {% if not total_overdue and not total_upcoming %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="alert alert-success text-center">
-                <h4>✅ Все сроки под контролем!</h4>
-                <p>Нет просроченных или истекающих в ближайшее время мероприятий.</p>
-            </div>
-        </div>
+    <div class="db-all-ok">
+        <div class="db-ok-icon">✅</div>
+        <div class="db-ok-title">Все сроки под контролем!</div>
+        <div class="db-ok-sub">Нет просроченных или истекающих в ближайшее время мероприятий.</div>
     </div>
     {% endif %}
 
-    <!-- Быстрые действия -->
-    <div class="row mt-4 mb-4">
-        <div class="col-md-12">
-            <h5>Быстрые действия</h5>
-
-            <!-- Dropdown для мобильных -->
-            <div class="dropdown quick-actions-dropdown" style="display: none;">
-                <button class="btn btn-primary dropdown-toggle" type="button" id="quickActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    ⚡ Действия
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="quickActionsDropdown">
-                    <li><a class="dropdown-item" href="{% url 'deadline_control:equipment:list' %}">⚙️ Список оборудования</a></li>
-                    <li><a class="dropdown-item" href="{% url 'deadline_control:key_deadline:list' %}">📅 Ключевые сроки</a></li>
-                    <li><a class="dropdown-item" href="{% url 'deadline_control:medical:list' %}">🏥 Медосмотры</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'deadline_control:equipment:create' %}">➕ Добавить оборудование</a></li>
-                    <li><a class="dropdown-item" href="{% url 'deadline_control:key_deadline:item_create' %}">➕ Добавить мероприятие</a></li>
-                </ul>
-            </div>
-
-            <!-- Кнопки для десктопа -->
-            <div class="quick-actions-buttons">
-                <a href="{% url 'deadline_control:equipment:list' %}" class="btn btn-primary mr-2">⚙️ Список оборудования</a>
-                <a href="{% url 'deadline_control:key_deadline:list' %}" class="btn btn-success mr-2">📅 Ключевые сроки</a>
-                <a href="{% url 'deadline_control:medical:list' %}" class="btn btn-secondary mr-2">🏥 Медосмотры</a>
-                <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-info mr-2">➕ Добавить оборудование</a>
-                <a href="{% url 'deadline_control:key_deadline:item_create' %}" class="btn btn-warning">➕ Добавить мероприятие</a>
-            </div>
-        </div>
+    <!-- ── Быстрые действия ── -->
+    <div class="db-actions">
+        <span class="db-actions-label">Перейти</span>
+        <a href="{% url 'deadline_control:equipment:list' %}" class="btn btn-sm btn-outline-secondary">⚙️ Оборудование</a>
+        <a href="{% url 'deadline_control:key_deadline:list' %}" class="btn btn-sm btn-outline-secondary">📅 Ключевые сроки</a>
+        <a href="{% url 'deadline_control:medical:list' %}" class="btn btn-sm btn-outline-secondary">🏥 Медосмотры</a>
+        <span style="flex:1;"></span>
+        <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-sm btn-outline-primary">➕ Оборудование</a>
+        <a href="{% url 'deadline_control:key_deadline:item_create' %}" class="btn btn-sm btn-outline-primary">➕ Мероприятие</a>
     </div>
+
 </div>
 {% endblock %}

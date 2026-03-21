@@ -6,267 +6,249 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
 <style>
-    /* Дополнительные стили для древовидного списка */
-    .periodic-protocol-container {
-        padding: 20px;
+/* (topbar убран — кнопки перенесены в actionbar) */
+
+/* ── Единая карточка: заголовок + actionbar + treebar + таблица ── */
+.pp-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+}
+.pp-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pp-card-header .hdr-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.pp-card-header .hdr-count { font-size: 0.8rem; opacity: 0.8; }
+
+.pp-actionbar {
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.pp-selected-info {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-left: auto;
+}
+
+.pp-treebar {
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.pp-tree-btn {
+    padding: 5px 12px;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: all 0.15s;
+    color: #495057;
+}
+.pp-tree-btn:hover { background: #f0f7ff; border-color: #3498db; color: #3498db; }
+.pp-tree-search {
+    flex: 1;
+    max-width: 280px;
+    padding: 5px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+.pp-tree-search:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Таблица ── */
+#result_list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    background: #fff;
+}
+#result_list th {
+    padding: 8px 12px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+#result_list td {
+    padding: 7px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+}
+#result_list tr:last-child td { border-bottom: none; }
+
+/* Строки по уровням */
+.tree-row[data-level="0"] td { background: #f0f4f8; color: #2c3e50; }
+.tree-row[data-level="0"]:hover td { background: #e4ecf4; }
+.tree-row[data-level="1"] td { background: #f8f9fa; }
+.tree-row[data-level="1"]:hover td { background: #eef4fb; }
+.tree-row[data-level="2"] td { background: #fafafa; }
+.tree-row[data-level="2"]:hover td { background: #f0f7ff; }
+.tree-row[data-level="3"] td { background: #fff; }
+.tree-row[data-level="3"]:hover td { background: #f0f7ff; }
+
+/* Отступы уровней */
+.tree-row[data-level="0"] .field-name { padding-left: 8px; font-weight: 600; }
+.tree-row[data-level="1"] .field-name { padding-left: 22px; font-weight: 600; font-size: 0.88rem; color: #2c3e50; }
+.tree-row[data-level="2"] .field-name { padding-left: 38px; font-size: 0.85rem; color: #495057; }
+.tree-row[data-level="3"] .field-name { padding-left: 54px; }
+
+/* ── Кнопки разворачивания ── */
+.toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: all 0.15s;
+    margin-right: 5px;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.tree-row[data-level="0"] .toggle-btn {
+    background: #fff;
+    border: 1px solid #ced4da;
+    color: #6c757d;
+}
+.tree-row[data-level="0"] .toggle-btn:hover { background: #e9ecef; border-color: #adb5bd; }
+.tree-row[data-level="1"] .toggle-btn,
+.tree-row[data-level="2"] .toggle-btn {
+    background: #fff;
+    border: 1px solid #ced4da;
+    color: #6c757d;
+}
+.tree-row[data-level="1"] .toggle-btn:hover,
+.tree-row[data-level="2"] .toggle-btn:hover { background: #e9ecef; border-color: #adb5bd; }
+
+/* ── Имя сотрудника ── */
+.pp-emp-name { font-weight: 700; color: #212529; }
+
+/* ── Бейджи ── */
+.badge-internship {
+    background: #d1ecf1;
+    color: #0c5460;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    display: inline-block;
+    margin-right: 4px;
+}
+.badge-responsible {
+    background: #fff3cd;
+    color: #856404;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* Кнопки Протокол/Удостоверения в строках дерева */
+.scope-action { font-size: 0.72rem; padding: 2px 8px; border-radius: 5px; }
+
+/* ── Чекбокс ── */
+.column-checkbox { width: 40px; text-align: center; }
+.column-name { width: 35%; }
+.column-position { width: 28%; }
+.column-badge { width: auto; }
+
+/* ── Выделение строк ── */
+.tree-row.selected td { background-color: #e7f3ff !important; }
+.tree-row-hidden { display: none !important; }
+.hidden-by-search { display: none !important; }
+.highlight-search td { background-color: #fff3cd !important; }
+
+/* ── Мобильная адаптация (Паттерн Б) ── */
+@media (max-width: 767px) {
+    .pp-actionbar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .pp-actionbar .btn { width: 100%; text-align: center; }
+    .pp-selected-info { margin-left: 0; text-align: center; }
+
+    .pp-treebar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .pp-tree-search { max-width: 100%; }
+    .pp-tree-btn { width: 100%; text-align: center; }
+
+    /* Скрыть колонки Должность и Признак — оставить чекбокс + ФИО */
+    #result_list th:nth-child(3),
+    #result_list td:nth-child(3),
+    #result_list th:nth-child(4),
+    #result_list td:nth-child(4) { display: none; }
+
+    /* Чекбокс — компактная фиксированная ширина */
+    #result_list th:nth-child(1),
+    #result_list td:nth-child(1) {
+        width: 28px !important;
+        min-width: 28px !important;
+        max-width: 28px !important;
+        padding: 4px 2px !important;
+    }
+    /* ФИО — весь остаток */
+    #result_list th:nth-child(2),
+    #result_list td:nth-child(2) {
+        width: auto !important;
+        max-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    .page-header {
-        margin-bottom: 20px;
-    }
+    #result_list { font-size: 0.82rem; }
+    #result_list th, #result_list td { padding: 6px 8px; }
 
-    .page-description {
-        color: #666;
-        font-size: 14px;
-        margin-bottom: 15px;
-    }
-
-    .action-buttons {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-
-    .action-section {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        padding: 12px 14px 6px;
-        margin-bottom: 12px;
-    }
-
-    .action-sections-row {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        align-items: stretch;
-    }
-
-    .action-section {
-        flex: 1 1 320px;
-    }
-
-    .action-section-title {
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        color: #6c757d;
-        margin-bottom: 8px;
-    }
-
-    .action-buttons.compact {
-        margin-bottom: 4px;
-    }
-
-    .selected-info {
-        color: #666;
-        font-size: 14px;
-        margin-left: auto;
-    }
-
-    #result_list {
-        width: 100%;
-        background: white;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-
-    #result_list th {
-        background: #f8f9fa;
-        padding: 8px 6px;
-        border-bottom: 2px solid #dee2e6;
-        font-weight: 600;
-        font-size: 13px;
-        text-transform: uppercase;
-        color: #495057;
-    }
-
-    #result_list td {
-        padding: 4px 6px;
-        border-bottom: 1px solid #f0f0f0;
-        vertical-align: middle;
-    }
-
-    .tree-row:hover td {
-        background-color: #f8f9fa;
-    }
-
-    /* Колонки */
-    .column-checkbox {
-        width: 40px;
-        text-align: center;
-    }
-
-    .column-name {
-        width: 35%;
-    }
-
-    .column-position {
-        width: 25%;
-    }
-
-    .column-badge {
-        width: 20%;
-    }
-
-    /* Бейджи */
-    .badge-internship {
-        background-color: #17a2b8;
-        color: white;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 11px;
-        display: inline-block;
-        margin-right: 4px;
-    }
-
-    .badge-responsible {
-        background-color: #ffc107;
-        color: #000;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 11px;
-        display: inline-block;
-    }
-
-    /* Кнопки управления деревом */
-    .tree-controls {
-        padding: 10px;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-bottom: none;
-        border-radius: 4px 4px 0 0;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .tree-btn {
-        padding: 6px 12px;
-        background: white;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 13px;
-        transition: all 0.2s;
-    }
-
-    .tree-btn:hover {
-        background: #e9ecef;
-        border-color: #adb5bd;
-    }
-
-    .tree-search-container {
-        flex: 1;
-        max-width: 300px;
-    }
-
-    .tree-search {
-        width: 100%;
-        padding: 6px 12px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        font-size: 13px;
-    }
-
-    .tree-search:focus {
-        outline: none;
-        border-color: #80bdff;
-        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-    }
-
-    /* Чекбоксы */
-    .form-check-input {
-        cursor: pointer;
-    }
-
-    /* Выделение выбранных строк */
-    .tree-row.selected {
-        background-color: #e7f3ff;
-    }
-
-    /* Иконки */
-    .tree-icon {
-        margin-right: 4px;
-        font-size: 14px;
-    }
-
-    /* Кнопки разворачивания */
-    .toggle-btn {
-        display: inline-block;
-        margin-right: 4px;
-        padding: 1px 5px;
-        border: 1px solid #dee2e6;
-        background: white;
-        border-radius: 2px;
-        cursor: pointer;
-        font-size: 11px;
-        font-family: monospace;
-        transition: all 0.2s;
-        min-width: 22px;
-        text-align: center;
-    }
-
-    .toggle-btn:hover {
-        background: #f8f9fa;
-        border-color: #adb5bd;
-    }
-
-    /* Отступы для уровней */
-    .tree-row[data-level="0"] .field-name {
-        padding-left: 6px;
-        font-weight: 600;
-    }
-
-    .tree-row[data-level="1"] .field-name {
-        padding-left: 20px;
-        font-weight: 500;
-    }
-
-    .tree-row[data-level="2"] .field-name {
-        padding-left: 34px;
-    }
-
-    .tree-row[data-level="3"] .field-name {
-        padding-left: 48px;
-    }
-
-    /* Скрытые элементы */
-    .tree-row-hidden {
-        display: none !important;
-    }
-
-    .hidden-by-search {
-        display: none !important;
-    }
-
-    .highlight-search td {
-        background-color: #fff3cd !important;
-    }
+    /* Уменьшить отступы уровней */
+    .tree-row[data-level="0"] .field-name { padding-left: 4px; }
+    .tree-row[data-level="1"] .field-name { padding-left: 12px; }
+    .tree-row[data-level="2"] .field-name { padding-left: 22px; }
+    .tree-row[data-level="3"] .field-name { padding-left: 32px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="periodic-protocol-container">
-    <div class="page-header">
-        <h4 class="mb-2">{{ title }}</h4>
-        <p class="page-description">
-            В таблице собраны сотрудники со стажировкой или флагом «Ответственный за ОТ»,
-            отфильтрованные по вашим правам доступа. Галочки уже стоят — можно снять лишних перед скачиванием протокола.
+<div class="container-fluid mt-3">
+
+    <div class="mb-3">
+        <h5 class="fw-bold mb-1">{{ title }}</h5>
+        <p class="text-muted small mb-0">
+            Сотрудники со стажировкой или флагом «Ответственный за ОТ». Снимите галочки перед скачиванием протокола.
         </p>
     </div>
 
     {% if not show_tree %}
-    <div class="alert alert-info" role="alert">
-        <h5 class="alert-heading">
-            <i class="fas fa-info-circle"></i> Информация
-        </h5>
+    <div class="alert alert-info rounded-3">
         {% if org_options|length == 0 %}
-        <p class="mb-0">У вас нет доступных организаций. Обратитесь к администратору для настройки прав доступа.</p>
+        <p class="mb-0">У вас нет доступных организаций. Обратитесь к администратору.</p>
         {% else %}
         <p class="mb-0">Пожалуйста, выберите организацию в верхней панели страницы.</p>
         {% endif %}
@@ -275,157 +257,92 @@
 
     <form method="post" id="periodicProtocolForm">
         {% csrf_token %}
-
         <input type="hidden" name="action" id="actionField" value="">
         <input type="hidden" name="scope_type" id="scopeTypeField" value="">
         <input type="hidden" name="scope_id" id="scopeIdField" value="">
 
-        <div class="action-sections-row">
-            <div class="action-section">
-                <div class="action-section-title">Протоколы</div>
-                <div class="action-buttons compact">
-                    <button type="button" data-action="download_single" class="btn btn-primary btn-sm action-submit">
-                        <i class="fas fa-download"></i> Скачать общий протокол
-                    </button>
-                    <button type="button" data-action="download_by_subdivision" class="btn btn-outline-primary btn-sm action-submit">
-                        <i class="fas fa-folder"></i> Скачать по подразделениям (zip)
-                    </button>
+        <!-- Карточка: заголовок + actionbar + treebar + таблица -->
+        <div class="pp-card">
+
+            <div class="pp-card-header">
+                <span>📋</span>
+                <span class="hdr-title">{{ title }}</span>
+            </div>
+
+            <!-- Кнопки действий + выбор всех -->
+            <div class="pp-actionbar">
+                <button type="button" data-action="download_single" class="btn btn-sm btn-primary action-submit">
+                    📥 Скачать общий протокол
+                </button>
+                <button type="button" data-action="download_by_subdivision" class="btn btn-sm btn-outline-primary action-submit">
+                    🗂️ По подразделениям (zip)
+                </button>
+                <button type="button" data-action="certificates_org" class="btn btn-sm btn-success action-submit">
+                    🪪 Удостоверения
+                </button>
+                <button type="button" data-action="certificates_by_subdivision" class="btn btn-sm btn-outline-success action-submit">
+                    🗂️ Удостоверения (zip)
+                </button>
+                <div class="form-check mb-0 ms-1">
+                    <input class="form-check-input" type="checkbox" id="selectAll" checked>
+                    <label class="form-check-label small" for="selectAll">Выбрать всех</label>
                 </div>
+                <span class="pp-selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong></span>
             </div>
 
-            <div class="action-section">
-                <div class="action-section-title">Удостоверения</div>
-                <div class="action-buttons compact">
-                    <button type="button" data-action="certificates_org" class="btn btn-success btn-sm action-submit">
-                        <i class="fas fa-id-card"></i> Удостоверения по организации
-                    </button>
-                    <button type="button" data-action="certificates_by_subdivision" class="btn btn-outline-success btn-sm action-submit">
-                        <i class="fas fa-folder-open"></i> Удостоверения по подразделениям
-                    </button>
-                </div>
+            <!-- Контролы дерева -->
+            <div class="pp-treebar">
+                <button type="button" class="btn btn-sm btn-outline-secondary expand-all">▼ Развернуть все</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary collapse-all">▲ Свернуть все</button>
+                <input type="text" class="tree-search pp-tree-search" placeholder="🔍 Поиск по сотрудникам...">
             </div>
-        </div>
 
-        <div class="action-buttons">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="selectAll" checked>
-                <label class="form-check-label" for="selectAll">Выбрать всех</label>
-            </div>
-            <span class="selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong></span>
-        </div>
-
-        <!-- Контролы дерева -->
-        <div class="tree-controls">
-            <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
-            <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
-            <div class="tree-search-container">
-                <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам...">
-            </div>
-        </div>
-
-        <!-- Древовидная таблица -->
-        <div class="table-responsive">
-            <table id="result_list">
-                <thead>
-                    <tr>
-                        <th class="column-checkbox">
-                            <input type="checkbox" id="select-all" checked>
-                        </th>
-                        <th class="column-name">ФИО / Структура</th>
-                        <th class="column-position">Должность</th>
-                        <th class="column-badge">Признак</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for org, org_data in tree.items %}
-                        {# Организация #}
-                        <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
-                            <td class="column-checkbox"></td>
-                            <td class="field-name">
-                                <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
-                                <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
-                                <strong>{{ org_data.name }}</strong>
-                            </td>
-                            <td></td>
-                            <td class="column-badge">
-                                <button type="button"
-                                        class="btn btn-outline-primary btn-sm scope-action"
-                                        data-action="scope_protocol"
-                                        data-scope-type="org"
-                                        data-scope-id="{{ org.id }}">
-                                    Протокол
-                                </button>
-                                <button type="button"
-                                        class="btn btn-outline-success btn-sm scope-action"
-                                        data-action="scope_certificates"
-                                        data-scope-type="org"
-                                        data-scope-id="{{ org.id }}">
-                                    Удостоверения
-                                </button>
-                            </td>
+            <!-- Древовидная таблица -->
+            <div class="table-responsive">
+                <table id="result_list">
+                    <thead>
+                        <tr>
+                            <th class="column-checkbox">
+                                <input type="checkbox" id="select-all" checked>
+                            </th>
+                            <th class="column-name">ФИО / Структура</th>
+                            <th class="column-position">Должность</th>
+                            <th class="column-badge">Признак</th>
                         </tr>
-
-                        {# Сотрудники без подразделения #}
-                        {% for employee in org_data.items %}
-                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
-                                <td class="column-checkbox">
-                                    <input type="checkbox" class="form-check-input employee-checkbox"
-                                           name="employee_ids" value="{{ employee.id }}" checked>
-                                </td>
-                                <td class="field-name">
-                                    <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
-                                    {{ employee.full_name_nominative }}
-                                </td>
-                                <td>{{ employee.position.position_name }}</td>
-                                <td>
-                                    {% if employee.position.internship_period_days and employee.position.internship_period_days|add:0 > 0 %}
-                                        <span class="badge-internship">Стажировка</span>
-                                    {% endif %}
-                                    {% if employee.position.is_responsible_for_safety %}
-                                        <span class="badge-responsible">Ответственный за ОТ</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-
-                        {# Подразделения #}
-                        {% for sub, sub_data in org_data.subdivisions.items %}
-                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
+                    </thead>
+                    <tbody>
+                        {% for org, org_data in tree.items %}
+                            {# Организация #}
+                            <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
                                 <td class="column-checkbox"></td>
                                 <td class="field-name">
-                                    <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
-                                    <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
-                                    {{ sub_data.name }}
+                                    <button type="button" class="toggle-btn" data-state="expanded">−</button>
+                                    <span>{{ tree_settings.icons.organization }}</span>
+                                    {{ org_data.name }}
                                 </td>
                                 <td></td>
                                 <td class="column-badge">
-                                    <button type="button"
-                                            class="btn btn-outline-primary btn-sm scope-action"
-                                            data-action="scope_protocol"
-                                            data-scope-type="sub"
-                                            data-scope-id="{{ sub.id }}">
-                                        Протокол
+                                    <button type="button" class="btn btn-sm btn-outline-secondary scope-action"
+                                            data-action="scope_protocol" data-scope-type="org" data-scope-id="{{ org.id }}">
+                                        📄 Протокол
                                     </button>
-                                    <button type="button"
-                                            class="btn btn-outline-success btn-sm scope-action"
-                                            data-action="scope_certificates"
-                                            data-scope-type="sub"
-                                            data-scope-id="{{ sub.id }}">
-                                        Удостоверения
+                                    <button type="button" class="btn btn-sm btn-outline-secondary scope-action"
+                                            data-action="scope_certificates" data-scope-type="org" data-scope-id="{{ org.id }}">
+                                        🪪 Удостоверения
                                     </button>
                                 </td>
                             </tr>
 
-                            {# Сотрудники без отдела #}
-                            {% for employee in sub_data.items %}
-                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
+                            {# Сотрудники без подразделения #}
+                            {% for employee in org_data.items %}
+                                <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
                                     <td class="column-checkbox">
-                                        <input type="checkbox" class="form-check-input employee-checkbox"
+                                        <input type="checkbox" class="form-check-input employee-checkbox action-select"
                                                name="employee_ids" value="{{ employee.id }}" checked>
                                     </td>
                                     <td class="field-name">
-                                        <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
-                                        {{ employee.full_name_nominative }}
+                                        <span>{{ tree_settings.icons.employee }}</span>
+                                        <span class="pp-emp-name">{{ employee.full_name_nominative }}</span>
                                     </td>
                                     <td>{{ employee.position.position_name }}</td>
                                     <td>
@@ -433,50 +350,44 @@
                                             <span class="badge-internship">Стажировка</span>
                                         {% endif %}
                                         {% if employee.position.is_responsible_for_safety %}
-                                            <span class="badge-responsible">Ответственный за ОТ</span>
+                                            <span class="badge-responsible">Ответств. за ОТ</span>
                                         {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
 
-                            {# Отделы #}
-                            {% for dept, dept_data in sub_data.departments.items %}
-                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                            {# Подразделения #}
+                            {% for sub, sub_data in org_data.subdivisions.items %}
+                                <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
                                     <td class="column-checkbox"></td>
                                     <td class="field-name">
-                                        <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
-                                        <span class="tree-icon">{{ tree_settings.icons.department }}</span>
-                                        {{ dept_data.name }}
+                                        <button type="button" class="toggle-btn" data-state="expanded">−</button>
+                                        <span>{{ tree_settings.icons.subdivision }}</span>
+                                        {{ sub_data.name }}
                                     </td>
                                     <td></td>
                                     <td class="column-badge">
-                                        <button type="button"
-                                                class="btn btn-outline-primary btn-sm scope-action"
-                                                data-action="scope_protocol"
-                                                data-scope-type="dept"
-                                                data-scope-id="{{ dept.id }}">
-                                            Протокол
+                                        <button type="button" class="btn btn-sm btn-outline-secondary scope-action"
+                                                data-action="scope_protocol" data-scope-type="sub" data-scope-id="{{ sub.id }}">
+                                            📄 Протокол
                                         </button>
-                                        <button type="button"
-                                                class="btn btn-outline-success btn-sm scope-action"
-                                                data-action="scope_certificates"
-                                                data-scope-type="dept"
-                                                data-scope-id="{{ dept.id }}">
-                                            Удостоверения
+                                        <button type="button" class="btn btn-sm btn-outline-secondary scope-action"
+                                                data-action="scope_certificates" data-scope-type="sub" data-scope-id="{{ sub.id }}">
+                                            🪪 Удостоверения
                                         </button>
                                     </td>
                                 </tr>
 
-                                {# Сотрудники в отделе #}
-                                {% for employee in dept_data.items %}
-                                    <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                {# Сотрудники без отдела #}
+                                {% for employee in sub_data.items %}
+                                    <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
                                         <td class="column-checkbox">
                                             <input type="checkbox" class="form-check-input employee-checkbox"
                                                    name="employee_ids" value="{{ employee.id }}" checked>
                                         </td>
                                         <td class="field-name">
-                                            <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
-                                            {{ employee.full_name_nominative }}
+                                            <span>{{ tree_settings.icons.employee }}</span>
+                                            <span class="pp-emp-name">{{ employee.full_name_nominative }}</span>
                                         </td>
                                         <td>{{ employee.position.position_name }}</td>
                                         <td>
@@ -484,23 +395,71 @@
                                                 <span class="badge-internship">Стажировка</span>
                                             {% endif %}
                                             {% if employee.position.is_responsible_for_safety %}
-                                                <span class="badge-responsible">Ответственный за ОТ</span>
+                                                <span class="badge-responsible">Ответств. за ОТ</span>
                                             {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}
+
+                                {# Отделы #}
+                                {% for dept, dept_data in sub_data.departments.items %}
+                                    <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                                        <td class="column-checkbox"></td>
+                                        <td class="field-name">
+                                            <button type="button" class="toggle-btn" data-state="expanded">−</button>
+                                            <span>{{ tree_settings.icons.department }}</span>
+                                            {{ dept_data.name }}
+                                        </td>
+                                        <td></td>
+                                        <td class="column-badge">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary scope-action"
+                                                    data-action="scope_protocol" data-scope-type="dept" data-scope-id="{{ dept.id }}">
+                                                📄 Протокол
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary scope-action"
+                                                    data-action="scope_certificates" data-scope-type="dept" data-scope-id="{{ dept.id }}">
+                                                🪪 Удостоверения
+                                            </button>
+                                        </td>
+                                    </tr>
+
+                                    {# Сотрудники в отделе #}
+                                    {% for employee in dept_data.items %}
+                                        <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                            <td class="column-checkbox">
+                                                <input type="checkbox" class="form-check-input employee-checkbox"
+                                                       name="employee_ids" value="{{ employee.id }}" checked>
+                                            </td>
+                                            <td class="field-name">
+                                                <span>{{ tree_settings.icons.employee }}</span>
+                                                <span class="pp-emp-name">{{ employee.full_name_nominative }}</span>
+                                            </td>
+                                            <td>{{ employee.position.position_name }}</td>
+                                            <td>
+                                                {% if employee.position.internship_period_days and employee.position.internship_period_days|add:0 > 0 %}
+                                                    <span class="badge-internship">Стажировка</span>
+                                                {% endif %}
+                                                {% if employee.position.is_responsible_for_safety %}
+                                                    <span class="badge-responsible">Ответств. за ОТ</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
                             {% endfor %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    <div style="font-size:2rem;">👤</div>
+                                    <p class="mt-2 mb-0">Нет сотрудников, подходящих под критерии.</p>
+                                </td>
+                            </tr>
                         {% endfor %}
-                    {% empty %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">
-                                Нет сотрудников, подходящих под критерии.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                    </tbody>
+                </table>
+            </div>
+        </div><!-- /pp-card -->
+
     </form>
 
     {% endif %}
@@ -512,7 +471,6 @@
 <script src="{% static 'admin/js/tree_search.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Обработка selectAll чекбокса
     const selectAll = document.getElementById('selectAll');
     const checkboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
     const counter = document.getElementById('selectedCount');
@@ -526,7 +484,6 @@ document.addEventListener('DOMContentLoaded', function() {
         selectAll.addEventListener('change', function() {
             const checked = this.checked;
             checkboxes.forEach(cb => {
-                // Проверяем, что чекбокс видим (не скрыт деревом)
                 const row = cb.closest('tr');
                 if (!row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search')) {
                     cb.checked = checked;
@@ -536,41 +493,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', updateCounter);
-    });
-
-    // Начальное обновление счетчика
+    checkboxes.forEach(cb => { cb.addEventListener('change', updateCounter); });
     updateCounter();
 
-    // Обновление счетчика при сворачивании/разворачивании дерева
     const observer = new MutationObserver(updateCounter);
     const table = document.getElementById('result_list');
     if (table) {
-        observer.observe(table, {
-            attributes: true,
-            attributeFilter: ['class'],
-            subtree: true
-        });
+        observer.observe(table, { attributes: true, attributeFilter: ['class'], subtree: true });
     }
 
-    // Валидация формы
     const form = document.getElementById('periodicProtocolForm');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            const scopeType = document.getElementById('scopeTypeField');
-            if (scopeType && scopeType.value) {
-                return true;
-            }
-            const selected = checkboxes.filter(cb => cb.checked).length;
-            if (selected === 0) {
-                e.preventDefault();
-                alert('Пожалуйста, выберите хотя бы одного сотрудника.');
-                return false;
-            }
-        });
-    }
-
     const actionField = document.getElementById('actionField');
     const scopeTypeField = document.getElementById('scopeTypeField');
     const scopeIdField = document.getElementById('scopeIdField');
@@ -584,13 +516,25 @@ document.addEventListener('DOMContentLoaded', function() {
             form.requestSubmit();
             return;
         }
-
         const selected = checkboxes.filter(cb => cb.checked).length;
         if (selected === 0 && !scopeType) {
             alert('Пожалуйста, выберите хотя бы одного сотрудника.');
             return;
         }
         form.submit();
+    }
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const scopeType = document.getElementById('scopeTypeField');
+            if (scopeType && scopeType.value) return true;
+            const selected = checkboxes.filter(cb => cb.checked).length;
+            if (selected === 0) {
+                e.preventDefault();
+                alert('Пожалуйста, выберите хотя бы одного сотрудника.');
+                return false;
+            }
+        });
     }
 
     document.querySelectorAll('.action-submit').forEach(button => {

@@ -235,6 +235,19 @@
             background: #34495e;
         }
 
+        /* Короткий/полный текст кнопок шапки */
+        .btn-text-short { display: none; }
+        .btn-text-full  { display: inline; }
+
+        @media (max-width: 767px) {
+            .btn-text-short { display: inline; }
+            .btn-text-full  { display: none; }
+            .user-menu .btn-sm {
+                font-size: 0.72rem;
+                padding: 3px 8px;
+            }
+        }
+
         /* Breakpoint: < 576px (Смартфоны портрет) */
         @media (max-width: 575px) {
             .sidebar {
@@ -396,10 +409,10 @@
                 </li>
                 {% endif %}
 
-                {% check_url_visibility user 'directory:employee_home' as show_employees %}
+                {% check_url_visibility user 'directory:employees:employee_list' as show_employees %}
                 {% if show_employees %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'directory:employee_home' %}">
+                    <a class="nav-link" href="{% url 'directory:employees:employee_list' %}">
                         👥 Сотрудники
                     </a>
                 </li>
@@ -449,6 +462,15 @@
                     </a>
                 </li>
                 {% endif %}
+
+                {% check_url_visibility user 'deadline_control:equipment:list' as show_equipment %}
+                {% if show_equipment %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'deadline_control:equipment:list' %}">
+                        ⚙️ ТО оборудования
+                    </a>
+                </li>
+                {% endif %}
             </div>
 
             <!-- Секция: Контроль сроков -->
@@ -474,15 +496,6 @@
                         {% elif deadline_upcoming_total > 0 %}
                         <span class="badge badge-warning ms-1">{{ deadline_upcoming_total }}</span>
                         {% endif %}
-                    </a>
-                </li>
-                {% endif %}
-
-                {% check_url_visibility user 'deadline_control:equipment:list' as show_equipment %}
-                {% if show_equipment %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'deadline_control:equipment:list' %}">
-                        ⚙️ ТО оборудования
                     </a>
                 </li>
                 {% endif %}
@@ -578,7 +591,7 @@
                     {% check_url_visibility user 'directory:hiring:simple_hiring' as show_hiring_btn %}
                     {% if show_hiring_btn %}
                     <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-sm btn-success">
-                        ➕ Принять на работу
+                        ➕ <span class="btn-text-full">Принять на работу</span><span class="btn-text-short">Приём</span>
                     </a>
                     {% endif %}
 
@@ -586,7 +599,7 @@
                     {% check_url_visibility user 'deadline_control:medical:referral_new_employee' as show_referral_btn %}
                     {% if show_referral_btn %}
                     <a href="{% url 'deadline_control:medical:referral_new_employee' %}" class="btn btn-sm btn-primary">
-                        🏥 Выдать направление кандидату
+                        🏥 <span class="btn-text-full">Выдать направление кандидату</span><span class="btn-text-short">Направление</span>
                     </a>
                     {% endif %}
 

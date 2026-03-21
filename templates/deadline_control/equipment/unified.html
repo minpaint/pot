@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}⚙️ ТО оборудования{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Панель фильтров ── */
+.eq-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+.eq-topbar label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+    display: block;
+}
+.eq-topbar input[type="date"] {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+
+/* ── Карточка организации ── */
+.org-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.eq-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.eq-page-header .hdr-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.eq-page-header .hdr-count { font-size: 0.8rem; opacity: 0.8; }
+
+.org-header {
+    background: #f0f4f8;
+    color: #2c3e50;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+.org-header:hover { background: #e4ecf5; }
+.org-header .org-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+.org-header .org-count { font-size: 0.8rem; color: #6c757d; }
+.org-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; color: #6c757d; }
+.org-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+/* ── Подразделение ── */
+.sub-block {
+    border-bottom: 1px solid #f0f0f0;
+    background: #fff;
+}
+.sub-header {
+    padding: 10px 18px 10px 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+    border-top: 1px solid #eee;
+}
+.sub-header .sub-title { font-weight: 600; font-size: 0.9rem; flex: 1; color: #2c3e50; }
+.sub-header .sub-count { font-size: 0.78rem; color: #6c757d; }
+.sub-header .toggle-icon { font-size: 0.65rem; color: #aaa; transition: transform 0.25s; }
+.sub-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+/* ── Группа типа ── */
+.type-block { border-top: 1px solid #f0f0f0; }
+.type-header {
+    padding: 8px 18px 8px 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fafafa;
+    cursor: pointer;
+    user-select: none;
+}
+.type-header .type-title { font-weight: 600; font-size: 0.85rem; color: #495057; flex: 1; }
+.type-header .type-count { font-size: 0.75rem; color: #6c757d; }
+.type-header .toggle-icon { font-size: 0.6rem; color: #ccc; transition: transform 0.25s; }
+.type-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+.type-actions { display: flex; gap: 6px; align-items: center; }
+
+/* ── Таблица оборудования ── */
+.eq-table-wrap { padding: 0 0 0 44px; }
+.eq-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+}
+.eq-table th {
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+    background: #fff;
+}
+.eq-table td {
+    padding: 8px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+}
+.eq-table tr:last-child td { border-bottom: none; }
+.eq-table tr:hover td { background: #f0f7ff; }
+.eq-table tr.row-danger td { background: #fff5f5; }
+.eq-table tr.row-danger:hover td { background: #ffe9e9; }
+.eq-table tr.row-warn td { background: #fffbf0; }
+.eq-table tr.row-warn:hover td { background: #fff3cd; }
+
+/* ── Пилюли статуса ── */
+.days-pill {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.days-pill.p-ok      { background: #d1f5d3; color: #1e7e34; }
+.days-pill.p-soon    { background: #fff3cd; color: #856404; }
+.days-pill.p-overdue { background: #fde8e8; color: #c0392b; }
+.days-pill.p-none    { background: #f0f0f0; color: #999; }
+
+.status-badge {
+    font-size: 0.72rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ── Кнопки действий ── */
+.btn-journal { font-size: 0.78rem; padding: 3px 10px; border-radius: 6px; }
+.btn-act     { font-size: 0.75rem; padding: 2px 7px; border-radius: 5px; }
+.inv-num     { font-family: monospace; font-size: 0.8rem; color: #6c757d; }
+.no-data     { color: #bbb; font-size: 0.82rem; }
+
+/* ── Анимация сворачивания ── */
+.collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
+.collapsible.collapsed { max-height: 0 !important; opacity: 0; }
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .eq-table thead { display: none; }
+    .eq-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
+    .eq-table td { display: flex; justify-content: space-between; padding: 4px 10px; border: none; }
+    .eq-table td::before { content: attr(data-label); font-size: 0.7rem; color: #999; font-weight: 600; margin-right: 8px; }
+    .eq-table td.td-acts { justify-content: flex-end; }
+    .eq-table td.td-acts::before { content: none; }
+    .eq-table-wrap { padding-left: 10px; }
+    .type-header { padding-left: 20px; }
+    .sub-header { padding-left: 14px; }
+    .type-actions { flex-wrap: wrap; }
+
+    /* Скрыть второстепенные колонки — оставить только Наименование и Следующее ТО */
+    .eq-table td[data-label="Инв. №"],
+    .eq-table td[data-label="Последнее ТО"],
+    .eq-table td[data-label="Дней до ТО"],
+    .eq-table td[data-label="Статус"],
+    .eq-table td.td-acts { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+
+    <!-- Верхняя панель -->
+    <div class="eq-topbar">
+        <div>
+            <label>📅 Дата осмотра (для журналов)</label>
+            <input type="date" id="inspection-date-picker" value="{{ inspection_date }}">
+        </div>
+        <div class="ms-auto d-flex gap-2 flex-wrap">
+            <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-sm btn-success">➕ Добавить оборудование</a>
+        </div>
+    </div>
+
+    <!-- Заголовок страницы -->
+    <div class="eq-page-header">
+        <span>⚙️</span>
+        <span class="hdr-title">Контроль технического обслуживания оборудования</span>
+    </div>
+
+    <!-- Дерево -->
+    {% if tree_data %}
+        {% for org_data in tree_data %}
+        <div class="org-card">
+
+            <!-- Заголовок организации -->
+            <div class="org-header" onclick="toggleBlock(this, 'org-{{ org_data.org.id }}')">
+                <span>🏢</span>
+                <span class="org-title">{{ org_data.org.short_name_ru|default:org_data.org.full_name_ru }}</span>
+                <span class="org-count">{{ org_data.equipment_count }} ед.</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+
+            <div class="collapsible" id="org-{{ org_data.org.id }}" style="max-height: 9999px;">
+
+                <!-- Подразделения -->
+                {% for sub_data in org_data.subdivisions %}
+                <div class="sub-block">
+                    <div class="sub-header" onclick="toggleBlock(this, 'sub-{{ sub_data.sub.id }}')">
+                        <span>🏭</span>
+                        <span class="sub-title">{{ sub_data.sub.name }}</span>
+                        <span class="sub-count">{{ sub_data.equipment_count }} ед.</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+
+                    <div class="collapsible" id="sub-{{ sub_data.sub.id }}" style="max-height: 9999px;">
+                        {% for tg in sub_data.types %}
+                        <div class="type-block">
+                            <div class="type-header" onclick="toggleBlock(this, 'type-{{ sub_data.sub.id }}-{{ forloop.counter }}')">
+                                <span>{{ tg.type_icon }}</span>
+                                <span class="type-title">{{ tg.type_label }}</span>
+                                <span class="type-count">{{ tg.equipment_count }} ед.</span>
+
+                                <!-- Кнопки журнала — только для журнальных типов -->
+                                {% if tg.type_label in journal_type_names %}
+                                <div class="type-actions" onclick="event.stopPropagation()">
+                                    <form method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="download_subdivision">
+                                        <input type="hidden" name="equipment_type_id" value="{{ tg.eq_type.id }}">
+                                        <input type="hidden" name="subdivision_id" value="{{ sub_data.sub.id }}">
+                                        <input type="hidden" name="inspection_date" id="hid-date-{{ sub_data.sub.id }}-{{ forloop.counter }}" value="{{ inspection_date }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary btn-journal" title="Скачать журнал для этого подразделения">
+                                            📄 Журнал
+                                        </button>
+                                    </form>
+                                    <form method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="email_subdivision">
+                                        <input type="hidden" name="equipment_type_id" value="{{ tg.eq_type.id }}">
+                                        <input type="hidden" name="subdivision_id" value="{{ sub_data.sub.id }}">
+                                        <input type="hidden" name="inspection_date" value="{{ inspection_date }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary btn-journal" title="Отправить журнал по email">
+                                            ✉️
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endif %}
+
+                                <span class="toggle-icon ms-2">▼</span>
+                            </div>
+
+                            <div class="collapsible eq-table-wrap" id="type-{{ sub_data.sub.id }}-{{ forloop.counter }}" style="max-height: 9999px;">
+                                {% include "deadline_control/equipment/_eq_rows.html" with items=tg.items %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Оборудование без подразделения -->
+                {% if org_data.no_sub_groups %}
+                <div class="sub-block">
+                    <div class="sub-header" onclick="toggleBlock(this, 'nosub-{{ org_data.org.id }}')">
+                        <span>📦</span>
+                        <span class="sub-title text-muted">Без подразделения</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="collapsible" id="nosub-{{ org_data.org.id }}" style="max-height: 9999px;">
+                        {% for tg in org_data.no_sub_groups %}
+                        <div class="type-block">
+                            <div class="type-header">
+                                <span>{{ tg.type_icon }}</span>
+                                <span class="type-title">{{ tg.type_label }}</span>
+                                <span class="type-count">{{ tg.equipment_count }} ед.</span>
+                            </div>
+                            <div class="eq-table-wrap">
+                                {% include "deadline_control/equipment/_eq_rows.html" with items=tg.items %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+            </div><!-- /org collapsible -->
+        </div><!-- /org-card -->
+        {% endfor %}
+
+    {% else %}
+        <div class="text-center py-5 text-muted">
+            <div style="font-size:3rem;">⚙️</div>
+            <p class="mt-2">Оборудование не добавлено</p>
+            <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-success">➕ Добавить первое оборудование</a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Синхронизация даты из picker → все скрытые поля форм
+document.getElementById('inspection-date-picker').addEventListener('change', function() {
+    document.querySelectorAll('input[name="inspection_date"]').forEach(function(inp) {
+        inp.value = this.value;
+    }.bind(this));
+});
+
+function toggleBlock(headerEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        // Trigger reflow
+        content.getBoundingClientRect();
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+    }
+}
+</script>
+{% endblock %}

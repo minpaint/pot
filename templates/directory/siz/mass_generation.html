@@ -1,371 +1,573 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }} - OT Online{% endblock %}
+{% block title %}🛡️ Карточки СИЗ{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Панель управления ── */
+.siz-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+.siz-topbar label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.siz-topbar input[type="date"] {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    background: #fff;
+}
+.siz-topbar input[type="date"]:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Вкладки ── */
+.siz-tabs {
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 4px;
+}
+.siz-tab-btn {
+    padding: 8px 18px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #6c757d;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.siz-tab-btn.active {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border-color: #3498db;
+}
+.siz-tab-btn:not(.active):hover { background: #e9ecef; color: #333; }
+
+/* ── Карточка организации ── */
+.org-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.org-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+.org-header .org-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.org-header .org-count {
+    font-size: 0.78rem;
+    background: rgba(255,255,255,0.2);
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+.org-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; }
+.org-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+/* ── Строка подразделения ── */
+.sub-header {
+    padding: 10px 18px 10px 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+    border-top: 1px solid #eee;
+}
+.sub-header .sub-title { font-weight: 600; font-size: 0.9rem; flex: 1; color: #2c3e50; }
+.sub-header .sub-count { font-size: 0.78rem; color: #6c757d; }
+.sub-header .toggle-icon { font-size: 0.65rem; color: #aaa; transition: transform 0.25s; }
+.sub-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+/* ── Строка отдела ── */
+.dept-header {
+    padding: 8px 18px 8px 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
+    border-top: 1px solid #f0f0f0;
+}
+.dept-header .dept-title { font-weight: 600; font-size: 0.85rem; color: #495057; flex: 1; }
+.dept-header .dept-count { font-size: 0.75rem; color: #6c757d; }
+.dept-header .toggle-icon { font-size: 0.6rem; color: #ccc; transition: transform 0.25s; }
+.dept-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+/* ── Строка сотрудника ── */
+.emp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 18px 7px 60px;
+    border-top: 1px solid #f5f5f5;
+    font-size: 0.88rem;
+}
+.emp-row:hover { background: #f0f7ff; }
+.emp-name { font-weight: 600; color: #2c3e50; }
+.emp-position { color: #6c757d; font-size: 0.82rem; }
+
+/* ── Анимация сворачивания ── */
+.collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
+.collapsible.collapsed { max-height: 0 !important; opacity: 0; }
+
+/* ── Бейджи ── */
+.cnt-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+}
+.cnt-badge-dark {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    background: #e3eef8;
+    color: #1a5276;
+}
+
+/* ── Таблица массовой генерации ── */
+.mass-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.mass-table th {
+    padding: 9px 14px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.mass-table td {
+    padding: 10px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+}
+.mass-table tr:last-child td { border-bottom: none; }
+.mass-table .row-org td {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    font-weight: 600;
+}
+.mass-table .row-org td .btn { border-color: rgba(255,255,255,0.5); color: #fff; }
+.mass-table .row-org td .btn:hover { background: rgba(255,255,255,0.15); }
+.mass-table .row-sub td { background: #f8f9fa; }
+.mass-table .row-dept td { background: #fff; }
+.mass-table .row-dept td:nth-child(2) { padding-left: 36px; }
+.mass-table tbody tr:hover td { background: #f0f7ff; }
+.mass-table .row-org:hover td { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); }
+.mass-table .row-sub:hover td { background: #e8f4fd; }
+
+/* ── Кнопки действий ── */
+.btn-act { font-size: 0.78rem; padding: 3px 10px; border-radius: 6px; }
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    /* Панель управления */
+    .siz-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .siz-topbar input[type="date"] { width: 100%; box-sizing: border-box; }
+    #mass-controls { visibility: visible !important; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 0; }
+    #mass-controls .btn { font-size: 0.72rem; padding: 3px 8px; width: auto; }
+    #mass-controls #selected-count { font-size: 0.75rem; }
+
+    /* Развернуть/Свернуть + подсказка */
+    #employee-tree ~ div.mb-3,
+    .mb-3.d-flex.gap-2.align-items-center { gap: 4px !important; }
+    #expand-all-tree, #collapse-all-tree { font-size: 0.72rem; padding: 3px 8px; }
+    #expand-all-tree + #collapse-all-tree + span { display: none; }
+
+    /* Вкладки */
+    .siz-tabs { flex-wrap: wrap; }
+    .siz-tab-btn { flex: 1; text-align: center; }
+
+    /* Дерево сотрудников (вкладка 1) */
+    .org-header { padding: 10px 14px; }
+    .sub-header { padding: 8px 14px 8px 18px; }
+    .dept-header { padding: 6px 14px 6px 24px; }
+    .emp-row { padding: 5px 10px 5px 14px; flex-wrap: nowrap; align-items: center; gap: 0; }
+
+    /* ФИО + должность — в две строки */
+    .emp-row > span:first-child {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+    }
+    .emp-row .emp-name { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .emp-row .emp-position { margin-left: 0 !important; font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Кнопка скачать — компактная, не сжимается */
+    .emp-row .btn-act { flex-shrink: 0; font-size: 0.75rem; padding: 3px 8px; margin-left: 8px !important; }
+
+    /* Таблица массовой генерации (вкладка 2) */
+    .mass-table thead { display: none; }
+    .mass-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
+    .mass-table .row-org { display: block; }
+    .mass-table td { display: flex; justify-content: space-between; align-items: center; padding: 4px 12px; border: none; font-size: 0.82rem; }
+    .mass-table td::before { content: attr(data-label); font-size: 0.7rem; color: #999; font-weight: 600; margin-right: 8px; flex-shrink: 0; }
+    .mass-table .row-org td { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; }
+    .mass-table .row-org td::before { color: rgba(255,255,255,0.7); }
+    .mass-table td:first-child { justify-content: flex-start; }
+    .mass-table td:first-child::before { content: none; }
+    .mass-table .d-flex { flex-wrap: wrap; gap: 6px; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <div>
-            <h2 class="mb-1">🛡️ {{ title }}</h2>
-            <p class="text-muted mb-0">Массовая генерация и отправка карточек СИЗ</p>
-        </div>
-    </div>
+<div class="container-fluid mt-3">
 
-    <div class="card mb-3">
-        <div class="card-body">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label for="id_issue_date" class="form-label">Дата выдачи</label>
-                    <input type="date" id="id_issue_date" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <div class="form-check mt-4 pt-2">
-                        <input class="form-check-input" type="checkbox" id="id_test_mode">
-                        <label class="form-check-label" for="id_test_mode">
-                            🧪 Тестовый режим
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-6 text-md-end" id="mass-controls">
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="select-all">✓ Выбрать все</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="deselect-all">✗ Снять все</button>
-                    <span class="ms-2 text-muted" id="selected-count">Выбрано: 0</span>
-                </div>
+    <!-- Верхняя панель -->
+    <div class="siz-topbar">
+        <div>
+            <label>📅 Дата выдачи</label>
+            <input type="date" id="id_issue_date">
+        </div>
+        <div style="padding-bottom: 2px;">
+            <div style="margin-top: 20px; display: flex; align-items: center; gap: 8px;">
+                <input class="form-check-input" type="checkbox" id="id_test_mode" style="width:16px;height:16px;">
+                <label for="id_test_mode" style="font-size:0.85rem;font-weight:600;color:#6c757d;cursor:pointer;">🧪 Тестовый режим</label>
             </div>
         </div>
+        <div id="mass-controls" style="padding-bottom: 2px; margin-left: auto; display: flex; align-items: flex-end; gap: 8px; visibility: hidden;">
+            <button type="button" class="btn btn-sm btn-outline-primary" id="select-all">✓ Выбрать все</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselect-all">✗ Снять все</button>
+            <span class="text-muted" id="selected-count" style="font-size:0.85rem;">Выбрано: 0</span>
+        </div>
     </div>
 
-    {# Вкладки #}
-    <ul class="nav nav-tabs mb-3" id="sizTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="tab-single-btn" data-bs-toggle="tab"
-                    data-bs-target="#tab-single" type="button" role="tab">
-                👤 По сотрудникам
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-mass-btn" data-bs-toggle="tab"
-                    data-bs-target="#tab-mass" type="button" role="tab">
-                📦 Массовая генерация
-            </button>
-        </li>
-    </ul>
-
-    <div class="tab-content">
-
-    {# === ВКЛАДКА 1: Массовая генерация === #}
-    <div class="tab-pane fade" id="tab-mass" role="tabpanel">
-
-    {% if subdivisions or orgs_with_direct_employees %}
-    <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" id="mass-generation-form">
-        {% csrf_token %}
-        <div class="mb-3 d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-success" id="generate-btn">📥 Сгенерировать ZIP по выбранным подразделениям</button>
-            <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary">← Назад</a>
-        </div>
-
-        {% regroup subdivisions by organization as org_groups %}
-
-        <div class="table-responsive">
-            <table class="table table-bordered align-middle" id="siz-tree-table">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 60px;">ZIP</th>
-                        <th>Структура</th>
-                        <th style="width: 170px;" class="text-center">Сотрудников</th>
-                        <th style="width: 340px;">Действия</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for group in org_groups %}
-                    <tr class="table-primary">
-                        <td></td>
-                        <td><strong>🏢 {{ group.grouper.full_name_ru }}</strong></td>
-                        <td class="text-center">—</td>
-                        <td>
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-primary js-send-org"
-                                data-org-id="{{ group.grouper.id }}"
-                                data-org-name="{{ group.grouper.short_name_ru|default:group.grouper.full_name_ru }}"
-                                data-url="{% url 'directory:siz:send_for_organization' group.grouper.id %}">
-                                ✉️ Отправить по организации
-                            </button>
-                        </td>
-                    </tr>
-
-                    {% for subdivision in group.list %}
-                    <tr>
-                        <td class="text-center">
-                            <input
-                                type="checkbox"
-                                name="subdivision_ids"
-                                value="{{ subdivision.id }}"
-                                class="form-check-input subdivision-checkbox"
-                                data-count="{{ subdivision.employees_count|default:subdivision.employees_with_norms_count }}">
-                        </td>
-                        <td>
-                            <strong class="ms-2">🏭 {{ subdivision.name }}</strong>
-                            <div class="text-muted small ms-2">ID: {{ subdivision.id }}</div>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge bg-info">{{ subdivision.employees_count|default:subdivision.employees_with_norms_count }}</span>
-                        </td>
-                        <td>
-                            <div class="d-flex flex-wrap gap-2 align-items-center">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary js-send-subdivision"
-                                    data-subdivision-id="{{ subdivision.id }}"
-                                    data-subdivision-name="{{ subdivision.name }}"
-                                    data-recipients-url="{% url 'directory:siz:siz_recipients' subdivision.id %}"
-                                    data-send-url="{% url 'directory:siz:send_for_subdivision' subdivision.id %}">
-                                    ✉️ Отправить по подразделению
-                                </button>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input js-summary-mode"
-                                        type="checkbox"
-                                        id="summary_mode_{{ subdivision.id }}"
-                                        data-subdivision-id="{{ subdivision.id }}">
-                                    <label class="form-check-label" for="summary_mode_{{ subdivision.id }}">📦 Сводный</label>
-                                </div>
-                                {% if subdivision.skip_email_notifications %}
-                                <span class="badge bg-warning text-dark">Email пропущены</span>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-
-                    {% for dept in subdivision.departments_with_employees %}
-                    <tr>
-                        <td></td>
-                        <td>
-                            <span class="ms-5">📂 {{ dept.name }}</span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge bg-secondary">{{ dept.employees_count }}</span>
-                        </td>
-                        <td>
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-outline-secondary js-send-department"
-                                data-department-id="{{ dept.id }}"
-                                data-department-name="{{ dept.name }}"
-                                data-subdivision-id="{{ subdivision.id }}"
-                                data-recipients-url="{% url 'directory:siz:siz_recipients' subdivision.id %}"
-                                data-send-url="{% url 'directory:siz:send_for_department' dept.id %}">
-                                ✉️ Отправить по отделу
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% endfor %}
-                    {% endfor %}
-
-                    {# Организации без структурных подразделений, у которых есть прямые сотрудники с нормами #}
-                    {% for item in orgs_with_direct_employees %}
-                    <tr class="table-primary">
-                        <td></td>
-                        <td><strong>🏢 {{ item.org.full_name_ru }}</strong></td>
-                        <td class="text-center">—</td>
-                        <td>
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-primary js-send-org"
-                                data-org-id="{{ item.org.id }}"
-                                data-org-name="{{ item.org.short_name_ru|default:item.org.full_name_ru }}"
-                                data-url="{% url 'directory:siz:send_for_organization' item.org.id %}">
-                                ✉️ Отправить по организации
-                            </button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td><span class="ms-2 text-muted">Сотрудники без подразделения</span></td>
-                        <td class="text-center">
-                            <span class="badge bg-info">{{ item.employees_count }}</span>
-                        </td>
-                        <td>
-                            <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" style="display:inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="org_id" value="{{ item.org.id }}">
-                                <input type="hidden" name="issue_date" id="issue_date_org_{{ item.org.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-success js-org-generate"
-                                        data-issue-field="issue_date_org_{{ item.org.id }}">
-                                    📥 Сгенерировать ZIP
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </form>
-    {% else %}
-    <div class="alert alert-info">
-        Не найдено сотрудников с нормами СИЗ.
+    <!-- Вкладки -->
+    <div class="siz-tabs" id="sizTabsCustom">
+        <button class="siz-tab-btn active" data-target="tab-single">👤 По сотрудникам</button>
+        <button class="siz-tab-btn" data-target="tab-mass">📦 Массовая генерация</button>
     </div>
-    {% endif %}
 
-    </div>{# /tab-mass #}
-
-    {# === ВКЛАДКА 2: По сотрудникам === #}
-    <div class="tab-pane fade show active" id="tab-single" role="tabpanel">
+    <!-- Вкладка: По сотрудникам -->
+    <div id="tab-single" class="siz-tab-pane">
 
     {% if subdivisions or orgs_with_direct_employees %}
-    <div class="mb-2 d-flex gap-2 align-items-center">
+    <div class="mb-3 d-flex gap-2 align-items-center">
         <button type="button" class="btn btn-outline-secondary btn-sm" id="expand-all-tree">▼ Развернуть все</button>
         <button type="button" class="btn btn-outline-secondary btn-sm" id="collapse-all-tree">▲ Свернуть все</button>
-        <span class="text-muted small ms-2">Нажмите 📥 напротив сотрудника для скачивания его карточки</span>
+        <span class="text-muted" style="font-size:0.82rem;">Нажмите 📥 напротив сотрудника для скачивания карточки</span>
     </div>
 
     <div id="employee-tree">
 
-    {# Подразделения с сотрудниками #}
     {% regroup subdivisions by organization as tree_org_groups %}
     {% for org_group in tree_org_groups %}
-    <div class="card mb-2">
-        <div class="card-header py-2 bg-primary text-white d-flex justify-content-between align-items-center tree-org-header"
-             style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#tree-org-{{ org_group.grouper.id }}">
-            <strong>🏢 {{ org_group.grouper.full_name_ru }}</strong>
-            <span class="badge bg-light text-dark">
+    <div class="org-card">
+        <div class="org-header" onclick="toggleSizBlock(this, 'single-org-{{ org_group.grouper.id }}')">
+            <span>🏢</span>
+            <span class="org-title">{{ org_group.grouper.full_name_ru }}</span>
+            <span class="cnt-badge">
                 {% for sub in org_group.list %}{{ sub.employees_count|add:0 }}{% if not forloop.last %}+{% endif %}{% endfor %}
             </span>
+            <span class="toggle-icon">▼</span>
         </div>
-        <div class="collapse show" id="tree-org-{{ org_group.grouper.id }}">
-            <div class="card-body p-0">
+        <div class="collapsible" id="single-org-{{ org_group.grouper.id }}" style="max-height:9999px;">
             {% for subdivision in org_group.list %}
-            <div class="border-bottom">
-                <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light tree-subdiv-header"
-                     style="cursor:pointer" data-bs-toggle="collapse"
-                     data-bs-target="#tree-sub-{{ subdivision.id }}">
-                    <span><strong>🏭 {{ subdivision.name }}</strong>
-                        <span class="badge bg-info ms-2">{{ subdivision.employees_count }}</span>
-                    </span>
-                    <span class="text-muted small">▼</span>
+            <div style="background:#fff;">
+                <div class="sub-header" onclick="toggleSizBlock(this, 'single-sub-{{ subdivision.id }}')">
+                    <span>🏭</span>
+                    <span class="sub-title">{{ subdivision.name }}</span>
+                    <span class="cnt-badge-dark">{{ subdivision.employees_count }}</span>
+                    <span class="toggle-icon">▼</span>
                 </div>
-                <div class="collapse show" id="tree-sub-{{ subdivision.id }}">
-                    <div class="ps-4">
+                <div class="collapsible" id="single-sub-{{ subdivision.id }}" style="max-height:9999px;">
 
-                    {# Сотрудники без отдела #}
                     {% for emp in subdivision.main_employees %}
-                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                    <div class="emp-row">
                         <span>
-                            <span class="me-2">👤</span>
-                            <strong>{{ emp.full_name_nominative }}</strong>
-                            <span class="text-muted ms-2">— {{ emp.position.position_name }}</span>
+                            <span class="emp-name">{{ emp.full_name_nominative }}</span>
+                            <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
                         </span>
                         <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                           class="btn btn-sm btn-outline-success py-0 px-2 ms-2 js-single-card"
+                           class="btn btn-sm btn-outline-success btn-act ms-2 js-single-card"
                            data-employee-id="{{ emp.id }}"
-                           title="Скачать карточку СИЗ">
-                            📥
-                        </a>
+                           title="Скачать карточку СИЗ">📥</a>
                     </div>
                     {% endfor %}
 
-                    {# Отделы #}
                     {% for dept in subdivision.departments_with_employees %}
-                    <div class="border-bottom">
-                        <div class="d-flex justify-content-between align-items-center py-1 bg-white tree-dept-header"
-                             style="cursor:pointer" data-bs-toggle="collapse"
-                             data-bs-target="#tree-dept-{{ dept.id }}">
-                            <span>📂 <strong>{{ dept.name }}</strong>
-                                <span class="badge bg-secondary ms-1">{{ dept.employees_count }}</span>
+                    <div class="dept-header" onclick="toggleSizBlock(this, 'single-dept-{{ dept.id }}')">
+                        <span>📂</span>
+                        <span class="dept-title">{{ dept.name }}</span>
+                        <span class="cnt-badge-dark">{{ dept.employees_count }}</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="collapsible" id="single-dept-{{ dept.id }}" style="max-height:9999px;">
+                        {% for emp in dept.employees %}
+                        <div class="emp-row" style="padding-left:76px;">
+                            <span>
+                                <span class="emp-name">{{ emp.full_name_nominative }}</span>
+                                <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
                             </span>
-                            <span class="text-muted small me-2">▼</span>
+                            <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                               class="btn btn-sm btn-outline-success btn-act ms-2 js-single-card"
+                               data-employee-id="{{ emp.id }}"
+                               title="Скачать карточку СИЗ">📥</a>
                         </div>
-                        <div class="collapse show" id="tree-dept-{{ dept.id }}">
-                            <div class="ps-3">
-                            {% for emp in dept.employees %}
-                            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
-                                <span>
-                                    <span class="me-2">👤</span>
-                                    <strong>{{ emp.full_name_nominative }}</strong>
-                                    <span class="text-muted ms-2">— {{ emp.position.position_name }}</span>
-                                </span>
-                                <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                                   class="btn btn-sm btn-outline-success py-0 px-2 ms-2 js-single-card"
-                                   data-employee-id="{{ emp.id }}"
-                                   title="Скачать карточку СИЗ">
-                                    📥
-                                </a>
-                            </div>
-                            {% endfor %}
-                            </div>
-                        </div>
+                        {% endfor %}
                     </div>
                     {% endfor %}
 
-                    </div>
                 </div>
             </div>
             {% endfor %}
-            </div>
         </div>
     </div>
     {% endfor %}
 
-    {# Организации без подразделений #}
     {% for item in orgs_with_direct_employees %}
-    <div class="card mb-2">
-        <div class="card-header py-2 bg-primary text-white d-flex justify-content-between align-items-center"
-             style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#tree-org-direct-{{ item.org.id }}">
-            <strong>🏢 {{ item.org.full_name_ru }}</strong>
-            <span class="badge bg-light text-dark">{{ item.employees_count }}</span>
+    <div class="org-card">
+        <div class="org-header" onclick="toggleSizBlock(this, 'single-org-direct-{{ item.org.id }}')">
+            <span>🏢</span>
+            <span class="org-title">{{ item.org.full_name_ru }}</span>
+            <span class="cnt-badge">{{ item.employees_count }}</span>
+            <span class="toggle-icon">▼</span>
         </div>
-        <div class="collapse show" id="tree-org-direct-{{ item.org.id }}">
-            <div class="card-body p-0 ps-4">
+        <div class="collapsible" id="single-org-direct-{{ item.org.id }}" style="max-height:9999px;">
             {% for emp in item.employees %}
-            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+            <div class="emp-row">
                 <span>
-                    <span class="me-2">👤</span>
-                    <strong>{{ emp.full_name_nominative }}</strong>
-                    <span class="text-muted ms-2">— {{ emp.position.position_name }}</span>
+                    <span class="emp-name">{{ emp.full_name_nominative }}</span>
+                    <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
                 </span>
                 <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                   class="btn btn-sm btn-outline-success py-0 px-2 ms-2 js-single-card"
+                   class="btn btn-sm btn-outline-success btn-act ms-2 js-single-card"
                    data-employee-id="{{ emp.id }}"
-                   title="Скачать карточку СИЗ">
-                    📥
-                </a>
+                   title="Скачать карточку СИЗ">📥</a>
             </div>
             {% endfor %}
-            </div>
         </div>
     </div>
     {% endfor %}
 
     </div>{# /employee-tree #}
     {% else %}
-    <div class="alert alert-info">Не найдено сотрудников с нормами СИЗ.</div>
+    <div class="text-center py-5 text-muted">
+        <div style="font-size:2.5rem;">🛡️</div>
+        <p class="mt-2">Не найдено сотрудников с нормами СИЗ</p>
+    </div>
     {% endif %}
 
     </div>{# /tab-single #}
 
-    </div>{# /tab-content #}
+    <!-- Вкладка: Массовая генерация -->
+    <div id="tab-mass" class="siz-tab-pane" style="display:none;">
+
+    {% if subdivisions or orgs_with_direct_employees %}
+    <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" id="mass-generation-form">
+        {% csrf_token %}
+        <div class="mb-3 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-success btn-sm" id="generate-btn">📥 Сгенерировать ZIP по выбранным подразделениям</button>
+            <a href="{% url 'directory:employee_home' %}" class="btn btn-outline-secondary btn-sm">← Назад</a>
+        </div>
+
+        {% regroup subdivisions by organization as org_groups %}
+
+        <div class="org-card">
+            <div style="background:#fff;">
+                <div class="table-responsive">
+                    <table class="mass-table">
+                        <thead>
+                            <tr>
+                                <th style="width:50px;">ZIP</th>
+                                <th>Структура</th>
+                                <th style="width:130px;" class="text-center">Сотрудников</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group in org_groups %}
+                            <tr class="row-org">
+                                <td></td>
+                                <td data-label="Организация"><strong>🏢 {{ group.grouper.full_name_ru }}</strong></td>
+                                <td data-label="Сотрудников" class="text-center">—</td>
+                                <td data-label="Рассылка">
+                                    <button type="button"
+                                        class="btn btn-sm btn-act js-send-org"
+                                        style="border-color:rgba(255,255,255,0.5);color:#fff;"
+                                        data-org-id="{{ group.grouper.id }}"
+                                        data-org-name="{{ group.grouper.short_name_ru|default:group.grouper.full_name_ru }}"
+                                        data-url="{% url 'directory:siz:send_for_organization' group.grouper.id %}">
+                                        ✉️ Отправить по организации
+                                    </button>
+                                </td>
+                            </tr>
+
+                            {% for subdivision in group.list %}
+                            <tr class="row-sub">
+                                <td class="text-center">
+                                    <input type="checkbox"
+                                        name="subdivision_ids"
+                                        value="{{ subdivision.id }}"
+                                        class="form-check-input subdivision-checkbox"
+                                        data-count="{{ subdivision.employees_count|default:subdivision.employees_with_norms_count }}">
+                                </td>
+                                <td data-label="Подразделение">
+                                    <strong>🏭 {{ subdivision.name }}</strong>
+                                    <span class="ms-2" style="font-size:0.75rem;color:#999;">ID: {{ subdivision.id }}</span>
+                                </td>
+                                <td data-label="Сотрудников" class="text-center">
+                                    <span class="cnt-badge-dark">{{ subdivision.employees_count|default:subdivision.employees_with_norms_count }}</span>
+                                </td>
+                                <td data-label="Рассылка">
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-primary btn-act js-send-subdivision"
+                                            data-subdivision-id="{{ subdivision.id }}"
+                                            data-subdivision-name="{{ subdivision.name }}"
+                                            data-recipients-url="{% url 'directory:siz:siz_recipients' subdivision.id %}"
+                                            data-send-url="{% url 'directory:siz:send_for_subdivision' subdivision.id %}">
+                                            ✉️ Отправить
+                                        </button>
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input js-summary-mode"
+                                                type="checkbox"
+                                                id="summary_mode_{{ subdivision.id }}"
+                                                data-subdivision-id="{{ subdivision.id }}">
+                                            <label class="form-check-label" for="summary_mode_{{ subdivision.id }}" style="font-size:0.82rem;">📦 Сводный</label>
+                                        </div>
+                                        {% if subdivision.skip_email_notifications %}
+                                        <span style="font-size:0.72rem;padding:2px 8px;background:#fff3cd;color:#856404;border-radius:20px;font-weight:600;">Email пропущены</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            {% for dept in subdivision.departments_with_employees %}
+                            <tr class="row-dept">
+                                <td></td>
+                                <td data-label="Отдел">📂 {{ dept.name }}</td>
+                                <td data-label="Сотрудников" class="text-center">
+                                    <span class="cnt-badge-dark">{{ dept.employees_count }}</span>
+                                </td>
+                                <td data-label="Рассылка">
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-secondary btn-act js-send-department"
+                                        data-department-id="{{ dept.id }}"
+                                        data-department-name="{{ dept.name }}"
+                                        data-subdivision-id="{{ subdivision.id }}"
+                                        data-recipients-url="{% url 'directory:siz:siz_recipients' subdivision.id %}"
+                                        data-send-url="{% url 'directory:siz:send_for_department' dept.id %}">
+                                        ✉️ Отправить по отделу
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                            {% endfor %}
+
+                            {% for item in orgs_with_direct_employees %}
+                            <tr class="row-org">
+                                <td></td>
+                                <td data-label="Организация"><strong>🏢 {{ item.org.full_name_ru }}</strong></td>
+                                <td data-label="Сотрудников" class="text-center">—</td>
+                                <td data-label="Рассылка">
+                                    <button type="button"
+                                        class="btn btn-sm btn-act js-send-org"
+                                        style="border-color:rgba(255,255,255,0.5);color:#fff;"
+                                        data-org-id="{{ item.org.id }}"
+                                        data-org-name="{{ item.org.short_name_ru|default:item.org.full_name_ru }}"
+                                        data-url="{% url 'directory:siz:send_for_organization' item.org.id %}">
+                                        ✉️ Отправить по организации
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="row-sub">
+                                <td></td>
+                                <td data-label="Подразделение"><span class="text-muted">Сотрудники без подразделения</span></td>
+                                <td data-label="Сотрудников" class="text-center">
+                                    <span class="cnt-badge-dark">{{ item.employees_count }}</span>
+                                </td>
+                                <td data-label="Рассылка">
+                                    <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" style="display:inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="org_id" value="{{ item.org.id }}">
+                                        <input type="hidden" name="issue_date" id="issue_date_org_{{ item.org.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-success btn-act js-org-generate"
+                                                data-issue-field="issue_date_org_{{ item.org.id }}">
+                                            📥 Сгенерировать ZIP
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <div style="font-size:2.5rem;">🛡️</div>
+        <p class="mt-2">Не найдено сотрудников с нормами СИЗ</p>
+    </div>
+    {% endif %}
+
+    </div>{# /tab-mass #}
 
 </div>
 
+<!-- Модальное окно подтверждения отправки -->
 <div class="modal fade" id="recipientsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header" style="background:linear-gradient(135deg,#2c3e50 0%,#3498db 100%);color:#fff;">
                 <h5 class="modal-title" id="recipientsModalTitle">Подтверждение отправки</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="recipientsModalBody"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
                 <button type="button" class="btn btn-primary" id="confirmSendBtn">Отправить</button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Оверлей загрузки -->
 <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;">
     <div class="position-absolute top-50 start-50 translate-middle text-center text-white">
         <div class="spinner-border" role="status"></div>
@@ -376,6 +578,37 @@
 
 {% block extra_js %}
 <script>
+// Переключение вкладок
+document.querySelectorAll('.siz-tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.siz-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.siz-tab-pane').forEach(p => p.style.display = 'none');
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.target).style.display = 'block';
+        const isMass = btn.dataset.target === 'tab-mass';
+        const massControls = document.getElementById('mass-controls');
+        if (massControls) massControls.style.visibility = isMass ? 'visible' : 'hidden';
+    });
+});
+
+// Сворачивание/разворачивание узлов дерева
+function toggleSizBlock(headerEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.getBoundingClientRect();
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+    }
+}
+
 (function() {
     const storageKeys = {
         date: 'siz_mass_issue_date',
@@ -789,25 +1022,21 @@
 
     updateSelectedCount();
 
-    // Скрывать/показывать controls для массовой генерации в зависимости от вкладки
-    const massControls = document.getElementById('mass-controls');
-    if (massControls) massControls.style.visibility = 'hidden'; // по умолчанию скрыто (активна вкладка "По сотрудникам")
-    document.querySelectorAll('#sizTabs .nav-link').forEach(btn => {
-        btn.addEventListener('shown.bs.tab', function(e) {
-            const isMass = e.target.id === 'tab-mass-btn';
-            if (massControls) massControls.style.visibility = isMass ? 'visible' : 'hidden';
-        });
-    });
-
     // Развернуть / Свернуть все в дереве
     document.getElementById('expand-all-tree') && document.getElementById('expand-all-tree').addEventListener('click', () => {
-        document.querySelectorAll('#employee-tree .collapse').forEach(el => {
-            el.classList.add('show');
+        document.querySelectorAll('#employee-tree .collapsible').forEach(el => {
+            el.style.maxHeight = '9999px';
+            el.classList.remove('collapsed');
+            const hdr = el.previousElementSibling;
+            if (hdr) hdr.classList.remove('collapsed');
         });
     });
     document.getElementById('collapse-all-tree') && document.getElementById('collapse-all-tree').addEventListener('click', () => {
-        document.querySelectorAll('#employee-tree .collapse').forEach(el => {
-            el.classList.remove('show');
+        document.querySelectorAll('#employee-tree .collapsible').forEach(el => {
+            el.style.maxHeight = '0';
+            el.classList.add('collapsed');
+            const hdr = el.previousElementSibling;
+            if (hdr) hdr.classList.add('collapsed');
         });
     });
 

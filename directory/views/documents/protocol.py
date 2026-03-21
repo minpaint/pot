@@ -391,7 +391,10 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
             if selected_ids:
                 employees_qs = employees_qs.filter(id__in=selected_ids)
 
-        employees = list(employees_qs)
+        employees = sorted(
+            employees_qs,
+            key=lambda e: (not (e.position and e.position.is_responsible_for_safety))
+        )
         if not employees:
             if scope_type:
                 messages.error(request, "Нет сотрудников для выбранного раздела")

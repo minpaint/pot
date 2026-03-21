@@ -116,21 +116,18 @@ class EquipmentForm(OrganizationRestrictionFormMixin, forms.ModelForm):
 
             # Если у пользователя только одна организация - предзаполняем
             if user_orgs.count() == 1 and not self.instance.pk:
-                # Только для новых объектов (не при редактировании)
                 org = user_orgs.first()
                 self.initial['organization'] = org.id
-                # Разрешаем выбор подразделений из этой организации
                 self.fields['subdivision'].queryset = StructuralSubdivision.objects.filter(organization=org)
-            else:
-                # Если несколько организаций или редактирование - начинаем с пустого queryset
-                if not self.instance.pk:
-                    self.fields['subdivision'].queryset = StructuralSubdivision.objects.none()
+            # Для нескольких организаций: миксин уже ограничил queryset по allowed_orgs,
+            # не перезаписываем его в none() — иначе валидация POST будет падать
 
-            # Для department всегда начинаем с пустого queryset, пока не выбрано subdivision
+            # Для department: при создании разрешаем все отделы доступных орг (DAL фильтрует на фронте)
             if not self.instance.pk:
-                self.fields['department'].queryset = Department.objects.none()
+                self.fields['department'].queryset = Department.objects.filter(
+                    subdivision__organization__in=user_orgs
+                )
             elif self.instance.subdivision:
-                # При редактировании - показываем отделы текущего подразделения
                 self.fields['department'].queryset = Department.objects.filter(
                     subdivision=self.instance.subdivision
                 )

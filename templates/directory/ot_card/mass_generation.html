@@ -1,187 +1,340 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }} - OT Online{% endblock %}
+{% block title %}📋 Личные карточки ОТ{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'admin/css/tree_view.css' %}">
 <style>
-    .ot-card-container { padding: 20px; }
-    .page-header { margin-bottom: 20px; }
-    .page-description { color: #666; font-size: 14px; margin-bottom: 15px; }
+/* ── Панель параметров ── */
+.ot-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+}
+.ot-topbar label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.ot-topbar input[type="date"],
+.ot-topbar select {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    background: #fff;
+}
+.ot-topbar input[type="date"]:focus,
+.ot-topbar select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
 
-    /* Синий блок параметров инструктажа */
-    .date-input-section {
-        background: #e7f3ff;
-        border: 2px solid #0066cc;
-        border-radius: 6px;
-        padding: 15px;
-        margin-bottom: 20px;
+/* ── Поле причины ── */
+.reason-bar {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    display: none;
+}
+.reason-bar label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+    display: block;
+    text-transform: uppercase;
+}
+.reason-bar input {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+}
+.reason-bar input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Единая карточка (заголовок + actionbar + treebar + table) ── */
+.ot-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 16px;
+}
+.ot-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.ot-card-header .hdr-title { font-weight: 600; font-size: 1rem; flex: 1; }
+
+/* ── Панель действий ── */
+.ot-actionbar {
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.ot-selected-info {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* ── Панель дерева (поиск + expand/collapse) ── */
+.ot-treebar {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 8px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.ot-treebar input[type="text"] {
+    flex: 1;
+    min-width: 180px;
+    max-width: 300px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.85rem;
+}
+.ot-treebar input[type="text"]:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Таблица дерева ── */
+.ot-tree-wrap {
+    overflow: hidden;
+}
+#result_list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    table-layout: fixed;
+}
+#result_list th {
+    padding: 9px 12px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+#result_list td {
+    padding: 7px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#result_list tr:last-child td { border-bottom: none; }
+
+/* Уровни дерева — по node-id */
+.tree-row[data-node-id^="org_"] td {
+    background: #f0f4f8;
+    color: #2c3e50;
+    font-weight: 600;
+}
+.tree-row[data-node-id^="org_"]:hover td { background: #e4ecf5; }
+
+.tree-row[data-node-id^="sub_"] td {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+.tree-row[data-node-id^="dept_"] td {
+    background: #fafafa;
+    color: #495057;
+}
+
+/* Строки сотрудников (нет data-node-id) */
+.tree-row:not([data-node-id]) td { background: #fff; }
+.tree-row:not([data-node-id]):hover td { background: #f0f7ff; }
+
+/* Hover для группировок */
+.tree-row[data-node-id^="sub_"]:hover td { background: #e8f4fd; }
+.tree-row[data-node-id^="dept_"]:hover td { background: #f0f7ff; }
+
+/* Выделенная строка */
+.tree-row.selected:not([data-node-id]) td { background: #e3f2fd !important; }
+
+/* Скрытые строки (дерево) */
+.tree-row-hidden { display: none !important; }
+.hidden-by-search { display: none !important; }
+.highlight-search td { background: #fff3cd !important; }
+
+/* ── Кнопка expand/collapse ── */
+.toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+    border: 1px solid #ced4da;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-family: monospace;
+    transition: all 0.15s;
+    vertical-align: middle;
+    color: #6c757d;
+}
+.toggle-btn:hover { opacity: 0.8; }
+
+/* ── Кнопка «Сгенерировать» на уровне группы ── */
+.group-generate-btn {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 8px;
+    white-space: nowrap;
+    vertical-align: middle;
+    display: inline-block;
+    background: #e3eef8;
+    color: #1a5276;
+    border: 1px solid #b8d4ea;
+    transition: background 0.15s;
+}
+.group-generate-btn:hover { background: #cce0f5; }
+
+/* ── Отступы имён по уровню ── */
+.tree-row[data-level="0"] .field-name { padding-left: 6px; }
+.tree-row[data-level="1"] .field-name { padding-left: 20px; }
+.tree-row[data-level="2"] .field-name { padding-left: 36px; }
+.tree-row[data-level="3"] .field-name { padding-left: 52px; }
+
+/* ── Чекбоксы ── */
+.column-checkbox { width: 30px !important; text-align: center; padding: 2px 4px !important; }
+.form-check-input { cursor: pointer; width: 15px; height: 15px; }
+
+/* Чекбоксы в орг-строках */
+.tree-row[data-node-id^="org_"] .form-check-input {
+    accent-color: #3498db;
+}
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    /* Панели управления — вертикальный стек */
+    .ot-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .ot-topbar input[type="date"],
+    .ot-topbar select { width: 100%; box-sizing: border-box; }
+    .reason-bar { padding: 8px 12px; }
+    .ot-actionbar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .ot-actionbar .btn { width: 100%; text-align: center; }
+    .ot-selected-info { margin-left: 0; text-align: center; }
+    .ot-treebar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .ot-treebar input[type="text"] { max-width: 100%; width: 100%; }
+    .ot-treebar .btn { width: 100%; }
+
+    /* Таблица: скрыть колонку «Должность» */
+    #result_list th:last-child, #result_list td:last-child { display: none; }
+
+    /* Чекбокс — компактная ширина */
+    #result_list th:nth-child(1),
+    #result_list td:nth-child(1) {
+        width: 28px !important;
+        min-width: 28px !important;
+        max-width: 28px !important;
+        padding: 4px 2px !important;
     }
-    .date-input-section label {
-        font-weight: 600; font-size: 15px; color: #0066cc;
-        display: block; margin-bottom: 8px;
-    }
-    .date-input-section input[type="date"] {
-        padding: 8px 12px; border: 1px solid #ced4da;
-        border-radius: 4px; font-size: 14px; width: 200px;
-    }
-    .date-input-section input[type="date"]:focus {
-        outline: none; border-color: #0066cc;
-        box-shadow: 0 0 0 0.2rem rgba(0,102,204,.25);
+    /* ФИО — весь остаток */
+    #result_list th:nth-child(2),
+    #result_list td:nth-child(2) {
+        width: auto !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    /* Кнопки действий */
-    .action-buttons {
-        display: flex; gap: 10px; margin-bottom: 15px;
-        flex-wrap: wrap; align-items: center;
-    }
-    .selected-info { color: #666; font-size: 14px; margin-left: auto; }
+    /* Уменьшить шрифт и отступы ячеек */
+    #result_list { font-size: 0.82rem; }
+    #result_list th, #result_list td { padding: 6px 8px; }
 
-    /* Таблица дерева */
-    #result_list {
-        width: 100%; background: white;
-        border: 1px solid #ddd; border-radius: 4px;
-        table-layout: fixed;
-    }
-    #result_list th {
-        background: #f8f9fa; padding: 8px 6px;
-        border-bottom: 2px solid #dee2e6;
-        font-weight: 600; font-size: 13px;
-        text-transform: uppercase; color: #495057;
-    }
-    #result_list td {
-        padding: 4px 6px; border-bottom: 1px solid #f0f0f0;
-        vertical-align: middle; overflow: hidden; text-overflow: ellipsis;
-    }
-    .tree-row:hover td { background-color: #f8f9fa; }
+    /* Уменьшить отступы уровней дерева */
+    .tree-row[data-level="0"] .field-name { padding-left: 4px; }
+    .tree-row[data-level="1"] .field-name { padding-left: 14px; }
+    .tree-row[data-level="2"] .field-name { padding-left: 24px; }
+    .tree-row[data-level="3"] .field-name { padding-left: 34px; }
 
-    .column-checkbox { width: 22px !important; text-align: center; padding: 2px 0 !important; }
-    .column-name { }
-    .column-position { width: 25%; }
-
-    /* Чекбоксы */
-    .form-check-input { cursor: pointer; }
-    .column-checkbox .form-check-input {
-        margin: 0;
-        width: 16px;
-        height: 16px;
-    }
-    .tree-row.selected { background-color: #e7f3ff; }
-
-    /* Иконки */
-    .tree-icon { margin-right: 4px; font-size: 14px; }
-
-    /* Кнопки разворачивания */
-    .toggle-btn {
-        display: inline-block; margin-right: 4px;
-        padding: 1px 5px; border: 1px solid #dee2e6;
-        background: white; border-radius: 2px;
-        cursor: pointer; font-size: 11px;
-        font-family: monospace; transition: all 0.2s;
-        min-width: 22px; text-align: center;
-    }
-    .toggle-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
-
-    /* Отступы для уровней */
-    .tree-row[data-level="0"] .field-name { padding-left: 6px; font-weight: 600; }
-    .tree-row[data-level="1"] .field-name { padding-left: 20px; font-weight: 500; }
-    .tree-row[data-level="2"] .field-name { padding-left: 34px; }
-    .tree-row[data-level="3"] .field-name { padding-left: 48px; }
-
-    .tree-row-hidden { display: none !important; }
-    .hidden-by-search { display: none !important; }
-    .highlight-search td { background-color: #fff3cd !important; }
-
-    /* Контролы дерева */
-    .tree-controls {
-        padding: 10px; background: #f8f9fa;
-        border: 1px solid #dee2e6; border-bottom: none;
-        border-radius: 4px 4px 0 0;
-        display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    }
-    .tree-btn {
-        padding: 6px 12px; background: white;
-        border: 1px solid #ced4da; border-radius: 4px;
-        cursor: pointer; font-size: 13px; transition: all 0.2s;
-    }
-    .tree-btn:hover { background: #e9ecef; border-color: #adb5bd; }
-    .tree-search-container { flex: 1; max-width: 300px; }
-    .tree-search {
-        width: 100%; padding: 6px 12px;
-        border: 1px solid #ced4da; border-radius: 4px; font-size: 13px;
-    }
-    .tree-search:focus {
-        outline: none; border-color: #80bdff;
-        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-    }
-
-    /* Групповой чекбокс на уровне подразделения/отдела */
-    .group-checkbox {
-        cursor: pointer; width: 16px; height: 16px;
-    }
-
-    /* Кнопка генерации на уровне группы */
-    .group-generate-btn {
-        padding: 2px 8px; font-size: 11px;
-        background: #28a745; color: white; border: none;
-        border-radius: 3px; cursor: pointer; margin-left: 6px;
-        white-space: nowrap; vertical-align: middle;
-        display: inline-block;
-    }
-    .group-generate-btn:hover { background: #218838; }
+    /* Кнопки в строках группировок — меньше */
+    .group-generate-btn { font-size: 0.68rem; padding: 1px 5px; margin-left: 4px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="ot-card-container">
-    <div class="page-header">
-        <h4 class="mb-2">{{ title }}</h4>
-        <p class="page-description">
-            Выберите сотрудников для массовой генерации личных карточек по охране труда.
-            Можно выбирать отдельных сотрудников или целые подразделения/отделы.
-        </p>
-    </div>
+<div class="container-fluid mt-3">
 
     <!-- Параметры инструктажа -->
-    <div class="date-input-section">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 10px;">
-            <div>
-                <label for="date_povtorny">📅 Дата инструктажа:</label>
-                <input type="date" id="date_povtorny" name="date_povtorny"
-                       value="{{ default_date }}" style="width: 100%;">
-                <div style="margin-top: 6px;">
-                    <label style="display: inline-flex; align-items: center; font-size: 13px; font-weight: normal; color: #555; cursor: pointer; margin-bottom: 0;">
-                        <input type="checkbox" id="skip_date" style="margin-right: 5px; cursor: pointer;">
-                        Без даты (оставить пустой)
-                    </label>
-                </div>
-            </div>
-            <div>
-                <label for="instruction_type">📋 Вид инструктажа:</label>
-                <select id="instruction_type" name="instruction_type" required
-                        style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
-                    {% for value, label in instruction_types %}
-                    <option value="{{ value }}" {% if value == 'Повторный' %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
+    <div class="ot-topbar">
+        <div>
+            <label>📅 Дата инструктажа</label>
+            <input type="date" id="date_povtorny" name="date_povtorny" value="{{ default_date }}">
+        </div>
+        <div style="padding-bottom: 2px;">
+            <div style="margin-top: 20px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="skip_date" style="width:15px;height:15px;cursor:pointer;">
+                <label for="skip_date" style="font-size:0.85rem;font-weight:600;color:#6c757d;cursor:pointer;margin:0;">Без даты</label>
             </div>
         </div>
-        <div id="reasonField" style="display: none;">
-            <label for="instruction_reason">📝 Причина проведения внепланового/целевого инструктажа:</label>
-            <input type="text" id="instruction_reason" name="instruction_reason"
-                   placeholder="Укажите причину проведения инструктажа"
-                   style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
+        <div>
+            <label>📋 Вид инструктажа</label>
+            <select id="instruction_type" name="instruction_type" required>
+                {% for value, label in instruction_types %}
+                <option value="{{ value }}" {% if value == 'Повторный' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
         </div>
+    </div>
+
+    <!-- Причина (показывается только для Внепланового/Целевого) -->
+    <div class="reason-bar" id="reasonField">
+        <label>📝 Причина проведения инструктажа</label>
+        <input type="text" id="instruction_reason" name="instruction_reason"
+               placeholder="Укажите причину проведения инструктажа">
     </div>
 
     {% if not show_tree %}
-    <div class="alert alert-info" role="alert">
-        <h5 class="alert-heading">Информация</h5>
+    <div class="text-center py-5 text-muted">
+        <div style="font-size:2.5rem;">📋</div>
         {% if org_options|length == 0 %}
-        <p class="mb-0">У вас нет доступных организаций с активными сотрудниками.</p>
+        <p class="mt-2">У вас нет доступных организаций с активными сотрудниками</p>
         {% else %}
-        <p class="mb-0">Пожалуйста, выберите организацию в верхней панели страницы.</p>
+        <p class="mt-2">Выберите организацию в верхней панели страницы</p>
         {% endif %}
     </div>
     {% else %}
@@ -189,99 +342,77 @@
     <form method="post" action="{% url 'directory:ot_card:mass_generation_generate' %}" id="mass-generation-form">
         {% csrf_token %}
 
-        <!-- Кнопки управления -->
-        <div class="action-buttons">
-            <button type="submit" class="btn btn-success" id="generate-btn">
-                Сгенерировать карточки
+        <div class="ot-card">
+
+        <!-- Градиентный заголовок карточки -->
+        <div class="ot-card-header">
+            <span>📋</span>
+            <span class="hdr-title">Личные карточки ОТ</span>
+            {% if employees_count %}<span style="font-size:0.8rem;opacity:0.8;">{{ employees_count }} сотр.</span>{% endif %}
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="ot-actionbar">
+            <button type="submit" class="btn btn-sm btn-success" id="generate-btn">
+                📥 Сгенерировать карточки
             </button>
-            <div class="form-check form-check-inline ms-3">
+            <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="selectAll">
-                <label class="form-check-label" for="selectAll">Выбрать всех</label>
+                <label class="form-check-label" for="selectAll" style="font-size:0.85rem;">Выбрать всех</label>
             </div>
-            <span class="selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong>{% if employees_count %} из {{ employees_count }}{% endif %}</span>
+            <a href="{% url 'directory:employee_home' %}" class="btn btn-sm btn-outline-secondary">← Назад</a>
+            <span class="ot-selected-info">
+                Выбрано: <strong><span id="selectedCount">0</span></strong>{% if employees_count %} из {{ employees_count }}{% endif %}
+            </span>
         </div>
 
         <!-- Контролы дерева -->
-        <div class="tree-controls">
-            <button type="button" class="tree-btn expand-all">↓ Развернуть все</button>
-            <button type="button" class="tree-btn collapse-all">↑ Свернуть все</button>
-            <div class="tree-search-container">
-                <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам...">
-            </div>
+        <div class="ot-treebar">
+            <button type="button" class="btn btn-sm btn-outline-secondary expand-all">▼ Развернуть все</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary collapse-all">▲ Свернуть все</button>
+            <input type="text" class="tree-search" placeholder="🔍 Поиск по сотрудникам…">
         </div>
 
         <!-- Древовидная таблица -->
-        <div class="table-responsive">
-            <table id="result_list" style="table-layout: fixed; width: 100%;">
-                <colgroup>
-                    <col style="width: 30px;">
-                    <col style="width: 55%;">
-                    <col style="width: auto;">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th class="column-checkbox" style="width: 30px; padding: 4px 2px;"></th>
-                        <th class="column-name">ФИО / Структура</th>
-                        <th class="column-position">Должность</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for org, org_data in tree.items %}
-                        {# Организация #}
-                        <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
-                            <td class="column-checkbox">
-                                <input type="checkbox" class="form-check-input group-checkbox"
-                                       data-group="org_{{ org.id }}">
-                            </td>
-                            <td class="field-name">
-                                <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
-                                <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
-                                <strong>{{ org_data.name }}</strong>
-                                <button type="button" class="group-generate-btn" data-generate-group="org_{{ org.id }}">📋 Сгенерировать</button>
-                            </td>
-                            <td></td>
+        <div class="ot-tree-wrap">
+            <div class="table-responsive">
+                <table id="result_list">
+                    <colgroup>
+                        <col style="width: 30px;">
+                        <col style="width: 55%;">
+                        <col>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th class="column-checkbox"></th>
+                            <th>ФИО / Структура</th>
+                            <th>Должность</th>
                         </tr>
-
-                        {# Сотрудники без подразделения #}
-                        {% for employee in org_data.items %}
-                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
-                                <td class="column-checkbox">
-                                    <input type="checkbox" class="form-check-input employee-checkbox"
-                                           name="employee_ids" value="{{ employee.id }}"
-                                           data-groups="org_{{ org.id }}">
-                                </td>
-                                <td class="field-name">
-                                    <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
-                                    {{ employee.full_name_nominative }}
-                                </td>
-                                <td>{{ employee.position.position_name }}</td>
-                            </tr>
-                        {% endfor %}
-
-                        {# Подразделения #}
-                        {% for sub, sub_data in org_data.subdivisions.items %}
-                            <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
+                    </thead>
+                    <tbody>
+                        {% for org, org_data in tree.items %}
+                            {# Организация #}
+                            <tr class="tree-row" data-level="0" data-node-id="org_{{ org.id }}">
                                 <td class="column-checkbox">
                                     <input type="checkbox" class="form-check-input group-checkbox"
-                                           data-group="sub_{{ sub.id }}"
-                                           data-parent-group="org_{{ org.id }}">
+                                           data-group="org_{{ org.id }}">
                                 </td>
                                 <td class="field-name">
-                                    <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
-                                    <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
-                                    {{ sub_data.name }}
-                                    <button type="button" class="group-generate-btn" data-generate-group="sub_{{ sub.id }}">📋 Сгенерировать</button>
+                                    <button type="button" class="toggle-btn" data-state="expanded">−</button>
+                                    <span class="tree-icon">{{ tree_settings.icons.organization }}</span>
+                                    {{ org_data.name }}
+                                    <button type="button" class="group-generate-btn" data-generate-group="org_{{ org.id }}">📋 Сгенерировать</button>
                                 </td>
                                 <td></td>
                             </tr>
 
-                            {# Сотрудники без отдела #}
-                            {% for employee in sub_data.items %}
-                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
+                            {# Сотрудники без подразделения #}
+                            {% for employee in org_data.items %}
+                                <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
                                     <td class="column-checkbox">
                                         <input type="checkbox" class="form-check-input employee-checkbox"
                                                name="employee_ids" value="{{ employee.id }}"
-                                               data-groups="org_{{ org.id }} sub_{{ sub.id }}">
+                                               data-groups="org_{{ org.id }}">
                                     </td>
                                     <td class="field-name">
                                         <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
@@ -291,29 +422,30 @@
                                 </tr>
                             {% endfor %}
 
-                            {# Отделы #}
-                            {% for dept, dept_data in sub_data.departments.items %}
-                                <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                            {# Подразделения #}
+                            {% for sub, sub_data in org_data.subdivisions.items %}
+                                <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}" data-node-id="sub_{{ sub.id }}">
                                     <td class="column-checkbox">
                                         <input type="checkbox" class="form-check-input group-checkbox"
-                                               data-group="dept_{{ dept.id }}"
-                                               data-parent-group="sub_{{ sub.id }}">
+                                               data-group="sub_{{ sub.id }}"
+                                               data-parent-group="org_{{ org.id }}">
                                     </td>
                                     <td class="field-name">
-                                        <button type="button" class="toggle-btn" data-state="expanded">[-]</button>
-                                        <span class="tree-icon">{{ tree_settings.icons.department }}</span>
-                                        {{ dept_data.name }}
+                                        <button type="button" class="toggle-btn" data-state="expanded">−</button>
+                                        <span class="tree-icon">{{ tree_settings.icons.subdivision }}</span>
+                                        {{ sub_data.name }}
+                                        <button type="button" class="group-generate-btn" data-generate-group="sub_{{ sub.id }}">📋 Сгенерировать</button>
                                     </td>
                                     <td></td>
                                 </tr>
 
-                                {# Сотрудники в отделе #}
-                                {% for employee in dept_data.items %}
-                                    <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                {# Сотрудники без отдела #}
+                                {% for employee in sub_data.items %}
+                                    <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
                                         <td class="column-checkbox">
                                             <input type="checkbox" class="form-check-input employee-checkbox"
                                                    name="employee_ids" value="{{ employee.id }}"
-                                                   data-groups="org_{{ org.id }} sub_{{ sub.id }} dept_{{ dept.id }}">
+                                                   data-groups="org_{{ org.id }} sub_{{ sub.id }}">
                                         </td>
                                         <td class="field-name">
                                             <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
@@ -322,38 +454,68 @@
                                         <td>{{ employee.position.position_name }}</td>
                                     </tr>
                                 {% endfor %}
-                            {% endfor %}
-                        {% endfor %}
-                    {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">
-                                Нет сотрудников для генерации карточек.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
 
-        <div class="row mt-3">
-            <div class="col">
-                <button type="submit" class="btn btn-success">Сгенерировать карточки</button>
-                <a href="{% url 'directory:employee_home' %}" class="btn btn-secondary ms-2">Назад</a>
+                                {# Отделы #}
+                                {% for dept, dept_data in sub_data.departments.items %}
+                                    <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}" data-node-id="dept_{{ dept.id }}">
+                                        <td class="column-checkbox">
+                                            <input type="checkbox" class="form-check-input group-checkbox"
+                                                   data-group="dept_{{ dept.id }}"
+                                                   data-parent-group="sub_{{ sub.id }}">
+                                        </td>
+                                        <td class="field-name">
+                                            <button type="button" class="toggle-btn" data-state="expanded">−</button>
+                                            <span class="tree-icon">{{ tree_settings.icons.department }}</span>
+                                            {{ dept_data.name }}
+                                        </td>
+                                        <td></td>
+                                    </tr>
+
+                                    {# Сотрудники в отделе #}
+                                    {% for employee in dept_data.items %}
+                                        <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                            <td class="column-checkbox">
+                                                <input type="checkbox" class="form-check-input employee-checkbox"
+                                                       name="employee_ids" value="{{ employee.id }}"
+                                                       data-groups="org_{{ org.id }} sub_{{ sub.id }} dept_{{ dept.id }}">
+                                            </td>
+                                            <td class="field-name">
+                                                <span class="tree-icon">{{ tree_settings.icons.employee }}</span>
+                                                {{ employee.full_name_nominative }}
+                                            </td>
+                                            <td>{{ employee.position.position_name }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            {% endfor %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    Нет сотрудников для генерации карточек
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+        </div>{# /ot-tree-wrap #}
+        </div>{# /ot-card #}
+
+        <div class="d-flex gap-2 mb-3">
+            <button type="submit" class="btn btn-sm btn-success">📥 Сгенерировать карточки</button>
+            <a href="{% url 'directory:employee_home' %}" class="btn btn-sm btn-outline-secondary">← Назад</a>
         </div>
     </form>
 
     {% endif %}
 </div>
 
-<!-- Индикатор загрузки -->
-<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-        <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem;">
-            <span class="visually-hidden">Загрузка...</span>
-        </div>
-        <p class="text-light mt-3 fs-5">Генерация карточек...</p>
-        <p class="text-light">Это может занять некоторое время</p>
+<!-- Оверлей загрузки -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;">
+    <div class="position-absolute top-50 start-50 translate-middle text-center text-white">
+        <div class="spinner-border" role="status"></div>
+        <div class="mt-2">Генерация карточек…</div>
+        <div class="mt-1" style="font-size:0.85rem;opacity:0.8;">Это может занять некоторое время</div>
     </div>
 </div>
 {% endblock %}
@@ -373,7 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingOverlay = document.getElementById('loading-overlay');
     const submitButtons = form.querySelectorAll('button[type="submit"]');
 
-    // Показ/скрытие поля причины в зависимости от вида инструктажа
+    // Показ/скрытие поля причины
     const instructionTypeSelect = document.getElementById('instruction_type');
     const reasonField = document.getElementById('reasonField');
 
@@ -388,7 +550,7 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleReasonField();
     }
 
-    // === Галочка «Без даты» ===
+    // Галочка «Без даты»
     const skipDateCheckbox = document.getElementById('skip_date');
     const dateInput = document.getElementById('date_povtorny');
 
@@ -403,7 +565,6 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('ot_card_skip_date', skipDateCheckbox.checked ? '1' : '0');
     }
 
-    // Восстановить из localStorage
     if (skipDateCheckbox) {
         if (localStorage.getItem('ot_card_skip_date') === '1') {
             skipDateCheckbox.checked = true;
@@ -412,14 +573,11 @@ document.addEventListener('DOMContentLoaded', function() {
         skipDateCheckbox.addEventListener('change', applySkipDate);
     }
 
-    // === Логика чекбоксов ===
-
+    // Логика чекбоксов
     function updateCounter() {
-        const selected = allEmployeeCheckboxes.filter(cb => cb.checked).length;
-        counter.textContent = selected;
+        counter.textContent = allEmployeeCheckboxes.filter(cb => cb.checked).length;
     }
 
-    // Получить все employee-чекбоксы, принадлежащие группе
     function getEmployeesInGroup(groupId) {
         return allEmployeeCheckboxes.filter(cb => {
             const groups = cb.getAttribute('data-groups') || '';
@@ -427,24 +585,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Получить дочерние group-чекбоксы
     function getChildGroups(groupId) {
         return allGroupCheckboxes.filter(cb => cb.getAttribute('data-parent-group') === groupId);
     }
 
-    // Обновить состояние группового чекбокса на основе его сотрудников
     function updateGroupState(groupCheckbox) {
         const groupId = groupCheckbox.getAttribute('data-group');
         const employees = getEmployeesInGroup(groupId);
-
         if (employees.length === 0) {
             groupCheckbox.checked = false;
             groupCheckbox.indeterminate = false;
             return;
         }
-
         const checkedCount = employees.filter(cb => cb.checked).length;
-
         if (checkedCount === 0) {
             groupCheckbox.checked = false;
             groupCheckbox.indeterminate = false;
@@ -457,125 +610,81 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Обновить все групповые чекбоксы снизу вверх
     function updateAllGroupStates() {
-        // Сначала отделы (нижний уровень), потом подразделения, потом организации
-        const deptGroups = allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('dept_'));
-        const subGroups = allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('sub_'));
-        const orgGroups = allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('org_'));
-
-        deptGroups.forEach(updateGroupState);
-        subGroups.forEach(updateGroupState);
-        orgGroups.forEach(updateGroupState);
-
+        allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('dept_')).forEach(updateGroupState);
+        allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('sub_')).forEach(updateGroupState);
+        allGroupCheckboxes.filter(cb => cb.getAttribute('data-group').startsWith('org_')).forEach(updateGroupState);
         updateCounter();
-
-        // Обновить selectAll
         if (selectAll) {
             const total = allEmployeeCheckboxes.length;
             const checked = allEmployeeCheckboxes.filter(cb => cb.checked).length;
-            if (checked === 0) {
-                selectAll.checked = false;
-                selectAll.indeterminate = false;
-            } else if (checked === total) {
-                selectAll.checked = true;
-                selectAll.indeterminate = false;
-            } else {
-                selectAll.checked = false;
-                selectAll.indeterminate = true;
-            }
+            if (checked === 0) { selectAll.checked = false; selectAll.indeterminate = false; }
+            else if (checked === total) { selectAll.checked = true; selectAll.indeterminate = false; }
+            else { selectAll.checked = false; selectAll.indeterminate = true; }
         }
     }
 
-    // Клик по групповому чекбоксу — выбрать/снять всех сотрудников в группе
     allGroupCheckboxes.forEach(function(groupCb) {
         groupCb.addEventListener('change', function() {
             const groupId = this.getAttribute('data-group');
             const checked = this.checked;
-
-            // Выбрать всех сотрудников в этой группе
             getEmployeesInGroup(groupId).forEach(cb => { cb.checked = checked; });
-
-            // Выбрать дочерние групповые чекбоксы
             getChildGroups(groupId).forEach(childGroup => {
                 childGroup.checked = checked;
                 childGroup.indeterminate = false;
             });
-
             updateAllGroupStates();
         });
     });
 
-    // Клик по сотруднику — обновить родительские группы
     allEmployeeCheckboxes.forEach(function(empCb) {
-        empCb.addEventListener('change', function() {
-            updateAllGroupStates();
-        });
+        empCb.addEventListener('change', updateAllGroupStates);
     });
 
-    // Выбрать всех
     if (selectAll) {
         selectAll.addEventListener('change', function() {
             const checked = this.checked;
             allEmployeeCheckboxes.forEach(cb => { cb.checked = checked; });
-            allGroupCheckboxes.forEach(cb => {
-                cb.checked = checked;
-                cb.indeterminate = false;
-            });
+            allGroupCheckboxes.forEach(cb => { cb.checked = checked; cb.indeterminate = false; });
             updateCounter();
         });
     }
 
-    // Начальное обновление
     updateAllGroupStates();
 
-    // === Кнопки генерации на уровне группы ===
+    // Кнопки «Сгенерировать» на уровне группы
     document.querySelectorAll('.group-generate-btn').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             const groupId = this.getAttribute('data-generate-group');
-
-            // Снимаем все чекбоксы
             allEmployeeCheckboxes.forEach(cb => { cb.checked = false; });
             allGroupCheckboxes.forEach(cb => { cb.checked = false; cb.indeterminate = false; });
-
-            // Выбираем только сотрудников этой группы
             const groupEmployees = getEmployeesInGroup(groupId);
             if (groupEmployees.length === 0) {
                 alert('В этой группе нет сотрудников.');
                 return;
             }
             groupEmployees.forEach(cb => { cb.checked = true; });
-
             updateAllGroupStates();
-
-            // Отправляем форму
             form.dispatchEvent(new Event('submit', { cancelable: true }));
         });
     });
 
-    // === Отправка формы (async fetch для скачивания ZIP) ===
+    // Отправка формы (async fetch → ZIP)
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
-
         const checked = allEmployeeCheckboxes.filter(cb => cb.checked);
         if (checked.length === 0) {
             alert('Пожалуйста, выберите хотя бы одного сотрудника.');
             return;
         }
-
         loadingOverlay.style.display = 'block';
         submitButtons.forEach(btn => { btn.disabled = true; });
-
         try {
-            // Собираем данные формы + параметры инструктажа (они вне формы)
             const formData = new FormData(form);
-
-            // Добавляем параметры инструктажа (они в date-input-section, вне <form>)
             const datePovtorny = document.getElementById('date_povtorny');
             const instructionType = document.getElementById('instruction_type');
             const instructionReason = document.getElementById('instruction_reason');
-
             const skipDate = document.getElementById('skip_date');
             if (skipDate && skipDate.checked) {
                 formData.set('date_povtorny', '');
@@ -590,25 +699,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
-
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(errorText || 'Ошибка сервера: ' + response.status);
             }
-
             const blob = await response.blob();
             const contentDisposition = response.headers.get('Content-Disposition') || '';
             const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
                 || contentDisposition.match(/filename="([^"]+)"/i);
             const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'Личные_карточки_ОТ.zip';
-
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); a.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
             alert('Не удалось скачать архив: ' + err.message);

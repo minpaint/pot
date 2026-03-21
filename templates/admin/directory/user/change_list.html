@@ -1,0 +1,12 @@
+{% extends "admin/change_list.html" %}
+{% block extrastyle %}
+{{ block.super }}
+<style>
+@media (max-width: 768px) {
+    .column-email, .field-email,
+    .column-first_name, .field-first_name,
+    .column-last_name, .field-last_name,
+    .column-get_access_level, .field-get_access_level { display: none !important; }
+}
+</style>
+{% endblock %}

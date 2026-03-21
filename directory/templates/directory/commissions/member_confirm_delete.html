@@ -1,44 +1,115 @@
-<!-- templates/directory/commissions/member_confirm_delete.html -->
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}🗑️ Удалить участника{% endblock %}
+
+{% block extra_css %}
+<style>
+.cd-page-header {
+    background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    flex-wrap: wrap;
+}
+.cd-page-header .cd-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.cd-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    max-width: 540px;
+}
+.cd-card-body { padding: 20px; background: #fff; }
+.cd-info {
+    background: #fff8e1;
+    border-left: 4px solid #f0ad4e;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 0.88rem;
+}
+.cd-info strong { color: #2c3e50; }
+.cd-role {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 7px;
+    border-radius: 20px;
+}
+.cd-role-chairman { background: #fff3cd; color: #856404; }
+.cd-role-secretary { background: #d1ecf1; color: #0c5460; }
+.cd-role-member    { background: #e8f5e9; color: #2e7d32; }
+.cd-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+}
+@media (max-width: 576px) {
+    .cd-actions { flex-direction: column; }
+    .cd-actions .btn { width: 100%; text-align: center; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1 class="mb-4">{{ title }}</h1>
+<div class="container-fluid mt-3">
 
-    <div class="card">
-        <div class="card-body">
-            <div class="alert alert-danger">
-                <h4 class="alert-heading">Подтверждение удаления</h4>
-                <p>Вы уверены, что хотите удалить {{ object.employee.full_name_nominative }} из состава комиссии "{{ object.commission.name }}"?</p>
-                <hr>
-                <p class="mb-0">
-                    Роль участника: 
+    <div class="cd-page-header">
+        <span>🗑️</span>
+        <span class="cd-title">Удаление участника комиссии</span>
+    </div>
+
+    <div class="cd-card">
+        <div class="cd-card-body">
+
+            <div class="cd-info">
+                <div>Вы собираетесь удалить из состава комиссии:</div>
+                <div style="margin-top:8px;">
+                    <strong>{{ object.employee.full_name_nominative }}</strong>
+                </div>
+                <div style="color:#6c757d;font-size:0.82rem;margin-top:2px;">
+                    {{ object.employee.position.position_name }}
+                </div>
+                <div style="margin-top:8px;">
+                    Роль:
                     {% if object.role == 'chairman' %}
-                        Председатель комиссии
-                    {% elif object.role == 'member' %}
-                        Член комиссии
+                        <span class="cd-role cd-role-chairman">👑 Председатель</span>
                     {% elif object.role == 'secretary' %}
-                        Секретарь комиссии
+                        <span class="cd-role cd-role-secretary">📝 Секретарь</span>
+                    {% else %}
+                        <span class="cd-role cd-role-member">👤 Член комиссии</span>
                     {% endif %}
-                </p>
+                </div>
+                <div style="margin-top:8px;color:#6c757d;font-size:0.82rem;">
+                    Комиссия: {{ object.commission.name }}
+                </div>
             </div>
-            
+
+            <div style="font-size:0.85rem;color:#dc3545;margin-bottom:16px;">
+                ⚠️ Это действие необратимо.
+            </div>
+
             <form method="post">
                 {% csrf_token %}
-                
-                <div class="d-flex justify-content-between mt-3">
-                    <a href="{% url 'directory:commissions:commission_detail' object.commission.id %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Отмена
-                    </a>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-trash"></i> Удалить участника
-                    </button>
+                <div class="cd-actions">
+                    <a href="{% url 'directory:commissions:commission_update' object.commission.id %}"
+                       class="btn btn-sm btn-secondary">← Отмена</a>
+                    <button type="submit" class="btn btn-sm btn-danger">🗑️ Удалить участника</button>
                 </div>
             </form>
+
         </div>
     </div>
+
 </div>
 {% endblock %}

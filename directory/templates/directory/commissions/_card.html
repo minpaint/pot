@@ -1,0 +1,73 @@
+{% comment %}Карточка одной комиссии. Переменная: comm{% endcomment %}
+<div class="cm-card {% if not comm.is_active %}inactive{% elif comm.icon == '🛡️' %}type-ot{% elif comm.icon == '⚡' %}type-eb{% elif comm.icon == '🔥' %}type-pb{% else %}type-other{% endif %}">
+
+    <div class="cm-card-head" onclick="toggleCard(this, 'cm-comm-{{ comm.id }}')">
+        <span class="cm-card-icon">{{ comm.icon }}</span>
+        <span class="cm-card-name">{{ comm.name }}</span>
+
+        {% if comm.is_active %}
+            <span class="cm-badge cm-badge-active">🟢 Активна</span>
+        {% else %}
+            <span class="cm-badge cm-badge-inactive">⚪ Неактивна</span>
+        {% endif %}
+
+        {% if comm.icon == '🛡️' %}<span class="cm-badge cm-badge-ot">🛡️ ОТ</span>
+        {% elif comm.icon == '⚡' %}<span class="cm-badge cm-badge-eb">⚡ ЭБ</span>
+        {% elif comm.icon == '🔥' %}<span class="cm-badge cm-badge-pb">🔥 ПБ</span>
+        {% else %}<span class="cm-badge cm-badge-other">📋 {{ comm.type }}</span>{% endif %}
+
+        <div class="cm-card-acts" onclick="event.stopPropagation()">
+            <a href="{% url 'directory:commissions:commission_detail' comm.id %}" class="btn btn-sm btn-outline-primary" style="font-size:0.7rem;padding:2px 8px;" title="Просмотр">👁️</a>
+            <a href="{% url 'directory:commissions:commission_update' comm.id %}" class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem;padding:2px 8px;" title="Редактировать">✏️</a>
+            <a href="{% url 'directory:commissions:commission_member_add' comm.id %}" class="btn btn-sm btn-outline-success" style="font-size:0.7rem;padding:2px 8px;" title="Добавить участника">➕ Состав</a>
+        </div>
+        <span class="cm-card-toggle">▼</span>
+    </div>
+
+    <div class="collapsible cm-members-wrap" id="cm-comm-{{ comm.id }}" style="max-height:9999px;">
+        {% if comm.chairman.name %}
+        <div class="cm-member-row">
+            <span class="cm-role-icon">👑</span>
+            <span class="cm-role-lbl">Председатель</span>
+            <span class="cm-member-name">{{ comm.chairman.name }}</span>
+            <span class="cm-member-pos">{{ comm.chairman.position }}</span>
+        </div>
+        {% else %}
+        <div class="cm-member-row">
+            <span class="cm-role-icon">👑</span>
+            <span class="cm-role-lbl">Председатель</span>
+            <span class="cm-warn">⚠️ Не назначен</span>
+        </div>
+        {% endif %}
+
+        {% if comm.secretary.name %}
+        <div class="cm-member-row">
+            <span class="cm-role-icon">📝</span>
+            <span class="cm-role-lbl">Секретарь</span>
+            <span class="cm-member-name">{{ comm.secretary.name }}</span>
+            <span class="cm-member-pos">{{ comm.secretary.position }}</span>
+        </div>
+        {% else %}
+        <div class="cm-member-row">
+            <span class="cm-role-icon">📝</span>
+            <span class="cm-role-lbl">Секретарь</span>
+            <span class="cm-warn">⚠️ Не назначен</span>
+        </div>
+        {% endif %}
+
+        {% for member in comm.members %}
+        <div class="cm-member-row">
+            <span class="cm-role-icon">👤</span>
+            <span class="cm-role-lbl">{% if forloop.first %}Члены{% endif %}</span>
+            <span class="cm-member-name">{{ member.name }}</span>
+            <span class="cm-member-pos">{{ member.position }}</span>
+        </div>
+        {% empty %}
+        <div class="cm-member-row">
+            <span class="cm-role-icon">👤</span>
+            <span class="cm-role-lbl">Члены</span>
+            <span class="cm-warn">⚠️ Нет членов комиссии</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>

@@ -1,452 +1,345 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
-
-{% block content %}
-<div class="container-fluid">
-    <h1 class="mb-4">{{ title }}</h1>
-
-    <div class="card">
-        <div class="card-body">
-            {% if tree_data %}
-                <div class="commission-tree">
-                    {% for org in tree_data %}
-                        <div class="org-node mb-3">
-                            <!-- Организация -->
-                            <div class="tree-node org-level">
-                                <div class="node-toggle" data-bs-toggle="collapse" data-bs-target="#org-{{ org.id }}" aria-expanded="true">
-                                    <i class="fas fa-caret-down toggle-icon"></i>
-                                    <span class="node-icon">{{ org.icon }}</span>
-                                    <span class="node-text">{{ org.name }}</span>
-                                </div>
-                            </div>
-
-                            <div id="org-{{ org.id }}" class="collapse show">
-                                <!-- Комиссии организации -->
-                                {% if org.commissions %}
-                                    <div class="commission-list">
-                                        {% for commission in org.commissions %}
-                                            <div class="tree-node commission-node {% if not commission.is_active %}inactive{% endif %}">
-                                                <div class="node-toggle" data-bs-toggle="collapse" data-bs-target="#commission-{{ commission.id }}" aria-expanded="false">
-                                                    <i class="fas fa-caret-right toggle-icon"></i>
-                                                    <span class="node-icon">{{ commission.icon }}</span>
-                                                    <a href="{% url 'directory:commissions:commission_detail' commission.id %}" class="node-text">
-                                                        {{ commission.name }}
-                                                        {% if not commission.is_active %}<span class="badge bg-secondary">Неактивна</span>{% endif %}
-                                                    </a>
-                                                </div>
-
-                                                <div id="commission-{{ commission.id }}" class="collapse">
-                                                    <div class="commission-members">
-                                                        {% if commission.chairman.name %}
-                                                            <div class="member chairman">
-                                                                <span class="role-icon">👑</span>
-                                                                <span class="member-name">{{ commission.chairman.name }}</span>
-                                                                <span class="member-position">{{ commission.chairman.position }}</span>
-                                                            </div>
-                                                        {% else %}
-                                                            <div class="member missing">
-                                                                <span class="role-icon">👑</span>
-                                                                <span class="missing-text">Председатель не назначен</span>
-                                                                <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=chairman" class="btn btn-sm btn-outline-success">
-                                                                    Назначить
-                                                                </a>
-                                                            </div>
-                                                        {% endif %}
-
-                                                        {% if commission.secretary.name %}
-                                                            <div class="member secretary">
-                                                                <span class="role-icon">📝</span>
-                                                                <span class="member-name">{{ commission.secretary.name }}</span>
-                                                                <span class="member-position">{{ commission.secretary.position }}</span>
-                                                            </div>
-                                                        {% else %}
-                                                            <div class="member missing">
-                                                                <span class="role-icon">📝</span>
-                                                                <span class="missing-text">Секретарь не назначен</span>
-                                                                <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=secretary" class="btn btn-sm btn-outline-success">
-                                                                    Назначить
-                                                                </a>
-                                                            </div>
-                                                        {% endif %}
-
-                                                        {% if commission.members %}
-                                                            {% for member in commission.members %}
-                                                                <div class="member">
-                                                                    <span class="role-icon">👤</span>
-                                                                    <span class="member-name">{{ member.name }}</span>
-                                                                    <span class="member-position">{{ member.position }}</span>
-                                                                </div>
-                                                            {% endfor %}
-                                                        {% else %}
-                                                            <div class="member missing">
-                                                                <span class="role-icon">👤</span>
-                                                                <span class="missing-text">Нет членов комиссии</span>
-                                                                <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=member" class="btn btn-sm btn-outline-success">
-                                                                    Добавить
-                                                                </a>
-                                                            </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-
-                                <!-- Подразделения -->
-                                {% for subdivision in org.subdivisions %}
-                                    <div class="subdiv-node">
-                                        <!-- Подразделение -->
-                                        <div class="tree-node subdiv-level">
-                                            <div class="node-toggle" data-bs-toggle="collapse" data-bs-target="#subdiv-{{ subdivision.id }}" aria-expanded="false">
-                                                <i class="fas fa-caret-right toggle-icon"></i>
-                                                <span class="node-icon">{{ subdivision.icon }}</span>
-                                                <span class="node-text">{{ subdivision.name }}</span>
-                                            </div>
-                                        </div>
-
-                                        <div id="subdiv-{{ subdivision.id }}" class="collapse">
-                                            <!-- Комиссии подразделения -->
-                                            {% if subdivision.commissions %}
-                                                <div class="commission-list">
-                                                    {% for commission in subdivision.commissions %}
-                                                        <div class="tree-node commission-node {% if not commission.is_active %}inactive{% endif %}">
-                                                            <div class="node-toggle" data-bs-toggle="collapse" data-bs-target="#commission-{{ commission.id }}" aria-expanded="false">
-                                                                <i class="fas fa-caret-right toggle-icon"></i>
-                                                                <span class="node-icon">{{ commission.icon }}</span>
-                                                                <a href="{% url 'directory:commissions:commission_detail' commission.id %}" class="node-text">
-                                                                    {{ commission.name }}
-                                                                    {% if not commission.is_active %}<span class="badge bg-secondary">Неактивна</span>{% endif %}
-                                                                </a>
-                                                            </div>
-
-                                                            <div id="commission-{{ commission.id }}" class="collapse">
-                                                                <div class="commission-members">
-                                                                    {% if commission.chairman.name %}
-                                                                        <div class="member chairman">
-                                                                            <span class="role-icon">👑</span>
-                                                                            <span class="member-name">{{ commission.chairman.name }}</span>
-                                                                            <span class="member-position">{{ commission.chairman.position }}</span>
-                                                                        </div>
-                                                                    {% else %}
-                                                                        <div class="member missing">
-                                                                            <span class="role-icon">👑</span>
-                                                                            <span class="missing-text">Председатель не назначен</span>
-                                                                            <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=chairman" class="btn btn-sm btn-outline-success">
-                                                                                Назначить
-                                                                            </a>
-                                                                        </div>
-                                                                    {% endif %}
-
-                                                                    {% if commission.secretary.name %}
-                                                                        <div class="member secretary">
-                                                                            <span class="role-icon">📝</span>
-                                                                            <span class="member-name">{{ commission.secretary.name }}</span>
-                                                                            <span class="member-position">{{ commission.secretary.position }}</span>
-                                                                        </div>
-                                                                    {% else %}
-                                                                        <div class="member missing">
-                                                                            <span class="role-icon">📝</span>
-                                                                            <span class="missing-text">Секретарь не назначен</span>
-                                                                            <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=secretary" class="btn btn-sm btn-outline-success">
-                                                                                Назначить
-                                                                            </a>
-                                                                        </div>
-                                                                    {% endif %}
-
-                                                                    {% if commission.members %}
-                                                                        {% for member in commission.members %}
-                                                                            <div class="member">
-                                                                                <span class="role-icon">👤</span>
-                                                                                <span class="member-name">{{ member.name }}</span>
-                                                                                <span class="member-position">{{ member.position }}</span>
-                                                                            </div>
-                                                                        {% endfor %}
-                                                                    {% else %}
-                                                                        <div class="member missing">
-                                                                            <span class="role-icon">👤</span>
-                                                                            <span class="missing-text">Нет членов комиссии</span>
-                                                                            <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=member" class="btn btn-sm btn-outline-success">
-                                                                                Добавить
-                                                                            </a>
-                                                                        </div>
-                                                                    {% endif %}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    {% endfor %}
-                                                </div>
-                                            {% endif %}
-
-                                            <!-- Отделы -->
-                                            {% for department in subdivision.departments %}
-                                                <div class="dept-node">
-                                                    <!-- Отдел -->
-                                                    <div class="tree-node dept-level">
-                                                        <div class="node-toggle" data-bs-toggle="collapse" data-bs-target="#dept-{{ department.id }}" aria-expanded="false">
-                                                            <i class="fas fa-caret-right toggle-icon"></i>
-                                                            <span class="node-icon">{{ department.icon }}</span>
-                                                            <span class="node-text">{{ department.name }}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div id="dept-{{ department.id }}" class="collapse">
-                                                        <!-- Комиссии отдела -->
-                                                        {% if department.commissions %}
-                                                            <div class="commission-list">
-                                                                {% for commission in department.commissions %}
-                                                                    <div class="tree-node commission-node {% if not commission.is_active %}inactive{% endif %}">
-                                                                        <div class="node-toggle" data-bs-toggle="collapse" data-bs-target="#commission-{{ commission.id }}" aria-expanded="false">
-                                                                            <i class="fas fa-caret-right toggle-icon"></i>
-                                                                            <span class="node-icon">{{ commission.icon }}</span>
-                                                                            <a href="{% url 'directory:commissions:commission_detail' commission.id %}" class="node-text">
-                                                                                {{ commission.name }}
-                                                                                {% if not commission.is_active %}<span class="badge bg-secondary">Неактивна</span>{% endif %}
-                                                                            </a>
-                                                                        </div>
-
-                                                                        <div id="commission-{{ commission.id }}" class="collapse">
-                                                                            <div class="commission-members">
-                                                                                {% if commission.chairman.name %}
-                                                                                    <div class="member chairman">
-                                                                                        <span class="role-icon">👑</span>
-                                                                                        <span class="member-name">{{ commission.chairman.name }}</span>
-                                                                                        <span class="member-position">{{ commission.chairman.position }}</span>
-                                                                                    </div>
-                                                                                {% else %}
-                                                                                    <div class="member missing">
-                                                                                        <span class="role-icon">👑</span>
-                                                                                        <span class="missing-text">Председатель не назначен</span>
-                                                                                        <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=chairman" class="btn btn-sm btn-outline-success">
-                                                                                            Назначить
-                                                                                        </a>
-                                                                                    </div>
-                                                                                {% endif %}
-
-                                                                                {% if commission.secretary.name %}
-                                                                                    <div class="member secretary">
-                                                                                        <span class="role-icon">📝</span>
-                                                                                        <span class="member-name">{{ commission.secretary.name }}</span>
-                                                                                        <span class="member-position">{{ commission.secretary.position }}</span>
-                                                                                    </div>
-                                                                                {% else %}
-                                                                                    <div class="member missing">
-                                                                                        <span class="role-icon">📝</span>
-                                                                                        <span class="missing-text">Секретарь не назначен</span>
-                                                                                        <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=secretary" class="btn btn-sm btn-outline-success">
-                                                                                            Назначить
-                                                                                        </a>
-                                                                                    </div>
-                                                                                {% endif %}
-
-                                                                                {% if commission.members %}
-                                                                                    {% for member in commission.members %}
-                                                                                        <div class="member">
-                                                                                            <span class="role-icon">👤</span>
-                                                                                            <span class="member-name">{{ member.name }}</span>
-                                                                                            <span class="member-position">{{ member.position }}</span>
-                                                                                        </div>
-                                                                                    {% endfor %}
-                                                                                {% else %}
-                                                                                    <div class="member missing">
-                                                                                        <span class="role-icon">👤</span>
-                                                                                        <span class="missing-text">Нет членов комиссии</span>
-                                                                                        <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=member" class="btn btn-sm btn-outline-success">
-                                                                                            Добавить
-                                                                                        </a>
-                                                                                    </div>
-                                                                                {% endif %}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                {% endfor %}
-                                                            </div>
-                                                        {% else %}
-                                                            <div class="no-commissions">
-                                                                <span class="text-muted">Нет комиссий на уровне отдела</span>
-                                                                <a href="{% url 'directory:commissions:commission_create' %}" class="btn btn-sm btn-outline-success">
-                                                                    Создать
-                                                                </a>
-                                                            </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="alert alert-info">
-                    <h4 class="alert-heading">Комиссии не найдены</h4>
-                    <p>В системе еще не создано ни одной комиссии по проверке знаний.</p>
-                    <hr>
-                    <p class="mb-0">Вы можете <a href="{% url 'directory:commissions:commission_create' %}" class="alert-link">создать новую комиссию</a>.</p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endblock %}
+{% block title %}👔 Комиссии{% endblock %}
 
 {% block extra_css %}
 <style>
-    .commission-tree {
-        padding-left: 0;
-    }
+/* ── Градиентный заголовок страницы ── */
+.cm-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.cm-page-header .hdr-title { font-weight: 600; font-size: 1rem; flex: 1; }
 
-    .tree-node {
-        margin: 5px 0;
-        padding: 5px;
-        border-radius: 4px;
-        transition: background-color 0.2s;
-    }
+/* ── Панель действий ── */
+.cm-actionbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
 
-    .tree-node:hover {
-        background-color: rgba(0, 0, 0, 0.05);
-    }
+/* ── Карточка организации ── */
+.cm-org-block {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 16px;
+}
+.cm-org-header {
+    background: #f0f4f8;
+    color: #2c3e50;
+    padding: 11px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.cm-org-header:hover { background: #e4ecf5; }
+.cm-org-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; color: #6c757d; margin-left: auto; }
+.cm-org-header.collapsed .toggle-icon { transform: rotate(-90deg); }
 
-    .org-level {
-        background-color: #f8f9fa;
-        border-left: 4px solid #0d6efd;
-    }
+/* ── Счётчик ── */
+.cm-cnt {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+.cm-cnt-org  { background: #d8e8f5; color: #1a5276; }
+.cm-cnt-sub  { background: #d1f5d3; color: #1e7e34; }
+.cm-cnt-dept { background: #fde8e8; color: #c0392b; }
 
-    .subdiv-level {
-        margin-left: 20px;
-        background-color: #f8f9fa;
-        border-left: 4px solid #6610f2;
-    }
+/* ── Подразделение ── */
+.cm-sub-block { background: #fff; border-bottom: 1px solid #f0f0f0; }
+.cm-sub-header {
+    padding: 9px 18px 9px 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    background: #f8f9fa;
+}
+.cm-sub-header:hover { background: #eff3f8; }
+.cm-sub-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; color: #6c757d; margin-left: auto; }
+.cm-sub-header.collapsed .toggle-icon { transform: rotate(-90deg); }
 
-    .dept-level {
-        margin-left: 40px;
-        background-color: #f8f9fa;
-        border-left: 4px solid #20c997;
-    }
+/* ── Отдел ── */
+.cm-dept-block { background: #fff; }
+.cm-dept-header {
+    padding: 7px 18px 7px 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.85rem;
+    color: #495057;
+    background: #fafafa;
+}
+.cm-dept-header:hover { background: #f0f7ff; }
+.cm-dept-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; color: #adb5bd; margin-left: auto; }
+.cm-dept-header.collapsed .toggle-icon { transform: rotate(-90deg); }
 
-    .commission-node {
-        margin-left: 20px;
-        background-color: #fff;
-        border-left: 4px solid #fd7e14;
-    }
+/* ── Обёртка комиссий ── */
+.cm-list {
+    padding: 12px 14px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.cm-list-sub  { padding-left: 32px; }
+.cm-list-dept { padding-left: 52px; }
 
-    .commission-node.inactive {
-        opacity: 0.7;
-        border-left: 4px solid #6c757d;
-    }
+/* ── Карточка одной комиссии ── */
+.cm-card {
+    border: 1px solid #dee2e6;
+    border-left: 4px solid #adb5bd;
+    border-radius: 8px;
+    background: #fff;
+    transition: box-shadow 0.15s;
+    overflow: hidden;
+}
+.cm-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.09); }
+/* Цвет левой полосы по типу */
+.cm-card.type-ot    { border-left-color: #17a2b8; }
+.cm-card.type-eb    { border-left-color: #ffc107; }
+.cm-card.type-pb    { border-left-color: #dc3545; }
+.cm-card.type-other { border-left-color: #6c757d; }
+.cm-card.inactive   { opacity: 0.65; }
 
-    .commission-members {
-        margin-left: 40px;
-        padding: 5px 0;
-    }
+/* Шапка карточки комиссии */
+.cm-card-head {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #f5f5f5;
+    cursor: pointer;
+    user-select: none;
+}
+.cm-card-icon  { font-size: 1.1rem; flex-shrink: 0; }
+.cm-card-name  { font-weight: 700; font-size: 0.88rem; color: #212529; flex: 1; min-width: 0; }
+.cm-card-toggle { font-size: 0.65rem; transition: transform 0.2s; color: #adb5bd; }
+.cm-card-head.collapsed .cm-card-toggle { transform: rotate(-90deg); }
 
-    .member {
-        padding: 5px;
-        margin: 5px 0;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-    }
+/* Бейджи */
+.cm-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.cm-badge-active   { background: #d1f5d3; color: #1e7e34; }
+.cm-badge-inactive { background: #f0f0f0; color: #999; }
+.cm-badge-ot    { background: #d1ecf1; color: #0c5460; }
+.cm-badge-eb    { background: #fff3cd; color: #856404; }
+.cm-badge-pb    { background: #fde8e8; color: #c0392b; }
+.cm-badge-other { background: #f0f0f0; color: #6c757d; }
 
-    .member.chairman {
-        background-color: rgba(255, 193, 7, 0.1);
-    }
+/* Кнопки в шапке карточки */
+.cm-card-acts { display: flex; gap: 4px; flex-shrink: 0; }
 
-    .member.secretary {
-        background-color: rgba(13, 110, 253, 0.1);
-    }
+/* Состав комиссии */
+.cm-members-wrap { padding: 8px 12px; }
+.cm-member-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.83rem;
+    padding: 4px 0;
+    border-bottom: 1px solid #f8f8f8;
+}
+.cm-member-row:last-child { border-bottom: none; }
+.cm-role-icon { flex-shrink: 0; width: 18px; text-align: center; }
+.cm-role-lbl  {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #adb5bd;
+    flex-shrink: 0;
+    min-width: 76px;
+}
+.cm-member-name { font-weight: 600; color: #212529; }
+.cm-member-pos  { font-size: 0.75rem; color: #6c757d; }
 
-    .member.missing {
-        background-color: rgba(220, 53, 69, 0.1);
-        color: #dc3545;
-    }
+/* Предупреждение — нет состава */
+.cm-warn {
+    font-size: 0.78rem;
+    color: #856404;
+    background: #fff3cd;
+    border-radius: 6px;
+    padding: 4px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
 
-    .role-icon {
-        margin-right: 10px;
-        font-size: 1.2em;
-    }
+/* Collapsible */
+.collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
+.collapsible.collapsed { max-height: 0 !important; opacity: 0; }
 
-    .member-name {
-        font-weight: 500;
-        margin-right: 10px;
-    }
-
-    .member-position {
-        color: #6c757d;
-        font-size: 0.9em;
-    }
-
-    .missing-text {
-        font-style: italic;
-        margin-right: 10px;
-    }
-
-    .node-toggle {
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-    }
-
-    .toggle-icon {
-        margin-right: 10px;
-        transition: transform 0.2s;
-    }
-
-    .collapsed .toggle-icon {
-        transform: rotate(-90deg);
-    }
-
-    .node-icon {
-        margin-right: 10px;
-        font-size: 1.2em;
-    }
-
-    .node-text {
-        font-weight: 500;
-    }
-
-    .commission-list {
-        margin-left: 20px;
-    }
-
-    .no-commissions {
-        margin-left: 20px;
-        padding: 10px;
-        font-style: italic;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .cm-actionbar { flex-direction: column; align-items: stretch; }
+    .cm-actionbar .btn { width: 100%; }
+    .cm-sub-header  { padding-left: 14px; }
+    .cm-dept-header { padding-left: 24px; }
+    .cm-list-sub    { padding-left: 14px; }
+    .cm-list-dept   { padding-left: 14px; }
+    .cm-role-lbl    { min-width: 58px; font-size: 0.62rem; }
+    .cm-card-acts .btn { font-size: 0.68rem; padding: 2px 6px; }
+}
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+
+    <!-- Заголовок страницы -->
+    <div class="cm-page-header">
+        <span>👔</span>
+        <span class="hdr-title">Комиссии по проверке знаний</span>
+    </div>
+
+    <!-- Действия -->
+    <div class="cm-actionbar">
+        <a href="{% url 'directory:commissions:commission_create' %}" class="btn btn-sm btn-primary">
+            ➕ Создать комиссию
+        </a>
+    </div>
+
+    {% if not tree_data %}
+    <div class="text-center py-5 text-muted">
+        <div style="font-size:2.5rem;">👔</div>
+        <p class="mt-2">Нет комиссий. Выберите организацию в верхней панели или
+            <a href="{% url 'directory:commissions:commission_create' %}">создайте первую</a>.
+        </p>
+    </div>
+    {% else %}
+
+    {% for org in tree_data %}
+    <div class="cm-org-block">
+
+        <div class="cm-org-header" onclick="toggleBlock(this, 'cm-org-{{ org.id }}')">
+            <span>🏢</span>
+            <span>{{ org.name }}</span>
+            <span class="cm-cnt cm-cnt-org">{{ org.commissions|length }}{% for s in org.subdivisions %} + {{ s.commissions|length }}{% endfor %}</span>
+            <span class="toggle-icon">▼</span>
+        </div>
+
+        <div class="collapsible" id="cm-org-{{ org.id }}" style="max-height:9999px;">
+
+            {# Комиссии уровня организации #}
+            {% if org.commissions %}
+            <div class="cm-list">
+                {% for comm in org.commissions %}{% include "directory/commissions/_card.html" %}{% endfor %}
+            </div>
+            {% endif %}
+
+            {# Подразделения #}
+            {% for sub in org.subdivisions %}
+            <div class="cm-sub-block">
+                <div class="cm-sub-header" onclick="toggleBlock(this, 'cm-sub-{{ sub.id }}')">
+                    <span>🏭</span>
+                    <span>{{ sub.name }}</span>
+                    {% if sub.commissions %}<span class="cm-cnt cm-cnt-sub">{{ sub.commissions|length }}</span>{% endif %}
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible" id="cm-sub-{{ sub.id }}" style="max-height:9999px;">
+
+                    {% if sub.commissions %}
+                    <div class="cm-list cm-list-sub">
+                        {% for comm in sub.commissions %}{% include "directory/commissions/_card.html" %}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% for dept in sub.departments %}
+                    <div class="cm-dept-block">
+                        <div class="cm-dept-header" onclick="toggleBlock(this, 'cm-dept-{{ dept.id }}')">
+                            <span>📂</span>
+                            <span>{{ dept.name }}</span>
+                            {% if dept.commissions %}<span class="cm-cnt cm-cnt-dept">{{ dept.commissions|length }}</span>{% endif %}
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="collapsible" id="cm-dept-{{ dept.id }}" style="max-height:9999px;">
+                            {% if dept.commissions %}
+                            <div class="cm-list cm-list-dept">
+                                {% for comm in dept.commissions %}{% include "directory/commissions/_card.html" %}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+    {% endfor %}
+
+    {% endif %}
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    $(document).ready(function() {
-        // Обработка переключения разворачивания/сворачивания узлов
-        $('.node-toggle').on('click', function() {
-            // Переключаем иконку при клике
-            $(this).find('.toggle-icon').toggleClass('fa-caret-right fa-caret-down');
-        });
+function toggleBlock(headerEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.getBoundingClientRect();
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+    }
+}
 
-        // При загрузке страницы разворачиваем только организации,
-        // остальные узлы делаем свернутыми
-        $('.org-level .node-toggle').each(function() {
-            $(this).find('.toggle-icon').removeClass('fa-caret-right').addClass('fa-caret-down');
-        });
-
-        $('.subdiv-level .node-toggle, .dept-level .node-toggle, .commission-node .node-toggle').each(function() {
-            $(this).find('.toggle-icon').removeClass('fa-caret-down').addClass('fa-caret-right');
-        });
-
-        // Предотвращаем "всплытие" события клика по ссылкам внутри узлов
-        $('.node-text a, .member a').on('click', function(e) {
-            e.stopPropagation();
-        });
-    });
+function toggleCard(headEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headEl.classList.remove('collapsed');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.getBoundingClientRect();
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headEl.classList.add('collapsed');
+    }
+}
 </script>
 {% endblock %}

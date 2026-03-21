@@ -288,25 +288,24 @@ class CommissionDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailV
         commission = self.object
         context['title'] = f'Комиссия: {commission.name}'
 
-        # Получаем всех членов комиссии
-        context['chairman'] = commission.members.filter(role='chairman', is_active=True).first()
-        context['secretary'] = commission.members.filter(role='secretary', is_active=True).first()
-        context['members'] = commission.members.filter(role='member', is_active=True)
+        members_qs = commission.members.select_related(
+            'employee', 'employee__position'
+        ).filter(is_active=True)
+
+        context['chairman'] = members_qs.filter(role='chairman').first()
+        context['vice_chairman'] = members_qs.filter(role='vice_chairman').first()
+        context['secretary'] = members_qs.filter(role='secretary').first()
+        context['members'] = members_qs.filter(role='member')
 
         # Проверка полноты состава комиссии
-        has_chairman = context['chairman'] is not None
-        has_secretary = context['secretary'] is not None
-        has_members = context['members'].exists()
-
-        if not (has_chairman and has_secretary and has_members):
-            missing = []
-            if not has_chairman:
-                missing.append('председатель')
-            if not has_secretary:
-                missing.append('секретарь')
-            if not has_members:
-                missing.append('члены комиссии')
-
+        missing = []
+        if not context['chairman']:
+            missing.append('председатель')
+        if not context['secretary']:
+            missing.append('секретарь')
+        if not context['members'].exists():
+            missing.append('члены комиссии')
+        if missing:
             context['warning_message'] = f"В комиссии отсутствуют: {', '.join(missing)}."
 
         return context
@@ -317,6 +316,11 @@ class CommissionCreateView(LoginRequiredMixin, CreateView):
     model = Commission
     form_class = CommissionForm
     template_name = 'directory/commissions/form.html'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
 
     def get_context_data(self, **kwargs):
         """Добавление дополнительного контекста"""
@@ -340,10 +344,24 @@ class CommissionUpdateView(LoginRequiredMixin, AccessControlObjectMixin, UpdateV
     form_class = CommissionForm
     template_name = 'directory/commissions/form.html'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
     def get_context_data(self, **kwargs):
         """Добавление дополнительного контекста"""
         context = super().get_context_data(**kwargs)
-        context['title'] = f'Редактирование комиссии: {self.object.name}'
+        commission = self.object
+        context['title'] = f'Редактирование комиссии: {commission.name}'
+        context['commission'] = commission
+        members_qs = commission.members.select_related(
+            'employee', 'employee__position'
+        ).filter(is_active=True)
+        context['chairman'] = members_qs.filter(role='chairman').first()
+        context['vice_chairman'] = members_qs.filter(role='vice_chairman').first()
+        context['secretary'] = members_qs.filter(role='secretary').first()
+        context['comm_members'] = members_qs.filter(role='member')
         return context
 
     def form_valid(self, form):
@@ -353,7 +371,7 @@ class CommissionUpdateView(LoginRequiredMixin, AccessControlObjectMixin, UpdateV
 
     def get_success_url(self):
         """Возвращаем URL для переадресации"""
-        return reverse_lazy('directory:commissions:commission_detail', kwargs={'pk': self.object.pk})
+        return reverse_lazy('directory:commissions:commission_update', kwargs={'pk': self.object.pk})
 
 
 class CommissionDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteView):
@@ -443,7 +461,7 @@ class CommissionMemberUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         """Возвращаем URL для переадресации"""
-        return reverse_lazy('directory:commissions:commission_detail', kwargs={'pk': self.object.commission.pk})
+        return reverse_lazy('directory:commissions:commission_update', kwargs={'pk': self.object.commission.pk})
 
 
 class CommissionMemberDeleteView(LoginRequiredMixin, DeleteView):
@@ -465,4 +483,4 @@ class CommissionMemberDeleteView(LoginRequiredMixin, DeleteView):
     def get_success_url(self):
         """Возвращаем URL для переадресации"""
         commission_id = self.object.commission.id
-        return reverse_lazy('directory:commissions:commission_detail', kwargs={'pk': commission_id})
+        return reverse_lazy('directory:commissions:commission_update', kwargs={'pk': commission_id})

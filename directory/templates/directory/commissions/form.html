@@ -1,154 +1,487 @@
-<!-- templates/directory/commissions/form.html -->
 {% extends "base.html" %}
 {% load static %}
-{% load crispy_forms_tags %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}✏️ {{ object.name|default:"Новая комиссия" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Заголовок страницы ── */
+.cu-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.cu-page-header .cu-title { font-weight: 600; font-size: 1rem; flex: 1; min-width: 0; }
+
+/* ── Бейджи ── */
+.cu-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.cu-badge-white  { background: rgba(255,255,255,0.25); color: #fff; }
+.cu-badge-dim    { background: rgba(0,0,0,0.2); color: rgba(255,255,255,0.65); }
+
+/* ── Карточки ── */
+.cu-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+}
+.cu-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cu-card-body { padding: 18px; background: #fff; }
+
+/* ── Поля формы ── */
+.cu-field { margin-bottom: 14px; }
+.cu-field > label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+}
+.cu-field input[type="text"] {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    box-sizing: border-box;
+}
+.cu-field select {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    box-sizing: border-box;
+}
+.cu-field .text-danger { font-size: 0.75rem; margin-top: 3px; }
+.cu-field-hint {
+    font-size: 0.75rem;
+    color: #6c757d;
+    background: #f0f7ff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 12px;
+}
+.cu-section-divider {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #9aa0ac;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 16px 0 10px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 6px;
+}
+.cu-form-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+    gap: 8px;
+}
+
+/* ── Таблица участников ── */
+.cu-members-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+}
+.cu-members-table th {
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.cu-members-table td {
+    padding: 9px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+}
+.cu-members-table tbody tr:hover td { background: #f0f7ff; }
+
+/* Ролевые бейджи */
+.cu-role {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.cu-role-chairman { background: #fff3cd; color: #856404; }
+.cu-role-secretary { background: #d1ecf1; color: #0c5460; }
+.cu-role-member    { background: #e8f5e9; color: #2e7d32; }
+
+/* Строка «не назначен» */
+.cu-empty-row td {
+    color: #856404;
+    background: #fffbf0;
+    font-size: 0.82rem;
+    font-style: italic;
+}
+
+/* Кнопки действий в строке */
+.cu-row-acts { white-space: nowrap; text-align: right; }
+.cu-row-acts .btn { font-size: 0.7rem; padding: 2px 7px; }
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .cu-page-header { gap: 6px; }
+    .cu-form-actions { flex-direction: column; }
+    .cu-form-actions .btn { width: 100%; text-align: center; }
+    /* Скрываем колонку «Должность» */
+    .cu-members-table th:nth-child(3),
+    .cu-members-table td:nth-child(3) { display: none; }
+    .cu-members-table { font-size: 0.8rem; }
+    .cu-members-table th,
+    .cu-members-table td { padding: 6px 8px; }
+    .cu-card-body { padding: 12px; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1 class="mb-4">{{ title }}</h1>
+<div class="container-fluid mt-3">
 
-    <div class="card">
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
+    <!-- ── Заголовок ── -->
+    <div class="cu-page-header">
+        <span>✏️</span>
+        <span class="cu-title">{{ object.name|default:"Новая комиссия" }}</span>
 
-                {% crispy form %}
+        {% if object %}
+            {% if object.commission_type == 'ot' %}<span class="cu-badge cu-badge-white">🛡️ ОТ</span>
+            {% elif object.commission_type == 'eb' %}<span class="cu-badge cu-badge-white">⚡ ЭБ</span>
+            {% elif object.commission_type == 'pb' %}<span class="cu-badge cu-badge-white">🔥 ПБ</span>
+            {% else %}<span class="cu-badge cu-badge-white">📋 Иная</span>{% endif %}
 
-                <div class="d-flex justify-content-between mt-3">
-                    <a href="{% url 'directory:commissions:commission_list' %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Отмена
-                    </a>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Сохранить
-                    </button>
-                </div>
-            </form>
-        </div>
+            {% if object.is_active %}
+                <span class="cu-badge cu-badge-white">🟢 Активна</span>
+            {% else %}
+                <span class="cu-badge cu-badge-dim">⚪ Неактивна</span>
+            {% endif %}
+        {% endif %}
     </div>
+
+    <div class="row">
+
+        <!-- ══ Левая колонка: Основная информация ══ -->
+        <div class="col-lg-5">
+            <div class="cu-card">
+                <div class="cu-card-header">📋 Основная информация</div>
+                <div class="cu-card-body">
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger" style="font-size:0.83rem;padding:8px 12px;">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Название -->
+                        <div class="cu-field">
+                            <label for="{{ form.name.id_for_label }}">Название комиссии</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}<div class="text-danger">{{ form.name.errors }}</div>{% endif %}
+                        </div>
+
+                        <!-- Тип комиссии -->
+                        <div class="cu-field">
+                            <label for="{{ form.commission_type.id_for_label }}">Тип комиссии</label>
+                            {{ form.commission_type }}
+                            {% if form.commission_type.errors %}<div class="text-danger">{{ form.commission_type.errors }}</div>{% endif %}
+                        </div>
+
+                        <!-- Статус -->
+                        <div class="cu-field">
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}" style="font-size:0.88rem;">
+                                    Активна
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Привязка к структуре -->
+                        <div class="cu-section-divider">Привязка к структуре</div>
+                        <div class="cu-field-hint">
+                            ℹ️ Выберите <strong>один</strong> уровень: организацию, подразделение или отдел
+                        </div>
+
+                        <div class="cu-field">
+                            <label for="{{ form.organization.id_for_label }}">🏢 Организация</label>
+                            {{ form.organization }}
+                            {% if form.organization.errors %}<div class="text-danger">{{ form.organization.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="cu-field" id="field-subdiv">
+                            <label for="{{ form.subdivision.id_for_label }}">🏭 Подразделение</label>
+                            {{ form.subdivision }}
+                            {% if form.subdivision.errors %}<div class="text-danger">{{ form.subdivision.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="cu-field" id="field-dept">
+                            <label for="{{ form.department.id_for_label }}">📂 Отдел</label>
+                            {{ form.department }}
+                            {% if form.department.errors %}<div class="text-danger">{{ form.department.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="cu-form-actions">
+                            <a href="{% url 'directory:commissions:commission_list' %}" class="btn btn-sm btn-secondary">← К списку</a>
+                            <button type="submit" class="btn btn-sm btn-primary">💾 Сохранить</button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Правая колонка: Состав комиссии ══ -->
+        <div class="col-lg-7">
+            <div class="cu-card">
+                <div class="cu-card-header">
+                    <span style="flex:1;">👥 Состав комиссии</span>
+                    {% if object %}
+                    <a href="{% url 'directory:commissions:commission_member_add' object.id %}"
+                       class="btn btn-sm btn-success" style="font-size:0.78rem;padding:3px 10px;">
+                        ➕ Добавить участника
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if object %}
+                <div style="background:#fff;">
+                    <table class="cu-members-table">
+                        <thead>
+                            <tr>
+                                <th>Роль</th>
+                                <th>Сотрудник</th>
+                                <th>Должность</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <!-- Председатель -->
+                            {% if chairman %}
+                            <tr>
+                                <td><span class="cu-role cu-role-chairman">👑 Председатель</span></td>
+                                <td><strong>{{ chairman.employee.full_name_nominative }}</strong></td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ chairman.employee.position.position_name }}</td>
+                                <td class="cu-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' chairman.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' chairman.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr class="cu-empty-row">
+                                <td><span class="cu-role cu-role-chairman">👑 Председатель</span></td>
+                                <td colspan="2">⚠️ Не назначен</td>
+                                <td class="cu-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_add' object.id %}?role=chairman"
+                                       class="btn btn-sm btn-outline-success">➕ Назначить</a>
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                            <!-- Заместитель председателя -->
+                            {% if vice_chairman %}
+                            <tr>
+                                <td><span class="cu-role" style="background:#fce8d5;color:#7d4500;">🥈 Зам. председателя</span></td>
+                                <td><strong>{{ vice_chairman.employee.full_name_nominative }}</strong></td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ vice_chairman.employee.position.position_name }}</td>
+                                <td class="cu-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' vice_chairman.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' vice_chairman.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                            <!-- Члены комиссии -->
+                            {% for member in comm_members %}
+                            <tr>
+                                <td><span class="cu-role cu-role-member">👤 Член комиссии</span></td>
+                                <td>{{ member.employee.full_name_nominative }}</td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ member.employee.position.position_name }}</td>
+                                <td class="cu-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' member.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' member.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr class="cu-empty-row">
+                                <td><span class="cu-role cu-role-member">👤 Члены комиссии</span></td>
+                                <td colspan="3">⚠️ Нет членов комиссии</td>
+                            </tr>
+                            {% endfor %}
+
+                            <!-- Секретарь (всегда последний) -->
+                            {% if secretary %}
+                            <tr>
+                                <td><span class="cu-role cu-role-secretary">📝 Секретарь</span></td>
+                                <td><strong>{{ secretary.employee.full_name_nominative }}</strong></td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ secretary.employee.position.position_name }}</td>
+                                <td class="cu-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' secretary.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' secretary.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr class="cu-empty-row">
+                                <td><span class="cu-role cu-role-secretary">📝 Секретарь</span></td>
+                                <td colspan="2">⚠️ Не назначен</td>
+                                <td class="cu-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_add' object.id %}?role=secretary"
+                                       class="btn btn-sm btn-outline-success">➕ Назначить</a>
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                        </tbody>
+                    </table>
+                </div>
+
+                {% else %}
+                <div class="cu-card-body" style="color:#6c757d;font-size:0.85rem;">
+                    Сохраните комиссию, чтобы добавить участников.
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+    </div><!-- .row -->
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'autocomplete_light/autocomplete_light.js' %}"></script>
+<script src="{% static 'autocomplete_light/select2.js' %}"></script>
 <script>
-    $(document).ready(function() {
-        // Инициализация Select2 для всех полей автодополнения
-        $('.select2-field').select2({
-            width: '100%',
-            language: 'ru',
-            placeholder: function() {
-                return $(this).data('placeholder');
-            },
-            allowClear: true
-        });
+$(document).ready(function() {
 
-        // Улучшенная функция обновления состояния полей
-        function updateFieldStates() {
-            const orgField = $('#id_organization');
-            const subdivField = $('#id_subdivision');
-            const deptField = $('#id_department');
-            
-            const orgSelected = orgField.val() && orgField.val() !== '';
-            const subdivSelected = subdivField.val() && subdivField.val() !== '';
-            const deptSelected = deptField.val() && deptField.val() !== '';
-            
-            // Функция для обновления визуального состояния поля
-            function updateFieldVisibility(field, active) {
-                const formGroup = field.closest('.form-group');
-                
-                if (active) {
-                    field.prop('disabled', false);
-                    formGroup.removeClass('opacity-50');
-                } else {
-                    field.prop('disabled', true);
-                    formGroup.addClass('opacity-50');
-                }
-            }
-            
-            // Логика управления видимостью и доступностью полей
-            if (orgSelected) {
-                // Если выбрана организация
-                updateFieldVisibility(orgField, true);
-                updateFieldVisibility(subdivField, true);
-                updateFieldVisibility(deptField, false);
-                
-                if (subdivSelected) {
-                    // Если выбрано также и подразделение
-                    updateFieldVisibility(deptField, true);
-                }
-            } else if (subdivSelected) {
-                // Если выбрано только подразделение
-                updateFieldVisibility(orgField, false);
-                updateFieldVisibility(subdivField, true);
-                updateFieldVisibility(deptField, true);
-            } else if (deptSelected) {
-                // Если выбран только отдел
-                updateFieldVisibility(orgField, false);
-                updateFieldVisibility(subdivField, false);
-                updateFieldVisibility(deptField, true);
-            } else {
-                // Если ничего не выбрано
-                updateFieldVisibility(orgField, true);
-                updateFieldVisibility(subdivField, false);
-                updateFieldVisibility(deptField, false);
-            }
+    // Обновление подсказки о выбранном уровне
+    function updateLevelHint() {
+        var orgVal    = $('#id_organization').val();
+        var subdivVal = $('#id_subdivision').val();
+        var deptVal   = $('#id_department').val();
+        var hint = '';
+        if (deptVal)        hint = '📂 Уровень: <strong>Отдел</strong>';
+        else if (subdivVal) hint = '🏭 Уровень: <strong>Подразделение</strong>';
+        else if (orgVal)    hint = '🏢 Уровень: <strong>Организация</strong>';
+        else                hint = 'ℹ️ Выберите <strong>один</strong> уровень: организацию, подразделение или отдел';
+        $('.cu-field-hint').html(hint);
+    }
+
+    // Управление доступностью полей
+    function updateFieldStates() {
+        var subdivVal = $('#id_subdivision').val();
+        var deptEnabled = subdivVal && subdivVal !== '';
+        $('#id_department').prop('disabled', !deptEnabled);
+        $('#field-dept').css('opacity', deptEnabled ? 1 : 0.45);
+        updateLevelHint();
+    }
+
+    // ────────────────────────────────────────────────────
+    // Взаимное исключение: при выборе одного поля другие
+    // очищаются, так как комиссия привязывается только к
+    // ОДНОМУ уровню иерархии.
+    // ────────────────────────────────────────────────────
+
+    // Выбрана организация → снимаем подразделение и отдел
+    $('#id_organization').on('change', function() {
+        if ($(this).val()) {
+            $('#id_subdivision').val(null).trigger('change');
+            $('#id_department').val(null).trigger('change');
         }
-        
-        // Функция очистки зависимых полей
-        function resetDependentFields() {
-            const orgField = $('#id_organization');
-            const subdivField = $('#id_subdivision');
-            const deptField = $('#id_department');
-            
-            // При изменении организации, сбрасываем подразделение и отдел
-            orgField.on('change', function() {
-                // Если выбрали организацию, но есть значение в подразделении
-                if (orgField.val() && subdivField.val()) {
-                    // Проверяем, принадлежит ли подразделение к выбранной организации
-                    // Это будет работать с сервера через AJAX
-                } else if (!orgField.val()) {
-                    // Если организация очищена, очищаем зависимые поля
-                    subdivField.val(null).trigger('change');
-                }
-                updateFieldStates();
-            });
-            
-            // При изменении подразделения, сбрасываем отдел
-            subdivField.on('change', function() {
-                if (subdivField.val()) {
-                    // Если выбрали подразделение, очищаем организацию и активируем отдел
-                    if (orgField.val()) {
-                        // Если уже была выбрана организация, проверяем согласованность
-                    } else {
-                        // Если организация не была выбрана
-                        orgField.val(null);
-                    }
-                } else {
-                    // Если подразделение очищено, очищаем отдел
-                    deptField.val(null).trigger('change');
-                }
-                updateFieldStates();
-            });
-            
-            // При изменении отдела
-            deptField.on('change', function() {
-                if (deptField.val()) {
-                    // Если выбрали отдел, очищаем прямой выбор организации
-                    orgField.val(null);
-                }
-                updateFieldStates();
-            });
-        }
-        
-        // Инициализация функций
-        resetDependentFields();
         updateFieldStates();
-        
-        // Перед отправкой формы разблокируем все поля для корректного сохранения
-        $('form').on('submit', function() {
-            $('#id_organization, #id_subdivision, #id_department').prop('disabled', false);
-        });
     });
+
+    // Выбрано подразделение → снимаем организацию и отдел
+    $('#id_subdivision').on('change', function() {
+        if ($(this).val()) {
+            $('#id_organization').val(null).trigger('change.select2');
+            $('#id_department').val(null).trigger('change');
+        }
+        updateFieldStates();
+    });
+
+    // Выбран отдел → снимаем организацию
+    // (подразделение оставляем — оно нужно как фильтр для autocomplete)
+    $('#id_department').on('change', function() {
+        if ($(this).val()) {
+            $('#id_organization').val(null).trigger('change.select2');
+        }
+        updateFieldStates();
+    });
+
+    updateFieldStates();
+
+    // Перед отправкой формы — разблокируем все поля и
+    // очищаем поля, которые не должны отправляться
+    $('form').on('submit', function() {
+        var orgVal    = $('#id_organization').val();
+        var subdivVal = $('#id_subdivision').val();
+        var deptVal   = $('#id_department').val();
+
+        // Финальная очистка по приоритету (отдел > подразделение > организация)
+        if (deptVal) {
+            $('#id_organization').val(null);
+            // Подразделение НЕ очищаем — оно может быть нужно для логики
+            // но модель принимает только один уровень, поэтому очистим:
+            $('#id_subdivision').val(null);
+        } else if (subdivVal) {
+            $('#id_organization').val(null);
+            $('#id_department').val(null);
+        }
+
+        // Разблокируем все поля
+        $('#id_organization, #id_subdivision, #id_department').prop('disabled', false);
+    });
+});
 </script>
 {% endblock %}

@@ -1,202 +1,353 @@
-<!-- templates/directory/commissions/detail.html -->
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}👥 {{ commission.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Заголовок страницы ── */
+.cd-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.cd-page-header .cd-title { font-weight: 600; font-size: 1rem; flex: 1; min-width: 0; }
+.cd-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.cd-badge-white { background: rgba(255,255,255,0.25); color: #fff; }
+.cd-badge-dim   { background: rgba(0,0,0,0.2); color: rgba(255,255,255,0.65); }
+
+/* ── Карточки ── */
+.cd-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+}
+.cd-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cd-card-body { padding: 18px; background: #fff; }
+
+/* ── Поля информации ── */
+.cd-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+}
+.cd-info-item dt {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #9aa0ac;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    margin-bottom: 2px;
+}
+.cd-info-item dd {
+    font-size: 0.88rem;
+    color: #2c3e50;
+    margin: 0;
+}
+
+/* ── Таблица участников ── */
+.cd-members-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+}
+.cd-members-table th {
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.cd-members-table td {
+    padding: 9px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+}
+.cd-members-table tbody tr:hover td { background: #f0f7ff; }
+
+/* Ролевые бейджи */
+.cd-role {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.cd-role-chairman     { background: #fff3cd; color: #856404; }
+.cd-role-vice         { background: #fce8d5; color: #7d4500; }
+.cd-role-secretary    { background: #d1ecf1; color: #0c5460; }
+.cd-role-member       { background: #e8f5e9; color: #2e7d32; }
+
+/* Строка «не назначен» */
+.cd-empty-row td {
+    color: #856404;
+    background: #fffbf0;
+    font-size: 0.82rem;
+    font-style: italic;
+}
+
+/* Кнопки действий */
+.cd-row-acts { white-space: nowrap; text-align: right; }
+.cd-row-acts .btn { font-size: 0.7rem; padding: 2px 7px; }
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .cd-page-header { gap: 6px; }
+    .cd-info-grid { grid-template-columns: 1fr; }
+    /* Скрываем колонку «Должность» */
+    .cd-members-table th:nth-child(3),
+    .cd-members-table td:nth-child(3) { display: none; }
+    .cd-members-table { font-size: 0.8rem; }
+    .cd-members-table th,
+    .cd-members-table td { padding: 6px 8px; }
+    .cd-card-body { padding: 12px; }
+    .cd-header-acts { flex-direction: column; gap: 4px; }
+    .cd-header-acts .btn { width: 100%; text-align: center; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1 class="mb-4">{{ title }}</h1>
+<div class="container-fluid mt-3">
 
-    <!-- Основная информация о комиссии -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Основная информация</h5>
-            <div>
-                <a href="{% url 'directory:commissions:commission_update' commission.id %}" class="btn btn-sm btn-primary">
-                    <i class="fas fa-edit"></i> Редактировать
-                </a>
-                <a href="{% url 'directory:commissions:commission_delete' commission.id %}" class="btn btn-sm btn-danger">
-                    <i class="fas fa-trash"></i> Удалить
-                </a>
-            </div>
-        </div>
-        <div class="card-body">
-            {% if warning_message %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i> {{ warning_message }}
-                </div>
-            {% endif %}
+    <!-- ── Заголовок ── -->
+    <div class="cd-page-header">
+        <span>👥</span>
+        <span class="cd-title">{{ commission.name }}</span>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <dl>
-                        <dt>Название</dt>
-                        <dd>{{ commission.name }}</dd>
+        {% if commission.commission_type == 'ot' %}<span class="cd-badge cd-badge-white">🛡️ ОТ</span>
+        {% elif commission.commission_type == 'eb' %}<span class="cd-badge cd-badge-white">⚡ ЭБ</span>
+        {% elif commission.commission_type == 'pb' %}<span class="cd-badge cd-badge-white">🔥 ПБ</span>
+        {% else %}<span class="cd-badge cd-badge-white">📋 Иная</span>{% endif %}
 
-                        <dt>Тип комиссии</dt>
-                        <dd>
-                            {% if commission.commission_type == 'ot' %}
-                                🛡️ Охрана труда
-                            {% elif commission.commission_type == 'eb' %}
-                                ⚡ Электробезопасность
-                            {% elif commission.commission_type == 'pb' %}
-                                🔥 Пожарная безопасность
-                            {% else %}
-                                📋 Иная
-                            {% endif %}
-                        </dd>
+        {% if commission.is_active %}
+            <span class="cd-badge cd-badge-white">🟢 Активна</span>
+        {% else %}
+            <span class="cd-badge cd-badge-dim">⚪ Неактивна</span>
+        {% endif %}
 
-                        <dt>Статус</dt>
-                        <dd>
-                            {% if commission.is_active %}
-                                <span class="badge bg-success">Активна</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Неактивна</span>
-                            {% endif %}
-                        </dd>
-                    </dl>
-                </div>
-                <div class="col-md-6">
-                    <dl>
-                        <dt>Уровень</dt>
-                        <dd>
-                            {% if commission.department %}
-                                Отдел: {{ commission.department.name }}
-                            {% elif commission.subdivision %}
-                                Структурное подразделение: {{ commission.subdivision.name }}
-                            {% elif commission.organization %}
-                                Организация: {{ commission.organization.short_name_ru }}
-                            {% else %}
-                                Не указан
-                            {% endif %}
-                        </dd>
-
-                        <dt>Дата создания</dt>
-                        <dd>{{ commission.created_at|date:"d.m.Y H:i" }}</dd>
-
-                        <dt>Дата обновления</dt>
-                        <dd>{{ commission.updated_at|date:"d.m.Y H:i" }}</dd>
-                    </dl>
-                </div>
-            </div>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;" class="cd-header-acts">
+            <a href="{% url 'directory:commissions:commission_update' commission.id %}"
+               class="btn btn-sm btn-light" style="font-size:0.8rem;">✏️ Редактировать</a>
+            <a href="{% url 'directory:commissions:commission_delete' commission.id %}"
+               class="btn btn-sm" style="font-size:0.8rem;background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);">
+               🗑️ Удалить</a>
         </div>
     </div>
 
-    <!-- Состав комиссии -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Состав комиссии</h5>
-            <a href="{% url 'directory:commissions:commission_member_add' commission.id %}" class="btn btn-sm btn-success">
-                <i class="fas fa-plus-circle"></i> Добавить участника
+    {% if warning_message %}
+    <div class="alert" style="font-size:0.83rem;padding:8px 14px;border-radius:8px;background:#fff3cd;border:1px solid #ffc107;color:#856404;margin-bottom:14px;">
+        ⚠️ {{ warning_message }}
+    </div>
+    {% endif %}
+
+    <div class="row">
+
+        <!-- ══ Левая колонка: Основная информация ══ -->
+        <div class="col-lg-4">
+            <div class="cd-card">
+                <div class="cd-card-header">📋 Основная информация</div>
+                <div class="cd-card-body">
+                    <dl class="cd-info-grid">
+                        <div class="cd-info-item">
+                            <dt>Тип</dt>
+                            <dd>
+                                {% if commission.commission_type == 'ot' %}🛡️ Охрана труда
+                                {% elif commission.commission_type == 'eb' %}⚡ Электробезопасность
+                                {% elif commission.commission_type == 'pb' %}🔥 Пожарная безопасность
+                                {% else %}📋 Иная{% endif %}
+                            </dd>
+                        </div>
+                        <div class="cd-info-item">
+                            <dt>Статус</dt>
+                            <dd>
+                                {% if commission.is_active %}
+                                    <span style="background:#d1f5d3;color:#1e7e34;padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:600;">🟢 Активна</span>
+                                {% else %}
+                                    <span style="background:#f0f0f0;color:#999;padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:600;">⚪ Неактивна</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div class="cd-info-item" style="grid-column:1/-1;">
+                            <dt>Привязка</dt>
+                            <dd>
+                                {% if commission.department %}
+                                    📂 {{ commission.department.name }}
+                                {% elif commission.subdivision %}
+                                    🏭 {{ commission.subdivision.name }}
+                                {% elif commission.organization %}
+                                    🏢 {{ commission.organization.short_name_ru|default:commission.organization.full_name_ru }}
+                                {% else %}
+                                    <span style="color:#999;">Не указана</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div class="cd-info-item">
+                            <dt>Создана</dt>
+                            <dd>{{ commission.created_at|date:"d.m.Y" }}</dd>
+                        </div>
+                        <div class="cd-info-item">
+                            <dt>Обновлена</dt>
+                            <dd>{{ commission.updated_at|date:"d.m.Y" }}</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Назад -->
+            <a href="{% url 'directory:commissions:commission_list' %}" class="btn btn-sm btn-secondary w-100">
+                ← К списку комиссий
             </a>
         </div>
-        <div class="card-body">
-            <!-- Председатель -->
-            <div class="mb-4">
-                <h6>Председатель комиссии:</h6>
-                {% if chairman %}
-                    <div class="card mb-2 bg-light">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-0">{{ chairman.employee.full_name_nominative }}</h6>
-                                    <small class="text-muted">{{ chairman.employee.position.position_name }}</small>
-                                </div>
-                                <div class="btn-group">
-                                    <a href="{% url 'directory:commissions:commission_member_update' chairman.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'directory:commissions:commission_member_delete' chairman.id %}" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> Председатель не назначен
-                        <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=chairman" class="btn btn-sm btn-outline-success ms-2">
-                            Назначить
-                        </a>
-                    </div>
-                {% endif %}
-            </div>
 
-            <!-- Члены комиссии -->
-            <div class="mb-4">
-                <h6>Члены комиссии:</h6>
-                {% if members %}
-                    {% for member in members %}
-                        <div class="card mb-2 bg-light">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-0">{{ member.employee.full_name_nominative }}</h6>
-                                        <small class="text-muted">{{ member.employee.position.position_name }}</small>
-                                    </div>
-                                    <div class="btn-group">
-                                        <a href="{% url 'directory:commissions:commission_member_update' member.id %}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <a href="{% url 'directory:commissions:commission_member_delete' member.id %}" class="btn btn-sm btn-outline-danger">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> Нет назначенных членов комиссии
-                        <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=member" class="btn btn-sm btn-outline-success ms-2">
-                            Добавить
-                        </a>
-                    </div>
-                {% endif %}
-            </div>
+        <!-- ══ Правая колонка: Состав комиссии ══ -->
+        <div class="col-lg-8">
+            <div class="cd-card">
+                <div class="cd-card-header">
+                    <span style="flex:1;">👥 Состав комиссии</span>
+                    <a href="{% url 'directory:commissions:commission_member_add' commission.id %}"
+                       class="btn btn-sm btn-success" style="font-size:0.78rem;padding:3px 10px;">
+                        ➕ Добавить участника
+                    </a>
+                </div>
+                <div style="background:#fff;">
+                    <table class="cd-members-table">
+                        <thead>
+                            <tr>
+                                <th>Роль</th>
+                                <th>Сотрудник</th>
+                                <th>Должность</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
 
-            <!-- Секретарь -->
-            <div>
-                <h6>Секретарь комиссии:</h6>
-                {% if secretary %}
-                    <div class="card mb-2 bg-light">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-0">{{ secretary.employee.full_name_nominative }}</h6>
-                                    <small class="text-muted">{{ secretary.employee.position.position_name }}</small>
-                                </div>
-                                <div class="btn-group">
-                                    <a href="{% url 'directory:commissions:commission_member_update' secretary.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'directory:commissions:commission_member_delete' secretary.id %}" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> Секретарь не назначен
-                        <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=secretary" class="btn btn-sm btn-outline-success ms-2">
-                            Назначить
-                        </a>
-                    </div>
-                {% endif %}
+                            <!-- Председатель -->
+                            {% if chairman %}
+                            <tr>
+                                <td><span class="cd-role cd-role-chairman">👑 Председатель</span></td>
+                                <td><strong>{{ chairman.employee.full_name_nominative }}</strong></td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ chairman.employee.position.position_name }}</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' chairman.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' chairman.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr class="cd-empty-row">
+                                <td><span class="cd-role cd-role-chairman">👑 Председатель</span></td>
+                                <td colspan="2">⚠️ Не назначен</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=chairman"
+                                       class="btn btn-sm btn-outline-success">➕ Назначить</a>
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                            <!-- Заместитель председателя -->
+                            {% if vice_chairman %}
+                            <tr>
+                                <td><span class="cd-role cd-role-vice">🥈 Зам. председателя</span></td>
+                                <td><strong>{{ vice_chairman.employee.full_name_nominative }}</strong></td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ vice_chairman.employee.position.position_name }}</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' vice_chairman.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' vice_chairman.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                            <!-- Члены комиссии -->
+                            {% for member in members %}
+                            <tr>
+                                <td><span class="cd-role cd-role-member">👤 Член комиссии</span></td>
+                                <td>{{ member.employee.full_name_nominative }}</td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ member.employee.position.position_name }}</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' member.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' member.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr class="cd-empty-row">
+                                <td><span class="cd-role cd-role-member">👤 Члены комиссии</span></td>
+                                <td colspan="2">⚠️ Нет членов комиссии</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=member"
+                                       class="btn btn-sm btn-outline-success">➕ Добавить</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+
+                            <!-- Секретарь (всегда последний) -->
+                            {% if secretary %}
+                            <tr>
+                                <td><span class="cd-role cd-role-secretary">📝 Секретарь</span></td>
+                                <td><strong>{{ secretary.employee.full_name_nominative }}</strong></td>
+                                <td style="color:#6c757d;font-size:0.8rem;">{{ secretary.employee.position.position_name }}</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_update' secretary.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:commissions:commission_member_delete' secretary.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Удалить">🗑️</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr class="cd-empty-row">
+                                <td><span class="cd-role cd-role-secretary">📝 Секретарь</span></td>
+                                <td colspan="2">⚠️ Не назначен</td>
+                                <td class="cd-row-acts">
+                                    <a href="{% url 'directory:commissions:commission_member_add' commission.id %}?role=secretary"
+                                       class="btn btn-sm btn-outline-success">➕ Назначить</a>
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Кнопки навигации -->
-    <div class="d-flex justify-content-between">
-        <a href="{% url 'directory:commissions:commission_list' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> К списку комиссий
-        </a>
-    </div>
+    </div><!-- .row -->
 </div>
 {% endblock %}

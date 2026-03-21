@@ -1,109 +1,190 @@
-<!-- templates/directory/commissions/member_form.html -->
 {% extends "base.html" %}
 {% load static %}
-{% load crispy_forms_tags %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}👤 Участник комиссии{% endblock %}
+
+{% block extra_css %}
+<style>
+.cm-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    flex-wrap: wrap;
+}
+.cm-page-header .cm-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.cm-page-header .cm-sub   { font-size: 0.82rem; opacity: 0.8; width: 100%; margin-top: -4px; }
+
+.cm-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    max-width: 640px;
+}
+.cm-card-body { padding: 20px; background: #fff; }
+
+.cm-field { margin-bottom: 16px; }
+.cm-field > label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+}
+.cm-field .text-danger { font-size: 0.75rem; margin-top: 3px; }
+
+/* Кнопки ролей */
+.cm-roles { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.cm-role-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s;
+    user-select: none;
+}
+.cm-role-btn input[type="radio"] { display: none; }
+.cm-role-btn.selected-chairman { border-color: #f0ad4e; background: #fff8e8; }
+.cm-role-btn.selected-secretary { border-color: #5bc0de; background: #e8f7fb; }
+.cm-role-btn.selected-member { border-color: #5cb85c; background: #eafbea; }
+.cm-role-btn.disabled-role { opacity: 0.45; cursor: not-allowed; }
+.cm-role-hint { font-size: 0.72rem; color: #dc3545; margin-top: 3px; display: block; }
+
+.cm-form-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+    gap: 8px;
+}
+
+@media (max-width: 576px) {
+    .cm-roles { flex-direction: column; }
+    .cm-form-actions { flex-direction: column; }
+    .cm-form-actions .btn { width: 100%; text-align: center; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1 class="mb-4">{{ title }}</h1>
-    <p class="lead">Комиссия: {{ commission.name }}</p>
+<div class="container-fluid mt-3">
 
-    <div class="card">
-        <div class="card-body">
+    <!-- Заголовок -->
+    <div class="cm-page-header">
+        <span>👤</span>
+        <span class="cm-title">{{ title }}</span>
+        {% if commission %}
+        <span class="cm-sub">Комиссия: {{ commission.name }}</span>
+        {% endif %}
+    </div>
+
+    <div class="cm-card">
+        <div class="cm-card-body">
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger" style="font-size:0.83rem;padding:8px 12px;">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
             <form method="post">
                 {% csrf_token %}
-                
                 {{ form.commission }}
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="{{ form.employee.id_for_label }}">Сотрудник</label>
-                            {{ form.employee }}
-                            {% if form.employee.errors %}
-                                <div class="text-danger">
-                                    {{ form.employee.errors }}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label>Роль участника</label>
-                        <div class="role-selector">
-                            {% for value, label, disabled, tooltip in form.role_choices %}
-                                <div class="form-check">
-                                    <input type="radio" name="role" value="{{ value }}" 
-                                           id="id_role_{{ forloop.counter }}" 
-                                           class="form-check-input" 
-                                           {% if form.role.value == value %}checked{% endif %} 
-                                           {% if disabled %}disabled{% endif %}>
-                                    <label class="form-check-label" for="id_role_{{ forloop.counter }}">
-                                        {{ label }}
-                                    </label>
-                                    {% if disabled %}
-                                        <small class="text-danger ml-2">{{ tooltip }}</small>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
-                        {% if form.role.errors %}
-                            <div class="text-danger mt-2">
-                                {{ form.role.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="form-group mt-3">
-                    <div class="form-check">
-                        {{ form.is_active }}
-                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
-                            Активен
-                        </label>
-                    </div>
-                    {% if form.is_active.errors %}
-                        <div class="text-danger">
-                            {{ form.is_active.errors }}
-                        </div>
+
+                <!-- Сотрудник -->
+                <div class="cm-field">
+                    <label for="{{ form.employee.id_for_label }}">Сотрудник</label>
+                    {{ form.employee }}
+                    {% if form.employee.errors %}
+                    <div class="text-danger">{{ form.employee.errors }}</div>
                     {% endif %}
                 </div>
 
-                <div class="d-flex justify-content-between mt-3">
-                    <a href="{% url 'directory:commissions:commission_detail' commission.id %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Отмена
-                    </a>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Сохранить
-                    </button>
+                <!-- Роль -->
+                <div class="cm-field">
+                    <label>Роль в комиссии</label>
+                    <div class="cm-roles">
+                        {% for value, label, disabled, tooltip in form.role_choices %}
+                        <label class="cm-role-btn {% if form.role.value == value %}selected-{{ value }}{% endif %} {% if disabled %}disabled-role{% endif %}"
+                               id="role-label-{{ forloop.counter }}">
+                            <input type="radio" name="role" value="{{ value }}"
+                                   id="id_role_{{ forloop.counter }}"
+                                   {% if form.role.value == value %}checked{% endif %}
+                                   {% if disabled %}disabled{% endif %}>
+                            {% if value == 'chairman' %}👑{% elif value == 'secretary' %}📝{% else %}👤{% endif %}
+                            {{ label }}
+                        </label>
+                        {% if disabled %}
+                        <span class="cm-role-hint">{{ tooltip }}</span>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if form.role.errors %}
+                    <div class="text-danger mt-1" style="font-size:0.75rem;">{{ form.role.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Активен -->
+                <div class="cm-field">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}" style="font-size:0.88rem;">
+                            Активен
+                        </label>
+                    </div>
+                </div>
+
+                <div class="cm-form-actions">
+                    {% if commission %}
+                    <a href="{% url 'directory:commissions:commission_update' commission.id %}" class="btn btn-sm btn-secondary">← Отмена</a>
+                    {% else %}
+                    <a href="{% url 'directory:commissions:commission_list' %}" class="btn btn-sm btn-secondary">← К списку</a>
+                    {% endif %}
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Сохранить</button>
                 </div>
             </form>
+
         </div>
     </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'autocomplete_light/autocomplete_light.js' %}"></script>
+<script src="{% static 'autocomplete_light/select2.js' %}"></script>
 <script>
-    $(document).ready(function() {
-        // Инициализация Select2 с автодополнением
-        $('.select2, select[name="employee"]').select2({
-            width: '100%',
-            language: 'ru',
-            placeholder: 'Выберите сотрудника',
-            allowClear: true
-        });
-        
-        // Подсветка выбранной роли
-        $('input[name="role"]').change(function() {
-            $('.role-selector .form-check').removeClass('bg-light');
-            $(this).closest('.form-check').addClass('bg-light');
-        });
-        
-        // Подсветить выбранную роль при загрузке
-        $('input[name="role"]:checked').closest('.form-check').addClass('bg-light');
+$(document).ready(function() {
+
+    // Инициализация Select2 для поля сотрудника
+    $('select[name="employee"]').not('[data-autocomplete-light-url]').select2({
+        width: '100%',
+        language: 'ru',
+        placeholder: 'Выберите сотрудника',
+        allowClear: true
     });
+
+    // Визуальная подсветка кнопок роли
+    $('input[name="role"]').on('change', function() {
+        var val = $(this).val();
+        $('.cm-role-btn').removeClass('selected-chairman selected-secretary selected-member');
+        $(this).closest('.cm-role-btn').addClass('selected-' + val);
+    });
+
+});
 </script>
 {% endblock %}

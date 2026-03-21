@@ -2,7 +2,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Fieldset, ButtonHolder, Submit, Div, HTML, Field, Row, Column
-from dal import autocomplete
+from dal import autocomplete, forward as dal_forward
 from directory.models import Commission, CommissionMember, Employee, Organization, StructuralSubdivision as Subdivision, \
     Department
 from .mixins import OrganizationRestrictionFormMixin
@@ -94,19 +94,30 @@ class CommissionForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         elif self.initial.get('subdivision'):
             subdiv_id = self.initial.get('subdivision')
 
+        # dept_id нужен для случая, когда отдел выбран без подразделения
+        dept_id = None
+        if self.data and 'department' in self.data:
+            dept_id = self.data.get('department') or None
+        elif self.instance and self.instance.pk and self.instance.department:
+            dept_id = self.instance.department.pk
+        elif self.initial.get('department'):
+            dept_id = self.initial.get('department')
+
         # Настраиваем querysets для зависимых полей
         if org_id:
-            # Если выбрана организация, загружаем её подразделения
             self.fields['subdivision'].queryset = Subdivision.objects.filter(organization_id=org_id)
+        elif subdiv_id:
+            # Организация не выбрана, но подразделение есть (комиссия на уровне подразделения)
+            self.fields['subdivision'].queryset = Subdivision.objects.filter(pk=subdiv_id)
         else:
-            # Если организация не выбрана, очищаем список подразделений
             self.fields['subdivision'].queryset = Subdivision.objects.none()
 
         if subdiv_id:
-            # Если выбрано подразделение, загружаем его отделы
             self.fields['department'].queryset = Department.objects.filter(subdivision_id=subdiv_id)
+        elif dept_id:
+            # Подразделение не выбрано, но отдел есть (комиссия на уровне отдела)
+            self.fields['department'].queryset = Department.objects.filter(pk=dept_id)
         else:
-            # Если подразделение не выбрано, очищаем список отделов
             self.fields['department'].queryset = Department.objects.none()
 
     def clean(self):
@@ -188,10 +199,10 @@ class CommissionMemberForm(forms.ModelForm):
             if commission.pk:
                 # Настраиваем виджет для выбора сотрудников с учетом иерархии комиссии
                 self.fields['employee'].widget.forward = [
-                    ('commission', commission.id),
-                    ('organization', commission.organization_id or ''),
-                    ('subdivision', commission.subdivision_id or ''),
-                    ('department', commission.department_id or '')
+                    dal_forward.Const(commission.id, 'commission'),
+                    dal_forward.Const(commission.organization_id or '', 'organization'),
+                    dal_forward.Const(commission.subdivision_id or '', 'subdivision'),
+                    dal_forward.Const(commission.department_id or '', 'department'),
                 ]
 
         # Создаем список ролей с информацией о том, какие уже заняты

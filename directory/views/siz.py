@@ -6,6 +6,7 @@ from django.urls import reverse_lazy
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Subquery, OuterRef, IntegerField, Value
+from django.utils import timezone
 from django.db.models.functions import Coalesce
 from directory.models import Employee, Organization, SIZIssued
 from directory.models.siz import SIZ, SIZNorm
@@ -32,26 +33,65 @@ class SIZListView(LoginRequiredMixin, ListView):
     context_object_name = 'siz_list'
 
     def get_context_data(self, **kwargs):
+        import calendar as _cal
+        from datetime import date as _date
+
         context = super().get_context_data(**kwargs)
         context['title'] = 'Средства индивидуальной защиты'
 
-        # Получаем доступные организации через AccessControlHelper
         accessible_orgs = AccessControlHelper.get_accessible_organizations(
             self.request.user, self.request
         )
-
-        # Фильтрация списка сотрудников: по выбранной организации, иначе по всем доступным
         selected_org_id = self.request.session.get('selected_org_id')
+
+        # Список сотрудников для модального поиска
         employees = Employee.objects.filter(organization__in=accessible_orgs)
         if selected_org_id:
             employees = employees.filter(organization_id=selected_org_id)
         context['employees'] = employees.order_by('full_name_nominative')
 
-        # Фильтрация последних выданных СИЗ по доступным организациям
-        recent_issued = SIZIssued.objects.filter(
+        # Последние выданные СИЗ (блок 2)
+        recent_qs = SIZIssued.objects.filter(
             employee__organization__in=accessible_orgs
-        ).select_related('employee', 'siz')
-        context['recent_issued'] = recent_issued.order_by('-issue_date')[:10]
+        ).select_related('employee', 'siz', 'employee__subdivision')
+        if selected_org_id:
+            recent_qs = recent_qs.filter(employee__organization_id=selected_org_id)
+        context['recent_issued'] = recent_qs.order_by('-issue_date', '-id')[:10]
+
+        # ── Контроль сроков (блок 1) ──
+        def _add_months(d, months):
+            month = d.month - 1 + months
+            year = d.year + month // 12
+            month = month % 12 + 1
+            day = min(d.day, _cal.monthrange(year, month)[1])
+            return _date(year, month, day)
+
+        today = timezone.now().date()
+        active_qs = SIZIssued.objects.filter(
+            employee__organization__in=accessible_orgs,
+            is_returned=False,
+            siz__wear_period__gt=0,
+        ).select_related('employee', 'siz', 'employee__subdivision', 'employee__department')
+        if selected_org_id:
+            active_qs = active_qs.filter(employee__organization_id=selected_org_id)
+
+        deadline_items = []
+        for item in active_qs:
+            planned = _add_months(item.issue_date, item.siz.wear_period)
+            delta = (planned - today).days
+            if delta <= 60:
+                deadline_items.append({
+                    'item': item,
+                    'planned_return': planned,
+                    'days_left': delta,
+                    'is_overdue': delta < 0,
+                    'is_soon': 0 <= delta <= 30,
+                })
+        deadline_items.sort(key=lambda x: x['days_left'])
+
+        context['deadline_items'] = deadline_items
+        context['deadline_overdue_count'] = sum(1 for x in deadline_items if x['is_overdue'])
+        context['deadline_soon_count'] = sum(1 for x in deadline_items if x['is_soon'])
 
         return context
 

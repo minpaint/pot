@@ -436,11 +436,11 @@
                 </li>
                 {% endif %}
 
-                {% check_url_visibility user 'directory:siz:mass_generation' as show_siz_cards %}
+                {% check_url_visibility user 'directory:siz:siz_list' as show_siz_cards %}
                 {% if show_siz_cards %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'directory:siz:mass_generation' %}">
-                        🛡️ Карточки СИЗ
+                    <a class="nav-link" href="{% url 'directory:siz:siz_list' %}">
+                        🛡️ СИЗ
                     </a>
                 </li>
                 {% endif %}

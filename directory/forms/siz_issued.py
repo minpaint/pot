@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.forms import formset_factory
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Div, Field, HTML, Submit, Button
+from dal import autocomplete
 from directory.models import SIZIssued, SIZ, Employee
 from directory.models.siz import SIZNorm
 
@@ -20,6 +21,10 @@ class SIZIssueForm(forms.ModelForm):
             'cost', 'condition', 'notes', 'received_signature'
         ]
         widgets = {
+            'employee': autocomplete.ModelSelect2(
+                url='directory:employee-for-siz-autocomplete',
+                attrs={'data-placeholder': '🔍 Начните вводить ФИО сотрудника...'},
+            ),
             'issue_date': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'notes': forms.Textarea(attrs={'rows': 3}),
         }
@@ -50,7 +55,6 @@ class SIZIssueForm(forms.ModelForm):
             try:
                 employee = Employee.objects.get(id=self.initial_employee_id)
                 self.fields['employee'].initial = employee
-                self.fields['employee'].widget.attrs['disabled'] = True
 
                 # 🔍 Получаем список СИЗ, положенных по нормам для данного сотрудника
                 if hasattr(employee, 'position') and employee.position:

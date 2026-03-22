@@ -1,6 +1,8 @@
 # 📁 directory/views/siz_issued.py
 import re
+import json
 import random
+from decimal import Decimal, InvalidOperation
 from django.views.generic import CreateView, DetailView, FormView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
@@ -8,15 +10,14 @@ from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.utils.decorators import method_decorator
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.template.loader import get_template
 from io import BytesIO
 from xhtml2pdf import pisa
-from django.contrib.auth.decorators import login_required
 
-from directory.models import Employee, SIZIssued
+from directory.models import Employee, SIZIssued, SIZ
 from directory.forms.siz_issued import SIZIssueForm, SIZIssueMassForm, SIZIssueReturnForm
 from directory.mixins import AccessControlMixin, AccessControlObjectMixin
 from directory.utils.permissions import AccessControlHelper
@@ -132,6 +133,8 @@ class SIZIssueFormView(LoginRequiredMixin, CreateView):
             employee = get_object_or_404(Employee, id=employee_id)
             context['employee'] = employee
 
+            siz_norm_ids = set()
+
             # Получаем нормы СИЗ для должности сотрудника
             if employee.position:
                 from directory.models.siz import SIZNorm
@@ -153,6 +156,27 @@ class SIZIssueFormView(LoginRequiredMixin, CreateView):
                     for condition, norms in condition_groups.items()
                 ]
 
+                siz_norm_ids = set(norms.values_list('siz_id', flat=True))
+
+            # Список всех СИЗ для группового выбора (нормативные помечены)
+            from directory.models.siz import SIZNorm
+            all_siz = SIZ.objects.order_by('name', 'classification')
+            context['all_siz_choices'] = [
+                {
+                    'id': s.pk,
+                    'label': f"{s.name} ({s.classification})" if s.classification else s.name,
+                    'is_norm': s.pk in siz_norm_ids,
+                }
+                for s in all_siz
+            ]
+            # Datalist условий
+            context['condition_list'] = list(
+                SIZNorm.objects.exclude(condition='')
+                .values_list('condition', flat=True)
+                .distinct().order_by('condition')[:200]
+            )
+            context['today'] = timezone.now().date().strftime('%Y-%m-%d')
+
         return context
 
     def form_valid(self, form):
@@ -172,61 +196,125 @@ class SIZIssueFormView(LoginRequiredMixin, CreateView):
 
 
 @login_required
+@require_POST
 def issue_selected_siz(request, employee_id):
     """
-    📝 Представление для массовой выдачи выбранных СИЗ сотруднику
-
-    Args:
-        request: HttpRequest объект
-        employee_id: ID сотрудника
-
-    Returns:
-        Перенаправление на личную карточку сотрудника
+    📝 Массовая выдача выбранных норм СИЗ сотруднику из личной карточки.
     """
-    if request.method == 'POST':
-        employee = get_object_or_404(Employee, id=employee_id)
-        selected_norm_ids = request.POST.getlist('selected_norms')
+    employee = get_object_or_404(Employee, id=employee_id)
+    selected_norm_ids = request.POST.getlist('selected_norms')
 
-        if not selected_norm_ids:
-            messages.warning(request, "Не выбрано ни одного СИЗ для выдачи")
-            return redirect('directory:siz:siz_personal_card', employee_id=employee_id)
+    if not selected_norm_ids:
+        messages.warning(request, "Не выбрано ни одного СИЗ для выдачи")
+        return redirect('directory:siz:siz_personal_card', employee_id=employee_id)
 
-        from directory.models.siz import SIZNorm
-        # Получаем выбранные нормы
-        norms = SIZNorm.objects.filter(id__in=selected_norm_ids).select_related('siz')
+    # Дата выдачи из формы (иначе сегодня)
+    issue_date_str = request.POST.get('issue_date', '')
+    try:
+        from datetime import datetime as _dt
+        issue_date = _dt.strptime(issue_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        issue_date = timezone.now().date()
 
-        # Создаем записи о выдаче для каждого выбранного СИЗ
-        issued_count = 0
-        for norm in norms:
-            # Проверка, что такое СИЗ еще не выдано и не находится в использовании
-            existing_issued = SIZIssued.objects.filter(
+    from directory.models.siz import SIZNorm
+    norms = SIZNorm.objects.filter(id__in=selected_norm_ids).select_related('siz')
+
+    issued_count = 0
+    skipped_count = 0
+    for norm in norms:
+        existing = SIZIssued.objects.filter(
+            employee=employee,
+            siz=norm.siz,
+            is_returned=False
+        ).exists()
+
+        if existing:
+            skipped_count += 1
+            continue
+
+        SIZIssued.objects.create(
+            employee=employee,
+            siz=norm.siz,
+            quantity=norm.quantity,
+            issue_date=issue_date,
+            condition=norm.condition,
+            received_signature=True,
+        )
+        issued_count += 1
+
+    if issued_count > 0:
+        messages.success(
+            request,
+            f"✅ Выдано {issued_count} наименований СИЗ сотруднику {employee.full_name_nominative}"
+            + (f" (пропущено дублей: {skipped_count})" if skipped_count else "")
+        )
+    else:
+        messages.info(request, "ℹ️ Ни одно СИЗ не было выдано — возможно, выбранные уже в использовании.")
+
+    return redirect('directory:siz:siz_personal_card', employee_id=employee_id)
+
+
+@login_required
+@require_POST
+def issue_group_siz(request, employee_id):
+    """
+    📦 Массовая групповая выдача СИЗ сотруднику.
+    Принимает JSON-список групп (каждая: siz_ids, condition, quantity, cost).
+    """
+    employee = get_object_or_404(Employee, id=employee_id)
+
+    try:
+        groups = json.loads(request.POST.get('groups_json', '[]'))
+    except (json.JSONDecodeError, ValueError):
+        messages.error(request, "Ошибка при обработке данных групп СИЗ")
+        return redirect('directory:siz:siz_issue_for_employee', employee_id=employee_id)
+
+    issue_date_str = request.POST.get('group_issue_date', '')
+    try:
+        from datetime import datetime as dt
+        issue_date = dt.strptime(issue_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        issue_date = timezone.now().date()
+
+    issued_count = 0
+    for group in groups:
+        siz_ids = group.get('siz_ids', [])
+        condition = group.get('condition', '')
+        try:
+            quantity = max(1, int(group.get('quantity', 1)))
+        except (ValueError, TypeError):
+            quantity = 1
+        cost = None
+        cost_str = str(group.get('cost', '')).strip()
+        if cost_str:
+            try:
+                cost = Decimal(cost_str)
+            except InvalidOperation:
+                cost = None
+
+        for siz_id in siz_ids:
+            try:
+                siz_obj = SIZ.objects.get(id=siz_id)
+            except SIZ.DoesNotExist:
+                continue
+            SIZIssued.objects.create(
                 employee=employee,
-                siz=norm.siz,
-                is_returned=False
-            ).exists()
-
-            if not existing_issued:
-                # Создаем запись о выдаче
-                SIZIssued.objects.create(
-                    employee=employee,
-                    siz=norm.siz,
-                    quantity=norm.quantity,
-                    issue_date=timezone.now().date(),
-                    condition=norm.condition,
-                    received_signature=True
-                )
-                issued_count += 1
-
-        if issued_count > 0:
-            messages.success(
-                request,
-                f"✅ Успешно выдано {issued_count} наименований СИЗ сотруднику {employee.full_name_nominative}"
+                siz=siz_obj,
+                issue_date=issue_date,
+                quantity=quantity,
+                condition=condition,
+                cost=cost,
+                received_signature=True,
             )
-        else:
-            messages.info(
-                request,
-                "ℹ️ Ни одно СИЗ не было выдано. Возможно, выбранные СИЗ уже находятся в использовании."
-            )
+            issued_count += 1
+
+    if issued_count > 0:
+        messages.success(
+            request,
+            f"✅ Выдано {issued_count} наименований СИЗ сотруднику {employee.full_name_nominative}"
+        )
+    else:
+        messages.warning(request, "Ни одно СИЗ не было выдано — проверьте заполнение групп")
 
     return redirect('directory:siz:siz_personal_card', employee_id=employee_id)
 
@@ -264,9 +352,37 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
         # Получаем все выданные сотруднику СИЗ
         issued_items = SIZIssued.objects.filter(
             employee=self.object
-        ).select_related('siz').order_by('-issue_date')
+        ).select_related('siz').order_by('-issue_date', '-id')
 
-        context['issued_items'] = issued_items
+        import calendar as _cal
+        from datetime import date as _date
+
+        def _add_months(d, months):
+            month = d.month - 1 + months
+            year = d.year + month // 12
+            month = month % 12 + 1
+            day = min(d.day, _cal.monthrange(year, month)[1])
+            return _date(year, month, day)
+
+        today = timezone.now().date()
+        issued_with_dates = []
+        for item in issued_items:
+            planned = None
+            is_overdue = is_soon = False
+            if not item.is_returned and item.siz.wear_period and item.siz.wear_period > 0:
+                planned = _add_months(item.issue_date, item.siz.wear_period)
+                delta = (planned - today).days
+                is_overdue = delta < 0
+                is_soon = 0 <= delta <= 30
+            issued_with_dates.append({
+                'item': item,
+                'planned_return': planned,
+                'is_overdue': is_overdue,
+                'is_soon': is_soon,
+            })
+
+        context['issued_with_dates'] = issued_with_dates
+        context['today'] = today.strftime('%Y-%m-%d')
 
         # Получаем нормы СИЗ для должности сотрудника
         if self.object.position:

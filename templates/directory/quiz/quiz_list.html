@@ -1,523 +1,318 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Проверка знаний - OT Online{% endblock %}
+{% block title %}📝 Проверка знаний{% endblock %}
 
 {% block extra_css %}
 <style>
-    .container {
-        max-width: 1200px;
-    }
+/* ── Заголовок страницы ── */
+.ql-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.ql-page-header .ql-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.ql-page-header .ql-sub  { font-size: 0.82rem; opacity: 0.8; width: 100%; margin-top: -4px; }
 
-    .section-header {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        color: #212529;
-        padding: 2rem;
-        border-radius: 8px;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
+/* ── Карточка экзамена ── */
+.ql-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 18px;
+}
+.ql-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+.ql-card-header .ql-quiz-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+.ql-card-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; }
+.ql-card-header.collapsed .toggle-icon { transform: rotate(-90deg); }
 
-    .section-header-content {
-        flex-grow: 1;
-    }
+/* Бейджи в шапке */
+.ql-hdr-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+}
 
-    .btn-statistics {
-        background: #0d6efd;
-        border: 2px solid #0d6efd;
-        color: #ffffff;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        font-weight: 600;
-        white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.25);
-    }
+/* ── Анимация разворачивания ── */
+.ql-collapsible {
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+.ql-collapsible.collapsed { max-height: 0 !important; opacity: 0; }
 
-    .btn-statistics:hover {
-        background: #0b5ed7;
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
-        color: #ffffff;
-        border-color: #0b5ed7;
-    }
+/* ── Секция: подготовка ── */
+.ql-section-title {
+    padding: 10px 18px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9aa0ac;
+    background: #f8f9fa;
+    border-bottom: 1px solid #f0f0f0;
+}
 
-    .quiz-accordion .accordion-item {
-        margin-bottom: 1.5rem;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
+/* ── Строка категории ── */
+.ql-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 18px;
+    border-bottom: 1px solid #f5f5f5;
+    background: #fff;
+}
+.ql-cat-row:hover { background: #f0f7ff; }
+.ql-cat-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e3eef8;
+    color: #1a5276;
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.ql-cat-name { font-size: 0.88rem; color: #2c3e50; flex: 1; font-weight: 500; }
+.ql-cat-progress {
+    font-size: 0.75rem;
+    color: #6c757d;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
 
-    .quiz-accordion .accordion-button {
-        background: #ffffff;
-        color: #212529;
-        font-weight: 600;
-        font-size: 1.2rem;
-        padding: 1.5rem;
-        border-radius: 8px;
-    }
+/* ── Блок итогового экзамена ── */
+.ql-exam-block {
+    background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
+    color: #fff;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.ql-exam-block .ql-exam-info { flex: 1; min-width: 200px; }
+.ql-exam-block .ql-exam-title { font-weight: 700; font-size: 1rem; margin-bottom: 6px; }
+.ql-exam-block .ql-exam-desc { font-size: 0.83rem; opacity: 0.9; margin-bottom: 10px; }
+.ql-exam-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ql-exam-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+    white-space: nowrap;
+}
 
-    .quiz-accordion .accordion-button:not(.collapsed) {
-        background: #e7f3ff;
-        color: #0d6efd;
-        box-shadow: none;
-    }
+/* ── Кнопки ── */
+.btn-ql-train {
+    font-size: 0.78rem;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    border: 1px solid #3498db;
+    color: #3498db;
+    background: #fff;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.15s, color 0.15s;
+}
+.btn-ql-train:hover { background: #3498db; color: #fff; }
+.btn-ql-train:disabled, .btn-ql-train.disabled {
+    opacity: 0.5; pointer-events: none;
+    border-color: #ced4da; color: #aaa;
+}
+.btn-ql-exam {
+    display: inline-block;
+    padding: 8px 22px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e7e34;
+    border: 2px solid #fff;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-ql-exam:hover { background: rgba(255,255,255,0.9); box-shadow: 0 4px 12px rgba(255,255,255,0.3); color: #1e7e34; }
+.btn-ql-stat {
+    font-size: 0.82rem;
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.4);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.btn-ql-stat:hover { background: rgba(255,255,255,0.32); color: #fff; }
 
-    .quiz-accordion .accordion-button:focus {
-        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-    }
+/* ── Пусто ── */
+.ql-empty {
+    padding: 40px;
+    text-align: center;
+    color: #9aa0ac;
+    font-size: 0.9rem;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
 
-    .quiz-info-badges {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 0.75rem;
-    }
-
-    .quiz-info-badge {
-        display: inline-block;
-        padding: 0.4rem 0.8rem;
-        background: rgba(13, 110, 253, 0.1);
-        border-radius: 15px;
-        font-size: 0.85rem;
-        color: #0d6efd;
-        font-weight: 500;
-    }
-
-    .category-card {
-        background: #ffffff;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 0.875rem 1rem;
-        margin-bottom: 0.75rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    .category-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        transform: translateY(-2px);
-        border-color: #0d6efd;
-    }
-
-    .category-card .d-flex {
-        gap: 0.75rem;
-    }
-
-    .exam-final-card {
-        background: linear-gradient(135deg, #198754 0%, #146c43 100%);
-        border: none;
-        padding: 2rem;
-        border-radius: 10px;
-        margin-top: 1rem;
-        box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
-        color: white;
-    }
-
-    .exam-final-card:hover {
-        box-shadow: 0 6px 16px rgba(25, 135, 84, 0.4);
-        transform: translateY(-2px);
-    }
-
-    .stats-badges-wrapper {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .stats-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
-        font-size: 0.9rem;
-        color: white;
-    }
-
-    .btn-training {
-        background: #0d6efd;
-        border: 2px solid #0d6efd;
-        color: #ffffff;
-        padding: 0.4rem 1rem;
-        border-radius: 6px;
-        transition: all 0.3s ease;
-        font-weight: 600;
-        font-size: 0.9rem;
-        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.25);
-        white-space: nowrap;
-    }
-
-    .btn-training:hover {
-        background: #0b5ed7;
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
-        color: #ffffff;
-        border-color: #0b5ed7;
-    }
-
-    .btn-exam {
-        background: white;
-        color: #198754;
-        border: 2px solid white;
-        padding: 0.75rem 2rem;
-        border-radius: 8px;
-        font-weight: bold;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-    }
-
-    .btn-exam:hover {
-        background: rgba(255, 255, 255, 0.9);
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
-        color: #198754;
-    }
-
-    .category-number {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 2rem;
-        height: 2rem;
-        background: #0d6efd;
-        color: white;
-        border-radius: 50%;
-        font-weight: 700;
-        font-size: 0.95rem;
-        margin-right: 0.625rem;
-        flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
-    }
-
-    .category-questions-count {
-        color: #dc3545;
-        font-weight: 600;
-        font-size: 0.95rem;
-        margin-left: auto;
-        white-space: nowrap;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-    }
-
-    .category-card h5 {
-        font-size: 1.05rem;
-        font-weight: 600;
-    }
-
-    /* Адаптивность для мобильных устройств */
-    @media (max-width: 768px) {
-        .section-header {
-            padding: 1.5rem;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-
-        .section-header h1 {
-            font-size: 1.5rem;
-        }
-
-        .btn-statistics {
-            width: 100%;
-            padding: 0.6rem 1.2rem;
-        }
-
-        .quiz-accordion .accordion-button {
-            font-size: 1rem;
-            padding: 1rem;
-        }
-
-        .quiz-info-badge {
-            font-size: 0.75rem;
-            padding: 0.3rem 0.6rem;
-        }
-
-        .category-card {
-            padding: 0.75rem 0.875rem;
-        }
-
-        .category-number {
-            width: 1.75rem;
-            height: 1.75rem;
-            font-size: 0.85rem;
-            margin-right: 0.5rem;
-        }
-
-        .category-card h5 {
-            font-size: 0.95rem;
-        }
-
-        .category-questions-count {
-            font-size: 0.85rem;
-        }
-
-        .btn-training {
-            padding: 0.35rem 0.875rem;
-            font-size: 0.85rem;
-        }
-
-        .exam-final-card {
-            padding: 1.5rem;
-        }
-
-        .btn-exam {
-            padding: 0.6rem 1.5rem;
-            font-size: 1rem;
-            width: 100%;
-        }
-
-        .stats-badge {
-            font-size: 0.8rem;
-            padding: 0.4rem 0.8rem;
-        }
-    }
-
-    @media (max-width: 576px) {
-        .container {
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-        }
-
-        .section-header {
-            padding: 1rem;
-        }
-
-        .section-header h1 {
-            font-size: 1.3rem;
-        }
-
-        .quiz-accordion .accordion-button {
-            font-size: 0.95rem;
-            padding: 0.75rem;
-        }
-
-        .quiz-info-badge {
-            font-size: 0.7rem;
-            padding: 0.25rem 0.5rem;
-        }
-
-        .category-card {
-            padding: 0.625rem 0.75rem;
-        }
-
-        .category-number {
-            width: 1.5rem;
-            height: 1.5rem;
-            font-size: 0.75rem;
-            margin-right: 0.375rem;
-        }
-
-        .category-card h5 {
-            font-size: 0.875rem;
-        }
-
-        .category-questions-count {
-            font-size: 0.75rem;
-            gap: 0.25rem;
-        }
-
-        .btn-training {
-            padding: 0.3rem 0.75rem;
-            font-size: 0.8rem;
-        }
-
-        .exam-final-card {
-            padding: 1rem;
-        }
-
-        .btn-exam {
-            padding: 0.5rem 1rem;
-            font-size: 0.9rem;
-        }
-
-        .stats-badge {
-            font-size: 0.75rem;
-            padding: 0.3rem 0.6rem;
-        }
-
-        /* Стек элементов на маленьких экранах */
-        .category-card .d-flex {
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .category-card h5 {
-            width: 100%;
-            margin-bottom: 0.5rem;
-        }
-
-        .category-questions-count {
-            margin-left: 0;
-            margin-right: auto;
-        }
-
-        .category-card .btn-training {
-            margin-left: auto;
-        }
-    }
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .ql-page-header { flex-direction: column; align-items: flex-start; }
+    .btn-ql-stat { width: 100%; text-align: center; }
+    .ql-cat-row { flex-wrap: wrap; gap: 6px; }
+    .ql-cat-progress { width: 100%; margin-left: 34px; }
+    .btn-ql-train { width: calc(100% - 34px); margin-left: 34px; text-align: center; }
+    .ql-exam-block { flex-direction: column; align-items: stretch; }
+    .btn-ql-exam { width: 100% !important; text-align: center; padding: 14px 20px !important; font-size: 1.1rem !important; }
+    .ql-hdr-badge { display: none; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-3">
+
     <!-- Заголовок -->
-    <div class="section-header">
-        <div class="section-header-content">
-            <h1 class="mb-2">
-                <i class="fas fa-graduation-cap"></i>
-                📝 Проверка знаний по охране труда
-            </h1>
-            <p class="mb-0 text-muted">Выберите экзамен, подготовьтесь по разделам и сдайте итоговую проверку</p>
-        </div>
-        <div>
-            <a href="{% url 'directory:quiz:quiz_history' %}" class="btn btn-statistics">
-                <i class="fas fa-chart-bar"></i> Моя статистика
-            </a>
-        </div>
+    <div class="ql-page-header">
+        <span>📝</span>
+        <span class="ql-title">Проверка знаний по охране труда</span>
+        <a href="{% url 'directory:quiz:quiz_history' %}" class="btn-ql-stat">📊 Моя статистика</a>
+        <span class="ql-sub">Выберите экзамен, подготовьтесь по разделам и сдайте итоговую проверку</span>
     </div>
 
-    <div class="row">
-        <div class="col-12">
-            {% if quizzes_with_categories %}
-            <!-- Аккордеон с экзаменами -->
-            <div class="accordion quiz-accordion" id="quizzesAccordion">
-                {% for item in quizzes_with_categories %}
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="heading{{ item.quiz.id }}">
-                        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#collapse{{ item.quiz.id }}"
-                                aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
-                                aria-controls="collapse{{ item.quiz.id }}">
-                            <div class="w-100">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-award me-2"></i>
-                                    {{ item.quiz.title }}
-                                </div>
-                                <div class="quiz-info-badges">
-                                    <span class="quiz-info-badge">
-                                        <i class="fas fa-list"></i> {{ item.quiz.exam_total_questions }} вопросов
-                                    </span>
-                                    <span class="quiz-info-badge">
-                                        <i class="fas fa-clock"></i> {{ item.quiz.exam_time_limit }} минут
-                                    </span>
-                                    {% if item.quiz.exam_allowed_incorrect > 0 %}
-                                    <span class="quiz-info-badge">
-                                        <i class="fas fa-exclamation-triangle"></i> Допустимо ошибок: {{ item.quiz.exam_allowed_incorrect }}
-                                    </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </button>
-                    </h2>
-                    <div id="collapse{{ item.quiz.id }}"
-                         class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
-                         aria-labelledby="heading{{ item.quiz.id }}"
-                         data-bs-parent="#quizzesAccordion">
-                        <div class="accordion-body">
-                            {% if item.quiz.description %}
-                            <p class="text-muted mb-3">{{ item.quiz.description }}</p>
-                            {% endif %}
+    {% if quizzes_with_categories %}
+        {% for item in quizzes_with_categories %}
+        <div class="ql-card">
 
-                            <!-- Тренировки по разделам -->
-                            {% if item.categories %}
-                            <h4 class="mb-3">
-                                <i class="fas fa-dumbbell"></i>
-                                Подготовка: тренировки по разделам
-                            </h4>
-                            <p class="mb-3 text-muted">
-                                Рекомендуем пройти тренировки по каждому разделу перед сдачей экзамена
-                            </p>
+            <!-- Шапка экзамена (кликабельная) -->
+            <div class="ql-card-header" onclick="toggleBlock(this, 'quiz-body-{{ item.quiz.id }}')">
+                <span>🎓</span>
+                <span class="ql-quiz-title">{{ item.quiz.title }}</span>
+                <span class="ql-hdr-badge">{{ item.quiz.exam_total_questions }} вопр.</span>
+                <span class="ql-hdr-badge">{{ item.quiz.exam_time_limit }} мин.</span>
+                {% if item.quiz.exam_allowed_incorrect > 0 %}
+                <span class="ql-hdr-badge">≤{{ item.quiz.exam_allowed_incorrect }} ошибок</span>
+                {% endif %}
+                <span class="toggle-icon">▼</span>
+            </div>
 
-                            <div class="row">
-                                {% for cat_data in item.categories %}
-                                <div class="col-12">
-                                    <div class="category-card">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h5 class="mb-0 d-flex align-items-center flex-grow-1">
-                                                <span class="category-number">{{ forloop.counter }}</span>
-                                                {{ cat_data.category.name }}
-                                            </h5>
-                                            <span class="category-questions-count">
-                                                <i class="fas fa-chart-line"></i>
-                                                Пройдено {{ cat_data.answered_count }} из {{ cat_data.total_questions }}
-                                            </span>
-                                            {% if cat_data.total_questions %}
-                                            <a href="{% url 'directory:quiz:quiz_start_category' quiz_id=item.quiz.id category_id=cat_data.category.id %}"
-                                               class="btn btn-training">
-                                                <i class="fas fa-play"></i> Тренировка
-                                            </a>
-                                            {% else %}
-                                            <button class="btn btn-training" disabled>
-                                                <i class="fas fa-lock"></i> Недоступно
-                                            </button>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
+            <!-- Тело (разворачивается) -->
+            <div class="ql-collapsible" id="quiz-body-{{ item.quiz.id }}" style="max-height:9999px;">
 
-                            <!-- Итоговая проверка знаний -->
-                            <div class="exam-final-card">
-                                <div class="row align-items-center">
-                                    <div class="col-md-8">
-                                        <h3 class="mb-3">
-                                            <i class="fas fa-graduation-cap"></i>
-                                            Итоговая проверка знаний
-                                        </h3>
-                                        <p class="mb-3">
-                                            Когда будете готовы, приступайте к сдаче экзамена.
-                                            {% if item.quiz.exam_time_limit %}
-                                            У вас будет {{ item.quiz.exam_time_limit }} минут на {{ item.quiz.exam_total_questions }} вопросов.
-                                            {% endif %}
-                                        </p>
+                {% if item.quiz.description %}
+                <div style="padding:10px 18px;font-size:0.85rem;color:#6c757d;background:#fff;border-bottom:1px solid #f0f0f0;">
+                    {{ item.quiz.description }}
+                </div>
+                {% endif %}
 
-                                        <div class="stats-badges-wrapper mb-3">
-                                            <span class="stats-badge">
-                                                <i class="fas fa-list"></i> {{ item.quiz.exam_total_questions }} вопросов
-                                            </span>
-                                            <span class="stats-badge">
-                                                <i class="fas fa-clock"></i> {{ item.quiz.exam_time_limit }} минут
-                                            </span>
-                                            {% if item.quiz.exam_allowed_incorrect > 0 %}
-                                            <span class="stats-badge">
-                                                <i class="fas fa-exclamation-triangle"></i> Допустимо ошибок: {{ item.quiz.exam_allowed_incorrect }}
-                                            </span>
-                                            {% endif %}
-                                            <span class="stats-badge">
-                                                <i class="fas fa-random"></i> {{ item.quiz.random_order|yesno:"Случайный порядок,Фиксированный порядок" }}
-                                            </span>
-                                        </div>
-
-                                        <a href="{% url 'directory:quiz:quiz_start' quiz_id=item.quiz.id %}"
-                                           class="btn btn-exam">
-                                            <i class="fas fa-play-circle"></i> Начать экзамен
-                                        </a>
-                                    </div>
-                                    <div class="col-md-4 text-center">
-                                        <i class="fas fa-graduation-cap" style="font-size: 6rem; opacity: 0.15; color: rgba(255, 255, 255, 0.8);"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Подготовка по разделам -->
+                {% if item.categories %}
+                <div class="ql-section-title">🏋️ Подготовка — тренировки по разделам</div>
+                {% for cat_data in item.categories %}
+                <div class="ql-cat-row">
+                    <span class="ql-cat-num">{{ forloop.counter }}</span>
+                    <span class="ql-cat-name">{{ cat_data.category.name }}</span>
+                    <span class="ql-cat-progress">{{ cat_data.answered_count }} / {{ cat_data.total_questions }}</span>
+                    {% if cat_data.total_questions %}
+                    <a href="{% url 'directory:quiz:quiz_start_category' quiz_id=item.quiz.id category_id=cat_data.category.id %}"
+                       class="btn-ql-train">▶ Тренировка</a>
+                    {% else %}
+                    <span class="btn-ql-train disabled">🔒 Нет вопросов</span>
+                    {% endif %}
                 </div>
                 {% endfor %}
-            </div>
-            {% else %}
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> Пока нет доступных экзаменов.
+                {% endif %}
+
+                <!-- Итоговый экзамен -->
+                <div class="ql-exam-block">
+                    <div class="ql-exam-info">
+                        <div class="ql-exam-title">🎓 Итоговая проверка знаний</div>
+                        <div class="ql-exam-desc">
+                            Когда будете готовы, приступайте к сдаче экзамена.
+                            {% if item.quiz.exam_time_limit %}
+                            У вас будет {{ item.quiz.exam_time_limit }} минут на {{ item.quiz.exam_total_questions }} вопросов.
+                            {% endif %}
+                        </div>
+                        <div class="ql-exam-badges">
+                            <span class="ql-exam-badge">📋 {{ item.quiz.exam_total_questions }} вопросов</span>
+                            <span class="ql-exam-badge">⏱️ {{ item.quiz.exam_time_limit }} минут</span>
+                            {% if item.quiz.exam_allowed_incorrect > 0 %}
+                            <span class="ql-exam-badge">⚠️ Допустимо ошибок: {{ item.quiz.exam_allowed_incorrect }}</span>
+                            {% endif %}
+                            <span class="ql-exam-badge">{{ item.quiz.random_order|yesno:"🔀 Случайный порядок,📌 Фиксированный порядок" }}</span>
+                        </div>
+                    </div>
+                    <div style="text-align:center;width:100%;">
+                        <a href="{% url 'directory:quiz:quiz_start' quiz_id=item.quiz.id %}" class="btn-ql-exam"
+                           style="font-size:0.95rem;padding:10px 32px;border-radius:8px;">
+                            ▶ Начать экзамен
+                        </a>
+                    </div>
                 </div>
-            {% endif %}
+
+            </div>
         </div>
-    </div>
+        {% endfor %}
+    {% else %}
+        <div class="ql-empty">
+            <div style="font-size:2.5rem;margin-bottom:10px;">📝</div>
+            Пока нет доступных экзаменов.
+        </div>
+    {% endif %}
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleBlock(headerEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.getBoundingClientRect();
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+    }
+}
+</script>
 {% endblock %}

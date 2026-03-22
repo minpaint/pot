@@ -114,7 +114,6 @@
 /* Ответственные за ОТ */
 .safety-row:not([data-node-id]) td {
     background: #fffbf0 !important;
-    border-left: 3px solid #f39c12;
 }
 .safety-row:not([data-node-id]):hover td { background: #fff3cd !important; }
 
@@ -319,9 +318,8 @@
                             <td>{{ emp.position.position_name|default:"—" }}</td>
                             <td>
                                 <a href="{% url 'directory:employees:employee_update' emp.id %}"
-                                   class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;">✏️</a>
-                                <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
-                                   class="btn btn-sm btn-outline-success" style="font-size:0.72rem;padding:2px 8px;">🛡️</a>
+                                   class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;"
+                                   title="Редактировать сотрудника">✏️</a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -354,9 +352,8 @@
                             <td>{{ emp.position.position_name|default:"—" }}</td>
                             <td>
                                 <a href="{% url 'directory:employees:employee_update' emp.id %}"
-                                   class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;">✏️</a>
-                                <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
-                                   class="btn btn-sm btn-outline-success" style="font-size:0.72rem;padding:2px 8px;">🛡️</a>
+                                   class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;"
+                                   title="Редактировать сотрудника">✏️</a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -389,9 +386,8 @@
                             <td>{{ emp.position.position_name|default:"—" }}</td>
                             <td>
                                 <a href="{% url 'directory:employees:employee_update' emp.id %}"
-                                   class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;">✏️</a>
-                                <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
-                                   class="btn btn-sm btn-outline-success" style="font-size:0.72rem;padding:2px 8px;">🛡️</a>
+                                   class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;"
+                                   title="Редактировать сотрудника">✏️</a>
                             </td>
                         </tr>
                         {% endfor %}

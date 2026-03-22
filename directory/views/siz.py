@@ -40,8 +40,11 @@ class SIZListView(LoginRequiredMixin, ListView):
             self.request.user, self.request
         )
 
-        # Фильтрация списка сотрудников по доступным организациям
+        # Фильтрация списка сотрудников: по выбранной организации, иначе по всем доступным
+        selected_org_id = self.request.session.get('selected_org_id')
         employees = Employee.objects.filter(organization__in=accessible_orgs)
+        if selected_org_id:
+            employees = employees.filter(organization_id=selected_org_id)
         context['employees'] = employees.order_by('full_name_nominative')
 
         # Фильтрация последних выданных СИЗ по доступным организациям

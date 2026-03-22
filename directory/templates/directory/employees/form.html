@@ -1,40 +1,332 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+{{ form.media.css }}
+<style>
+/* ── Заголовок страницы ── */
+.ef-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.ef-page-header .ef-title { font-weight: 600; font-size: 1rem; flex: 1; }
+
+/* ── Карточка ── */
+.ef-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 18px;
+    background: #fff;
+}
+.ef-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ef-card-body { padding: 18px; }
+
+/* ── Поля формы ── */
+.ef-field { margin-bottom: 16px; }
+.ef-field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+}
+.ef-field input[type="text"],
+.ef-field input[type="email"],
+.ef-field input[type="date"],
+.ef-field input[type="number"],
+.ef-field select,
+.ef-field textarea {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ef-field input:focus,
+.ef-field select:focus,
+.ef-field textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+.ef-field textarea { resize: vertical; min-height: 70px; }
+.ef-field .helptext {
+    font-size: 0.75rem;
+    color: #9aa0ac;
+    margin-top: 3px;
+}
+.ef-field .errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: #c0392b;
+}
+
+/* Select2 интеграция */
+.ef-field .select2-container { width: 100% !important; }
+.ef-field .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    height: 35px;
+    padding: 4px 8px;
+    font-size: 0.88rem;
+}
+.ef-field .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 33px;
+}
+.ef-field .select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Сетка полей ── */
+.ef-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 20px;
+}
+.ef-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0 20px;
+}
+
+/* ── Чекбокс ── */
+.ef-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+}
+.ef-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+.ef-checkbox label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #2c3e50;
+    cursor: pointer;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* ── Панель кнопок ── */
+.ef-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .ef-grid-2,
+    .ef-grid-3 { grid-template-columns: 1fr; }
+    .ef-actions .btn { width: 100%; text-align: center; }
+    .ef-actions { flex-direction: column; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-    <h1>{{ title }}</h1>
-    <form method="post">
+<div class="container-fluid mt-3">
+
+    <!-- Заголовок -->
+    <div class="ef-page-header">
+        <span>{% if object %}✏️{% else %}➕{% endif %}</span>
+        <span class="ef-title">{{ title }}</span>
+        {% if object %}
+        <span style="font-size:0.82rem;opacity:0.8;">{{ object.full_name_nominative }}</span>
+        {% endif %}
+    </div>
+
+    <form method="post" novalidate>
         {% csrf_token %}
-        {% crispy form %}
+
+        <!-- Кнопки сверху -->
+        <div class="ef-card" style="margin-bottom:14px;">
+            <div class="ef-card-body" style="padding:10px 18px;">
+                <div class="ef-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Сохранить</button>
+                    <a href="{% if object %}{% url 'directory:employees:employee_profile' object.pk %}{% else %}{% url 'directory:employees:employee_list' %}{% endif %}"
+                       class="btn btn-sm btn-secondary">← Назад</a>
+                    {% if object %}
+                    <a href="{% url 'directory:employees:employee_delete' object.pk %}"
+                       class="btn btn-sm btn-outline-danger ms-auto">🗑️ Удалить</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Глобальные ошибки формы -->
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger" style="border-radius:10px;font-size:0.88rem;">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <!-- 1. Личные данные -->
+        <div class="ef-card">
+            <div class="ef-card-header">👤 Личные данные</div>
+            <div class="ef-card-body">
+                <div class="ef-grid-2">
+                    <div class="ef-field">
+                        <label for="{{ form.full_name_nominative.id_for_label }}">ФИО (именительный падеж)</label>
+                        {{ form.full_name_nominative }}
+                        {% if form.full_name_nominative.errors %}<ul class="errorlist">{% for e in form.full_name_nominative.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.full_name_by.id_for_label }}">ФИО (белорусский)</label>
+                        {{ form.full_name_by }}
+                        {% if form.full_name_by.errors %}<ul class="errorlist">{% for e in form.full_name_by.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.date_of_birth.id_for_label }}">Дата рождения</label>
+                        {{ form.date_of_birth }}
+                        {% if form.date_of_birth.errors %}<ul class="errorlist">{% for e in form.date_of_birth.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.email.id_for_label }}">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+                <div class="ef-field">
+                    <label for="{{ form.place_of_residence.id_for_label }}">Место проживания</label>
+                    {{ form.place_of_residence }}
+                    {% if form.place_of_residence.errors %}<ul class="errorlist">{% for e in form.place_of_residence.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Место работы -->
+        <div class="ef-card">
+            <div class="ef-card-header">🏢 Место работы</div>
+            <div class="ef-card-body">
+                <div class="ef-grid-2">
+                    <div class="ef-field">
+                        <label for="{{ form.organization.id_for_label }}">Организация</label>
+                        {{ form.organization }}
+                        {% if form.organization.errors %}<ul class="errorlist">{% for e in form.organization.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.subdivision.id_for_label }}">Подразделение</label>
+                        {{ form.subdivision }}
+                        {% if form.subdivision.errors %}<ul class="errorlist">{% for e in form.subdivision.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.department.id_for_label }}">Отдел</label>
+                        {{ form.department }}
+                        {% if form.department.errors %}<ul class="errorlist">{% for e in form.department.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.position.id_for_label }}">Должность</label>
+                        {{ form.position }}
+                        {% if form.position.errors %}<ul class="errorlist">{% for e in form.position.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Дополнительные сведения -->
+        <div class="ef-card">
+            <div class="ef-card-header">📊 Дополнительные сведения</div>
+            <div class="ef-card-body">
+                <div class="ef-grid-2">
+                    <div class="ef-field">
+                        <label for="{{ form.work_schedule.id_for_label }}">График работы</label>
+                        {{ form.work_schedule }}
+                        {% if form.work_schedule.errors %}<ul class="errorlist">{% for e in form.work_schedule.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.education_level.id_for_label }}">Образование</label>
+                        {{ form.education_level }}
+                        {% if form.education_level.errors %}<ul class="errorlist">{% for e in form.education_level.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+                <div class="ef-field">
+                    <label for="{{ form.prior_qualification.id_for_label }}">Имеющаяся квалификация</label>
+                    {{ form.prior_qualification }}
+                    {% if form.prior_qualification.errors %}<ul class="errorlist">{% for e in form.prior_qualification.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="ef-checkbox">
+                    {{ form.is_contractor }}
+                    <label for="{{ form.is_contractor.id_for_label }}">Подрядчик (сторонняя организация)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Размеры -->
+        <div class="ef-card">
+            <div class="ef-card-header">👕 Размеры для СИЗ</div>
+            <div class="ef-card-body">
+                <div class="ef-grid-3">
+                    <div class="ef-field">
+                        <label for="{{ form.height.id_for_label }}">Рост</label>
+                        {{ form.height }}
+                        {% if form.height.errors %}<ul class="errorlist">{% for e in form.height.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.clothing_size.id_for_label }}">Размер одежды</label>
+                        {{ form.clothing_size }}
+                        {% if form.clothing_size.errors %}<ul class="errorlist">{% for e in form.clothing_size.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.shoe_size.id_for_label }}">Размер обуви</label>
+                        {{ form.shoe_size }}
+                        {% if form.shoe_size.errors %}<ul class="errorlist">{% for e in form.shoe_size.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопки снизу -->
+        <div class="ef-card">
+            <div class="ef-card-body" style="padding:10px 18px;">
+                <div class="ef-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Сохранить</button>
+                    <a href="{% if object %}{% url 'directory:employees:employee_profile' object.pk %}{% else %}{% url 'directory:employees:employee_list' %}{% endif %}"
+                       class="btn btn-sm btn-secondary">← Назад</a>
+                </div>
+            </div>
+        </div>
+
     </form>
+</div>
+{% endblock %}
 
-    <script>
-        $(document).ready(function() {
-            $('#id_position').change(function() {
-                const positionId = $(this).val();
-                $.ajax({
-                    url: "{% url 'directory:api-subdivisions' %}",
-                    data: {
-                        organization: $('#id_position option:selected').data('organization')
-                    },
-                    success: function(data) {
-                        $('#id_subdivision').html('<option value="">---------</option>');
-                        data.forEach(subdivision => {
-                            $('#id_subdivision').append(
-                                `<option value="${subdivision.id}">${subdivision.name}</option>`
-                            );
-                        });
-                    }
-                });
-            });
-
-            // Заполняем данные организации при загрузке страницы, если должность уже выбрана
-            const initialPositionId = $('#id_position').val();
-            if (initialPositionId) {
-                $('#id_position').trigger('change');
-            }
-        });
-    </script>
+{% block extra_js %}
+{{ form.media.js }}
 {% endblock %}

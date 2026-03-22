@@ -471,6 +471,15 @@
                     </a>
                 </li>
                 {% endif %}
+
+                {% check_url_visibility user 'deadline_control:medical:list' as show_medical %}
+                {% if show_medical %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'deadline_control:medical:list' %}">
+                        🏥 Медосмотры
+                    </a>
+                </li>
+                {% endif %}
             </div>
 
             <!-- Секция: Контроль сроков -->
@@ -509,14 +518,6 @@
                 </li>
                 {% endif %}
 
-                {% check_url_visibility user 'deadline_control:medical:list' as show_medical %}
-                {% if show_medical %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'deadline_control:medical:list' %}">
-                        🏥 Медосмотры
-                    </a>
-                </li>
-                {% endif %}
             </div>
 
             <!-- Секция: Дополнительно -->
@@ -598,7 +599,7 @@
                     <!-- Кнопка "Выдать направление кандидату" -->
                     {% check_url_visibility user 'deadline_control:medical:referral_new_employee' as show_referral_btn %}
                     {% if show_referral_btn %}
-                    <a href="{% url 'deadline_control:medical:referral_new_employee' %}" class="btn btn-sm btn-primary">
+                    <a href="{% url 'deadline_control:medical:referral_new_employee' %}" class="btn btn-sm" style="background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; border: none;">
                         🏥 <span class="btn-text-full">Выдать направление кандидату</span><span class="btn-text-short">Направление</span>
                     </a>
                     {% endif %}

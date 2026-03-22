@@ -1,128 +1,296 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}🛡️ СИЗ{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Заголовок страницы ── */
+.sl-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.sl-page-header .sl-title { font-weight: 600; font-size: 1rem; flex: 1; }
+.sl-page-header .sl-sub   { font-size: 0.82rem; opacity: 0.8; width: 100%; margin-top: -4px; }
+
+/* ── Панель действий ── */
+.sl-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ── Карточки быстрых действий ── */
+.sl-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+}
+.sl-action-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    background: #fff;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sl-action-card .sl-ac-icon { font-size: 1.6rem; }
+.sl-action-card .sl-ac-title { font-weight: 600; font-size: 0.92rem; color: #2c3e50; }
+.sl-action-card .sl-ac-text  { font-size: 0.82rem; color: #6c757d; flex: 1; }
+
+/* ── Карточка таблицы ── */
+.sl-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+}
+.sl-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Таблица ── */
+.sl-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.sl-table th {
+    padding: 8px 14px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+.sl-table td {
+    padding: 9px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f5f5f5;
+    background: #fff;
+}
+.sl-table tbody tr:hover td { background: #f0f7ff; }
+
+/* ── Бейджи ── */
+.sl-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.sl-badge-active   { background: #d1f5d3; color: #1e7e34; }
+.sl-badge-returned { background: #f0f0f0; color: #888; }
+
+/* ── Действия в строке ── */
+.sl-row-acts { white-space: nowrap; text-align: right; }
+.sl-row-acts .btn { font-size: 0.7rem; padding: 2px 7px; }
+
+/* ── Модальное окно ── */
+.sl-modal-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border-radius: 10px 10px 0 0;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sl-modal-header .sl-modal-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+.sl-modal-header .btn-close { filter: invert(1); opacity: 0.8; }
+.sl-modal .modal-content { border: none; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.sl-modal .modal-body { padding: 20px; }
+.sl-modal .modal-footer { border-top: 1px solid #f0f0f0; padding: 12px 18px; }
+.sl-modal label.field-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+}
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .sl-topbar { flex-direction: column; align-items: stretch; }
+    .sl-topbar .btn { width: 100%; text-align: center; }
+    .sl-actions-grid { grid-template-columns: 1fr; }
+
+    .sl-table thead { display: none; }
+    .sl-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
+    .sl-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 12px;
+        border: none;
+        font-size: 0.82rem;
+    }
+    .sl-table td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        color: #999;
+        font-weight: 600;
+        margin-right: 8px;
+        flex-shrink: 0;
+    }
+    .sl-table td.td-acts { justify-content: flex-end; }
+    .sl-table td.td-acts::before { content: none; }
+
+    .sl-modal .modal-footer .btn { width: 100%; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row mb-4">
-        <div class="col">
-            <h1>🛡️ Средства индивидуальной защиты</h1>
-            <p class="lead">Учет и выдача СИЗ сотрудникам</p>
+<div class="container-fluid mt-3">
+
+    <!-- Заголовок -->
+    <div class="sl-page-header">
+        <span>🛡️</span>
+        <span class="sl-title">Средства индивидуальной защиты</span>
+        <span class="sl-sub">Учёт и выдача СИЗ сотрудникам</span>
+    </div>
+
+    <!-- Панель действий -->
+    <div class="sl-topbar">
+        <a href="{% url 'directory:siz:siz_issue' %}" class="btn btn-sm btn-primary">
+            📤 Выдать СИЗ
+        </a>
+        <a href="#" class="btn btn-sm btn-secondary" onclick="showEmployeeSelector(); return false;">
+            👤 Личная карточка
+        </a>
+        <a href="{% url 'directory:siz:mass_generation' %}" class="btn btn-sm btn-outline-secondary">
+            📋 Массовая генерация
+        </a>
+        {% if user.is_staff %}
+        <a href="{% url 'admin:directory_siz_add' %}" class="btn btn-sm btn-outline-secondary">
+            ➕ Добавить СИЗ
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Карточки быстрых действий -->
+    <div class="sl-actions-grid">
+        <div class="sl-action-card">
+            <div class="sl-ac-icon">📤</div>
+            <div class="sl-ac-title">Выдача СИЗ</div>
+            <div class="sl-ac-text">Оформление выдачи СИЗ сотрудникам с формированием личной карточки учёта.</div>
+            <div>
+                <a href="{% url 'directory:siz:siz_issue' %}" class="btn btn-sm btn-primary">Перейти</a>
+            </div>
         </div>
-        <div class="col-auto d-flex align-items-center">
-            {% if user.is_staff %}
-            <a href="{% url 'admin:directory_siz_add' %}" class="btn btn-success me-2">
-                <i class="fas fa-plus"></i> Добавить СИЗ
-            </a>
-            {% endif %}
-            <a href="{% url 'directory:siz:siz_issue' %}" class="btn btn-primary">
-                <i class="fas fa-hand-holding"></i> Выдать СИЗ
-            </a>
+        <div class="sl-action-card">
+            <div class="sl-ac-icon">👤</div>
+            <div class="sl-ac-title">Личные карточки</div>
+            <div class="sl-ac-text">Просмотр личных карточек учёта выдачи СИЗ сотрудникам.</div>
+            <div>
+                <a href="#" class="btn btn-sm btn-secondary" onclick="showEmployeeSelector(); return false;">Выбрать сотрудника</a>
+            </div>
         </div>
     </div>
 
-    <!-- Карточки с основными функциями -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">📋 Выдача СИЗ</h5>
-                    <p class="card-text">Оформление выдачи СИЗ сотрудникам с формированием личной карточки учета.</p>
-                    <a href="{% url 'directory:siz:siz_issue' %}" class="btn btn-outline-primary">Перейти</a>
-                </div>
-            </div>
+    <!-- Таблица последних выданных СИЗ -->
+    <div class="sl-card">
+        <div class="sl-card-header">
+            <span>📊</span> Недавно выданные СИЗ
         </div>
-        <div class="col-md-4 mb-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">👤 Личные карточки</h5>
-                    <p class="card-text">Просмотр личных карточек учета выдачи СИЗ сотрудникам.</p>
-                    <a href="#" class="btn btn-outline-primary" onclick="showEmployeeSelector()">Выбрать сотрудника</a>
-                </div>
-            </div>
-        </div>
+        <table class="sl-table">
+            <thead>
+                <tr>
+                    <th>Дата выдачи</th>
+                    <th>Сотрудник</th>
+                    <th>СИЗ</th>
+                    <th>Кол-во</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in recent_issued %}
+                <tr>
+                    <td data-label="Дата выдачи">{{ item.issue_date|date:"d.m.Y" }}</td>
+                    <td data-label="Сотрудник">{{ item.employee }}</td>
+                    <td data-label="СИЗ">{{ item.siz }}</td>
+                    <td data-label="Кол-во">{{ item.quantity }}</td>
+                    <td data-label="Статус">
+                        {% if item.is_returned %}
+                            <span class="sl-badge sl-badge-returned">⚪ Возвращено</span>
+                        {% else %}
+                            <span class="sl-badge sl-badge-active">🟢 Активно</span>
+                        {% endif %}
+                    </td>
+                    <td class="td-acts sl-row-acts">
+                        <a href="{% url 'directory:siz:siz_personal_card' item.employee.id %}"
+                           class="btn btn-sm btn-outline-secondary" title="Личная карточка">🪪</a>
+                        {% if not item.is_returned %}
+                        <a href="{% url 'directory:siz:siz_return' item.id %}"
+                           class="btn btn-sm btn-outline-warning" title="Возврат">↩️</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding:28px;text-align:center;color:#9aa0ac;font-size:0.88rem;">
+                        Нет недавно выданных СИЗ
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    <!-- Список недавно выданных СИЗ -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5>📊 Недавно выданные СИЗ</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th>Дата выдачи</th>
-                            <th>Сотрудник</th>
-                            <th>СИЗ</th>
-                            <th>Количество</th>
-                            <th>Статус</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in recent_issued %}
-                        <tr>
-                            <td>{{ item.issue_date|date:"d.m.Y" }}</td>
-                            <td>{{ item.employee }}</td>
-                            <td>{{ item.siz }}</td>
-                            <td>{{ item.quantity }}</td>
-                            <td>
-                                {% if item.is_returned %}
-                                <span class="badge bg-secondary">Возвращено</span>
-                                {% else %}
-                                <span class="badge bg-success">Активно</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="{% url 'directory:siz:siz_personal_card' item.employee.id %}" class="btn btn-sm btn-outline-info">
-                                    <i class="fas fa-id-card"></i>
-                                </a>
-                                {% if not item.is_returned %}
-                                <a href="{% url 'directory:siz:siz_return' item.id %}" class="btn btn-sm btn-outline-warning">
-                                    <i class="fas fa-undo"></i>
-                                </a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center">Нет недавно выданных СИЗ</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- Модальное окно для выбора сотрудника -->
-<div class="modal fade" id="employeeSelectModal" tabindex="-1" aria-labelledby="employeeSelectModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<!-- Модальное окно выбора сотрудника -->
+<div class="modal fade sl-modal" id="employeeSelectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="employeeSelectModalLabel">Выбор сотрудника</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="sl-modal-header">
+                <span>👤</span>
+                <span class="sl-modal-title">Выбор сотрудника</span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
             </div>
             <div class="modal-body">
-                <form id="employeeSelectForm">
-                    <div class="mb-3">
-                        <label for="employeeSelect" class="form-label">Выберите сотрудника</label>
-                        <select class="form-select" id="employeeSelect" required>
-                            <option value="">Выберите сотрудника...</option>
-                            {% for employee in employees %}
-                            <option value="{{ employee.id }}">{{ employee.full_name_nominative }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </form>
+                <label class="field-label" for="employeeSelect">Сотрудник</label>
+                <select class="form-select form-select-sm" id="employeeSelect">
+                    <option value="">— Выберите сотрудника —</option>
+                    {% for employee in employees %}
+                    <option value="{{ employee.id }}">{{ employee.full_name_nominative }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-primary" id="goToEmployeeCardBtn">Перейти</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-sm btn-primary" id="goToEmployeeCardBtn">Перейти →</button>
             </div>
         </div>
     </div>
@@ -131,13 +299,10 @@
 
 {% block extra_js %}
 <script>
-// Функция для показа модального окна выбора сотрудника
 function showEmployeeSelector() {
-    const modal = new bootstrap.Modal(document.getElementById('employeeSelectModal'));
-    modal.show();
+    new bootstrap.Modal(document.getElementById('employeeSelectModal')).show();
 }
 
-// Обработчик кнопки перехода к карточке сотрудника
 document.getElementById('goToEmployeeCardBtn').addEventListener('click', function() {
     const employeeId = document.getElementById('employeeSelect').value;
     if (employeeId) {

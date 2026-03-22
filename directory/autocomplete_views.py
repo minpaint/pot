@@ -393,6 +393,41 @@ class EmployeeAutocomplete(autocomplete.Select2QuerySetView):
         return f"{result.full_name_nominative} - {position}"
 
 
+class EmployeeForSIZAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Автодополнение сотрудников для формы выдачи СИЗ.
+    Фильтрует по организациям пользователя без обязательного forwarded.
+    """
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Employee.objects.none()
+
+        qs = Employee.objects.exclude(status__in=['candidate', 'fired'])
+
+        is_admin = self.request.user.is_superuser or self.request.user.is_staff
+
+        # Приоритет: организация из хэдера (сессия), затем — профиль пользователя
+        selected_org_id = self.request.session.get('selected_org_id')
+        if selected_org_id:
+            # Проверяем, что пользователь имеет доступ к этой организации
+            if is_admin or (hasattr(self.request.user, 'profile') and
+                            self.request.user.profile.organizations.filter(id=selected_org_id).exists()):
+                qs = qs.filter(organization_id=selected_org_id)
+            elif not is_admin and hasattr(self.request.user, 'profile'):
+                qs = qs.filter(organization__in=self.request.user.profile.organizations.all())
+        elif not is_admin and hasattr(self.request.user, 'profile'):
+            qs = qs.filter(organization__in=self.request.user.profile.organizations.all())
+
+        if self.q:
+            qs = qs.filter(full_name_nominative__icontains=self.q)
+
+        return qs.select_related('organization', 'position').order_by('full_name_nominative')
+
+    def get_result_label(self, result):
+        position = result.position.position_name if result.position else "Без должности"
+        return f"{result.full_name_nominative} — {position}"
+
+
 class EmployeeForCommissionAutocomplete(autocomplete.Select2QuerySetView):
     """
     👤 Автодополнение для выбора сотрудников в комиссию с учетом иерархии

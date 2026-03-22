@@ -234,8 +234,8 @@
     .emp-row .emp-name { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .emp-row .emp-position { margin-left: 0 !important; font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Кнопка скачать — компактная, не сжимается */
-    .emp-row .btn-act { flex-shrink: 0; font-size: 0.75rem; padding: 3px 8px; margin-left: 8px !important; }
+    /* Кнопки справа — компактные, не сжимаются */
+    .emp-row .btn-act { flex-shrink: 0; font-size: 0.75rem; padding: 3px 8px; margin-left: 0 !important; }
 
     /* Таблица массовой генерации (вкладка 2) */
     .mass-table thead { display: none; }
@@ -320,10 +320,17 @@
                             <span class="emp-name">{{ emp.full_name_nominative }}</span>
                             <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
                         </span>
-                        <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                           class="btn btn-sm btn-outline-success btn-act ms-2 js-single-card"
-                           data-employee-id="{{ emp.id }}"
-                           title="Скачать карточку СИЗ">📥</a>
+                        <span style="display:inline-flex;gap:4px;flex-shrink:0;margin-left:8px;">
+                            <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                               class="btn btn-sm btn-outline-success btn-act js-single-card"
+                               data-employee-id="{{ emp.id }}"
+                               data-bs-toggle="tooltip" data-bs-placement="top"
+                               title="Скачать карточку СИЗ (DOCX)">📥</a>
+                            <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
+                               class="btn btn-sm btn-outline-primary btn-act"
+                               data-bs-toggle="tooltip" data-bs-placement="top"
+                               title="Открыть личную карточку СИЗ">🦺</a>
+                        </span>
                     </div>
                     {% endfor %}
 
@@ -341,10 +348,17 @@
                                 <span class="emp-name">{{ emp.full_name_nominative }}</span>
                                 <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
                             </span>
-                            <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                               class="btn btn-sm btn-outline-success btn-act ms-2 js-single-card"
-                               data-employee-id="{{ emp.id }}"
-                               title="Скачать карточку СИЗ">📥</a>
+                            <span style="display:inline-flex;gap:4px;flex-shrink:0;margin-left:8px;">
+                                <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                                   class="btn btn-sm btn-outline-success btn-act js-single-card"
+                                   data-employee-id="{{ emp.id }}"
+                                   data-bs-toggle="tooltip" data-bs-placement="top"
+                                   title="Скачать карточку СИЗ (DOCX)">📥</a>
+                                <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
+                                   class="btn btn-sm btn-outline-primary btn-act"
+                                   data-bs-toggle="tooltip" data-bs-placement="top"
+                                   title="Открыть личную карточку СИЗ">🦺</a>
+                            </span>
                         </div>
                         {% endfor %}
                     </div>
@@ -372,10 +386,17 @@
                     <span class="emp-name">{{ emp.full_name_nominative }}</span>
                     <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
                 </span>
-                <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                   class="btn btn-sm btn-outline-success btn-act ms-2 js-single-card"
-                   data-employee-id="{{ emp.id }}"
-                   title="Скачать карточку СИЗ">📥</a>
+                <span style="display:inline-flex;gap:4px;flex-shrink:0;margin-left:8px;">
+                    <a href="{% url 'directory:siz:siz_card' emp.id %}"
+                       class="btn btn-sm btn-outline-success btn-act js-single-card"
+                       data-employee-id="{{ emp.id }}"
+                       data-bs-toggle="tooltip" data-bs-placement="top"
+                       title="Скачать карточку СИЗ (DOCX)">📥</a>
+                    <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
+                       class="btn btn-sm btn-outline-primary btn-act"
+                       data-bs-toggle="tooltip" data-bs-placement="top"
+                       title="Открыть личную карточку СИЗ">🦺</a>
+                </span>
             </div>
             {% endfor %}
         </div>
@@ -578,6 +599,13 @@
 
 {% block extra_js %}
 <script>
+// Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+        new bootstrap.Tooltip(el);
+    });
+});
+
 // Переключение вкладок
 document.querySelectorAll('.siz-tab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {

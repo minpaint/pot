@@ -1,208 +1,576 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load crispy_forms_tags %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}📤 Выдача СИЗ{% endblock %}
 
 {% block extra_css %}
+{{ form.media.css }}
 <style>
-    /* 🎨 Стили для группировки СИЗ по условиям */
-    .siz-group {
-        margin-bottom: 15px;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-    }
-    
-    .siz-group-header {
-        padding: 10px 15px;
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-        font-weight: bold;
-    }
-    
-    .siz-group-body {
-        padding: 15px;
-    }
-    
-    .siz-item {
-        padding: 10px;
-        border-bottom: 1px solid #eee;
-    }
-    
-    .siz-item:last-child {
-        border-bottom: none;
-    }
-    
-    .siz-item:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .siz-checkbox-label {
-        font-weight: 500;
-    }
-    
-    .siz-details {
-        display: none;
-        padding: 10px 0 0 25px;
-    }
-    
-    .siz-details.visible {
-        display: block;
-    }
-    
-    /* 🛡️ Иконки для статусов СИЗ */
-    .siz-status-icon {
-        margin-right: 5px;
-    }
-    
-    .wear-good {
-        color: #28a745;
-    }
-    
-    .wear-medium {
-        color: #ffc107;
-    }
-    
-    .wear-bad {
-        color: #dc3545;
-    }
+/* ── Заголовок ── */
+.si-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.si-page-header .si-title { font-weight: 600; font-size: 1rem; flex: 1; }
+
+/* ── Карточка ── */
+.si-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 18px;
+    background: #fff;
+}
+.si-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.si-card-body { padding: 18px; }
+
+/* ── Поля формы ── */
+.si-field { margin-bottom: 16px; }
+.si-field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+}
+.si-field input[type="text"],
+.si-field input[type="date"],
+.si-field input[type="number"],
+.si-field select,
+.si-field textarea {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.si-field input:focus,
+.si-field select:focus,
+.si-field textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+.si-field textarea { resize: vertical; min-height: 70px; }
+.si-field .errorlist {
+    list-style: none; padding: 0; margin: 4px 0 0;
+    font-size: 0.78rem; color: #c0392b;
+}
+
+/* Select2 интеграция */
+.si-field .select2-container { width: 100% !important; }
+.si-field .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    height: 35px;
+    padding: 4px 8px;
+    font-size: 0.88rem;
+}
+.si-field .select2-container--default .select2-selection--single .select2-selection__arrow { height: 33px; }
+.si-field .select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+/* ── Сетка ── */
+.si-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+
+/* ── Чекбокс ── */
+.si-checkbox { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.si-checkbox input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+.si-checkbox label {
+    font-size: 0.88rem; font-weight: 600; color: #2c3e50;
+    cursor: pointer; margin: 0; text-transform: none; letter-spacing: 0;
+}
+
+/* ── Инфо сотрудника ── */
+.si-emp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+.si-emp-item dt {
+    font-size: 0.72rem; font-weight: 600; color: #9aa0ac;
+    text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;
+}
+.si-emp-item dd {
+    font-size: 0.88rem; font-weight: 600; color: #2c3e50;
+    margin: 0; padding: 4px 8px;
+    background: #f8f9fa; border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+/* ── Панель кнопок ── */
+.si-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ── Группы СИЗ ── */
+.si-group-list { display: flex; flex-direction: column; gap: 14px; }
+.si-group {
+    padding: 14px 16px;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    background: #f8f9fa;
+}
+.si-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.si-group-header strong { font-size: 0.88rem; color: #2c3e50; }
+.si-group-body {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+.si-group-body .si-grid-2 { gap: 0 12px; }
+.si-group-summary {
+    margin-top: 10px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: #e3eef8;
+    color: #1a5276;
+    font-size: 0.82rem;
+}
+.si-group-summary.empty { background: #f0f0f0; color: #999; }
+/* Select2 multiple в группах */
+.si-group .select2-container { width: 100% !important; }
+.si-group .select2-container--default .select2-selection--multiple {
+    min-height: 38px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    background: #fff;
+    padding: 4px 6px;
+}
+.si-group .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background: #eef6ff;
+    border: 1px solid #bfd3e6;
+    border-radius: 5px;
+    color: #234566;
+    font-size: 0.82rem;
+    padding: 1px 6px 1px 20px;
+    margin: 2px;
+}
+.si-group-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.si-group-total {
+    margin-top: 10px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    background: #eef6ff;
+    color: #1d4f7a;
+    font-size: 0.84rem;
+    display: none;
+}
+
+/* ── Мобильная адаптация ── */
+@media (max-width: 767px) {
+    .si-grid-2 { grid-template-columns: 1fr; }
+    .si-actions .btn { width: 100%; text-align: center; }
+    .si-actions { flex-direction: column; }
+    .si-group-body { grid-template-columns: 1fr; }
+    .si-group-actions { flex-direction: column; }
+    .si-group-actions .btn { width: 100%; text-align: center; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>{{ title }}</h1>
-    
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3>👤 Информация о сотруднике</h3>
-        </div>
-        <div class="card-body">
-            {% if employee %}
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>ФИО:</strong> {{ employee.full_name_nominative }}</p>
-                    <p><strong>Дата рождения:</strong> {{ employee.date_of_birth|date:"d.m.Y" }}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Организация:</strong> {{ employee.organization }}</p>
-                    {% if employee.subdivision %}
-                    <p><strong>Подразделение:</strong> {{ employee.subdivision }}</p>
-                    {% endif %}
-                    {% if employee.department %}
-                    <p><strong>Отдел:</strong> {{ employee.department }}</p>
-                    {% endif %}
-                    {% if employee.position %}
-                    <p><strong>Должность:</strong> {{ employee.position }}</p>
-                    {% endif %}
+<div class="container-fluid mt-3">
+
+    <!-- Заголовок -->
+    <div class="si-page-header">
+        <span>📤</span>
+        <span class="si-title">Выдача СИЗ</span>
+        {% if employee %}
+        <span style="font-size:0.82rem;opacity:0.8;">{{ employee.full_name_nominative }}</span>
+        {% endif %}
+    </div>
+
+    <form method="post" id="siz-issue-form" novalidate>
+        {% csrf_token %}
+
+        <!-- Кнопки сверху -->
+        <div class="si-card" style="margin-bottom:14px;">
+            <div class="si-card-body" style="padding:10px 18px;">
+                <div class="si-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Выдать СИЗ</button>
+                    <a href="{% url 'directory:siz:siz_list' %}" class="btn btn-sm btn-secondary">← Назад</a>
                 </div>
             </div>
-            {% endif %}
+        </div>
+
+        <!-- Глобальные ошибки -->
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger" style="border-radius:10px;font-size:0.88rem;">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <!-- Выбор сотрудника -->
+        <div class="si-card">
+            <div class="si-card-header">👤 Сотрудник</div>
+            <div class="si-card-body">
+                <div class="si-field">
+                    <label for="{{ form.employee.id_for_label }}">Выберите сотрудника</label>
+                    {{ form.employee }}
+                    {% if form.employee.errors %}<ul class="errorlist">{% for e in form.employee.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+
+                {% if employee %}
+                <!-- Инфо о выбранном сотруднике -->
+                <dl class="si-emp-grid" style="margin-top:4px;">
+                    <div class="si-emp-item">
+                        <dt>Организация</dt>
+                        <dd>{{ employee.organization }}</dd>
+                    </div>
+                    {% if employee.subdivision %}
+                    <div class="si-emp-item">
+                        <dt>Подразделение</dt>
+                        <dd>{{ employee.subdivision }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if employee.department %}
+                    <div class="si-emp-item">
+                        <dt>Отдел</dt>
+                        <dd>{{ employee.department }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if employee.position %}
+                    <div class="si-emp-item">
+                        <dt>Должность</dt>
+                        <dd>{{ employee.position }}</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Данные выдачи -->
+        <div class="si-card">
+            <div class="si-card-header">🛡️ Данные выдачи</div>
+            <div class="si-card-body">
+                <div class="si-grid-2">
+                    <div class="si-field">
+                        <label for="{{ form.siz.id_for_label }}">СИЗ</label>
+                        {{ form.siz }}
+                        {% if form.siz.errors %}<ul class="errorlist">{% for e in form.siz.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="si-field">
+                        <label for="{{ form.issue_date.id_for_label }}">Дата выдачи</label>
+                        {{ form.issue_date }}
+                        {% if form.issue_date.errors %}<ul class="errorlist">{% for e in form.issue_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="si-field">
+                        <label for="{{ form.quantity.id_for_label }}">Количество</label>
+                        {{ form.quantity }}
+                        {% if form.quantity.errors %}<ul class="errorlist">{% for e in form.quantity.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="si-field">
+                        <label for="{{ form.cost.id_for_label }}">Стоимость</label>
+                        {{ form.cost }}
+                        {% if form.cost.errors %}<ul class="errorlist">{% for e in form.cost.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+                <div class="si-field">
+                    <label for="{{ form.condition.id_for_label }}">Условие выдачи</label>
+                    {{ form.condition }}
+                    {% if form.condition.errors %}<ul class="errorlist">{% for e in form.condition.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    {% if form.condition.help_text %}<div style="font-size:0.75rem;color:#9aa0ac;margin-top:3px;">{{ form.condition.help_text }}</div>{% endif %}
+                </div>
+                <div class="si-field">
+                    <label for="{{ form.notes.id_for_label }}">Примечания</label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}<ul class="errorlist">{% for e in form.notes.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="si-checkbox">
+                    {{ form.received_signature }}
+                    <label for="{{ form.received_signature.id_for_label }}">Подпись о получении</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопки снизу -->
+        <div class="si-card">
+            <div class="si-card-body" style="padding:10px 18px;">
+                <div class="si-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Выдать СИЗ</button>
+                    <a href="{% url 'directory:siz:siz_list' %}" class="btn btn-sm btn-secondary">← Назад</a>
+                </div>
+            </div>
+        </div>
+
+    </form>
+
+    {% if employee %}
+    <!-- ── Групповая выдача СИЗ ── -->
+    <div class="si-card" style="margin-top:4px;">
+        <div class="si-card-header" style="background:linear-gradient(135deg,#1e7e34 0%,#28a745 100%);color:#fff;border:none;">
+            📦 Групповая выдача СИЗ
+        </div>
+        <div class="si-card-body">
+
+            <form method="post" action="{% url 'directory:siz:issue_group_siz' employee.pk %}" id="siz-group-form">
+                {% csrf_token %}
+
+                <!-- Общая дата выдачи -->
+                <div class="si-field" style="max-width:240px;margin-bottom:18px;">
+                    <label>Дата выдачи</label>
+                    <input type="date" name="group_issue_date" value="{{ today }}"
+                           style="width:100%;border:1px solid #ced4da;border-radius:6px;padding:7px 10px;font-size:0.88rem;">
+                </div>
+
+                <!-- Список групп -->
+                <div id="sg-group-list" class="si-group-list"></div>
+
+                <!-- Кнопки управления группами -->
+                <div class="si-group-actions" style="margin-top:14px;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="sg-add-group">➕ Добавить группу</button>
+                </div>
+
+                <!-- Итог -->
+                <div id="sg-total" class="si-group-total"></div>
+
+                <!-- Скрытое поле с JSON -->
+                <input type="hidden" name="groups_json" id="sg-groups-json">
+
+                <div style="margin-top:14px;">
+                    <button type="submit" class="btn btn-sm btn-success" id="sg-submit">✅ Выдать все группы</button>
+                </div>
+            </form>
+
         </div>
     </div>
-    
-    <form method="post" id="siz-issue-form">
-        {% csrf_token %}
-        {% crispy form %}
-    </form>
+
+    <!-- Шаблон группы (рендерится Django, клонируется JS) -->
+    <template id="sg-group-template">
+        <div class="si-group" data-group-index="__idx__">
+            <div class="si-group-header">
+                <strong class="sg-group-title">Группа __num__</strong>
+                <button type="button" class="btn btn-sm btn-outline-danger js-sg-remove">🗑️</button>
+            </div>
+            <div class="si-group-body">
+                <div class="si-field">
+                    <label>СИЗ <span style="font-weight:400;color:#9aa0ac;">(можно несколько)</span></label>
+                    <select class="js-sg-siz" multiple>
+                        {% for s in all_siz_choices %}
+                        <option value="{{ s.id }}"{% if s.is_norm %} data-norm="1"{% endif %}>{{ s.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <div class="si-field">
+                        <label>Условие выдачи</label>
+                        <input type="text" class="js-sg-condition" list="sg-condition-datalist"
+                               placeholder="Пусто = основная норма"
+                               style="width:100%;border:1px solid #ced4da;border-radius:6px;padding:7px 10px;font-size:0.88rem;">
+                    </div>
+                    <div class="si-grid-2" style="margin-top:0;">
+                        <div class="si-field">
+                            <label>Количество</label>
+                            <input type="number" class="js-sg-quantity" value="1" min="1"
+                                   style="width:100%;border:1px solid #ced4da;border-radius:6px;padding:7px 10px;font-size:0.88rem;">
+                        </div>
+                        <div class="si-field">
+                            <label>Стоимость</label>
+                            <input type="text" class="js-sg-cost" placeholder="0.00"
+                                   style="width:100%;border:1px solid #ced4da;border-radius:6px;padding:7px 10px;font-size:0.88rem;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="si-group-summary empty">СИЗ не выбраны.</div>
+        </div>
+    </template>
+
+    <datalist id="sg-condition-datalist">
+        {% for c in condition_list %}<option value="{{ c }}">{% endfor %}
+    </datalist>
+
+    {% endif %}
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
+{{ form.media.js }}
+<span id="issue-emp-url" data-url="{% url 'directory:siz:siz_issue_for_employee' 0 %}" hidden></span>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('siz-issue-form');
-        const employeeSelect = document.getElementById('id_employee');
-        const groupsContainer = document.getElementById('siz-groups-container');
-        
-        // 🔄 Обновление полей при изменении сотрудника
-        if (employeeSelect) {
-            employeeSelect.addEventListener('change', function() {
-                form.submit();
-            });
-        }
-        
-        // 🔍 Обработка чекбоксов для выбора СИЗ
-        const sizCheckboxes = document.querySelectorAll('.siz-select');
-        sizCheckboxes.forEach(function(checkbox) {
-            const normId = checkbox.dataset.normId;
-            const detailsDiv = document.querySelector(`.siz-details[data-norm-id="${normId}"]`);
-            
-            // Изначально показываем или скрываем поля в зависимости от состояния чекбокса
-            if (detailsDiv) {
-                detailsDiv.classList.toggle('visible', checkbox.checked);
-            }
-            
-            // Обработчик события для переключения видимости
-            checkbox.addEventListener('change', function() {
-                if (detailsDiv) {
-                    detailsDiv.classList.toggle('visible', this.checked);
-                }
-            });
-        });
-        
-        // 📋 Группировка СИЗ по условиям
-        const sizItems = Array.from(document.querySelectorAll('.siz-select'));
-        const conditions = {};
-        
-        // Собираем все условия из атрибутов данных
-        sizItems.forEach(function(item) {
-            const condition = item.dataset.condition || 'Основная норма';
-            if (!conditions[condition]) {
-                conditions[condition] = [];
-            }
-            
-            // Находим родительский div (содержащий чекбокс и связанные поля)
-            let sizItem = item.closest('.form-group');
-            if (!sizItem) {
-                sizItem = item.closest('.row');
-            }
-            
-            if (sizItem) {
-                conditions[condition].push(sizItem);
-            }
-        });
-        
-        // Создаем группы для каждого условия
-        if (groupsContainer) {
-            // Очищаем контейнер перед добавлением групп
-            groupsContainer.innerHTML = '';
-            
-            Object.keys(conditions).forEach(function(condition) {
-                const items = conditions[condition];
-                if (items.length > 0) {
-                    // Создаем группу
-                    const group = document.createElement('div');
-                    group.className = 'siz-group mb-4';
-                    
-                    // Заголовок группы
-                    const header = document.createElement('div');
-                    header.className = 'siz-group-header';
-                    header.textContent = condition;
-                    
-                    // Тело группы
-                    const body = document.createElement('div');
-                    body.className = 'siz-group-body';
-                    
-                    // Перемещаем элементы в группу
-                    items.forEach(function(item) {
-                        const container = item.parentNode;
-                        const clone = item.cloneNode(true);
-                        body.appendChild(clone);
-                        
-                        // Если элемент в контейнере, удаляем его из текущего места
-                        if (container && container.contains(item)) {
-                            container.removeChild(item);
-                        }
-                    });
-                    
-                    // Собираем группу
-                    group.appendChild(header);
-                    group.appendChild(body);
-                    groupsContainer.appendChild(group);
-                }
-            });
+$(document).ready(function() {
+
+    {% if employee %}
+    // Предзаполняем поле сотрудника — DAL AJAX-виджет не рендерит initial в HTML
+    var $empField = $('#id_employee');
+    var empOption = new Option(
+        "{{ employee.full_name_nominative|escapejs }}{% if employee.position %} — {{ employee.position.position_name|escapejs }}{% endif %}",
+        "{{ employee.pk }}",
+        true, true
+    );
+    $empField.append(empOption).trigger('change');
+    {% endif %}
+
+    // При выборе/смене сотрудника через DAL — переходим на его страницу выдачи
+    $('#id_employee').on('change', function() {
+        const empId = $(this).val();
+        if (empId && empId !== "{{ employee.pk|default:'' }}") {
+            const urlTpl = document.getElementById('issue-emp-url').dataset.url;
+            window.location.href = urlTpl.replace('/0/', '/' + empId + '/');
         }
     });
+
+    // Select2 на поле СИЗ
+    $('#id_siz').select2({
+        placeholder: '— Выберите СИЗ —',
+        allowClear: true,
+        width: '100%',
+    });
+
+});
 </script>
+
+{% if employee %}
+<script>
+// ── Групповая выдача СИЗ ──
+(function() {
+    var groupList    = document.getElementById('sg-group-list');
+    var addBtn       = document.getElementById('sg-add-group');
+    var totalEl      = document.getElementById('sg-total');
+    var jsonField    = document.getElementById('sg-groups-json');
+    var groupForm    = document.getElementById('siz-group-form');
+    var tplEl        = document.getElementById('sg-group-template');
+    var groupCount   = 0;
+
+    function buildGroup() {
+        var html = tplEl.innerHTML
+            .replace(/__idx__/g, groupCount)
+            .replace(/__num__/g, groupCount + 1);
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var groupEl = wrapper.firstElementChild;
+        groupList.appendChild(groupEl);
+
+        var select = groupEl.querySelector('.js-sg-siz');
+        $(select).select2({
+            placeholder: 'Выберите один или несколько СИЗ',
+            width: '100%',
+            closeOnSelect: false,
+        });
+
+        // Подсветить нормативные СИЗ в dropdown
+        $(select).on('select2:open', function() {
+            setTimeout(function() {
+                document.querySelectorAll('.select2-results__option').forEach(function(opt) {
+                    var id = opt.getAttribute('data-select2-id');
+                    // data-norm on the original <option>
+                    var origOpt = select.querySelector('option[value="' + id + '"][data-norm]');
+                    if (origOpt) opt.style.fontWeight = '600';
+                });
+            }, 50);
+        });
+
+        $(select).on('change', function() { updateSummary(groupEl); syncJSON(); });
+        groupEl.querySelector('.js-sg-condition').addEventListener('input', function() {
+            updateSummary(groupEl); syncJSON();
+        });
+        groupEl.querySelector('.js-sg-quantity').addEventListener('input', syncJSON);
+        groupEl.querySelector('.js-sg-cost').addEventListener('input', syncJSON);
+        groupEl.querySelector('.js-sg-remove').addEventListener('click', function() {
+            if (groupList.querySelectorAll('.si-group').length === 1) {
+                $(select).val(null).trigger('change');
+                groupEl.querySelector('.js-sg-condition').value = '';
+                updateSummary(groupEl);
+                syncJSON();
+                return;
+            }
+            $(select).select2('destroy');
+            groupEl.remove();
+            reindex();
+            syncJSON();
+        });
+
+        groupCount++;
+        updateSummary(groupEl);
+        syncJSON();
+    }
+
+    function reindex() {
+        groupList.querySelectorAll('.si-group').forEach(function(g, i) {
+            g.dataset.groupIndex = i;
+            var title = g.querySelector('.sg-group-title');
+            if (title) title.textContent = 'Группа ' + (i + 1);
+        });
+    }
+
+    function updateSummary(groupEl) {
+        var selected = $(groupEl.querySelector('.js-sg-siz')).val() || [];
+        var condition = (groupEl.querySelector('.js-sg-condition').value || '').trim();
+        var summaryEl = groupEl.querySelector('.si-group-summary');
+        if (!selected.length) {
+            summaryEl.className = 'si-group-summary empty';
+            summaryEl.textContent = 'СИЗ не выбраны.';
+            return;
+        }
+        summaryEl.className = 'si-group-summary';
+        var text = selected.length + ' СИЗ';
+        if (condition) text += ', условие: "' + condition + '"';
+        else text += ' (основная норма)';
+        summaryEl.textContent = text;
+    }
+
+    function syncJSON() {
+        var payload = [];
+        var totalItems = 0;
+        groupList.querySelectorAll('.si-group').forEach(function(groupEl) {
+            var siz_ids = $(groupEl.querySelector('.js-sg-siz')).val() || [];
+            if (!siz_ids.length) return;
+            var condition = (groupEl.querySelector('.js-sg-condition').value || '').trim();
+            var quantity  = groupEl.querySelector('.js-sg-quantity').value || '1';
+            var cost      = (groupEl.querySelector('.js-sg-cost').value || '').trim();
+            payload.push({ siz_ids: siz_ids, condition: condition, quantity: quantity, cost: cost });
+            totalItems += siz_ids.length;
+        });
+        jsonField.value = JSON.stringify(payload);
+
+        if (payload.length) {
+            totalEl.style.display = 'block';
+            totalEl.textContent = 'Групп: ' + payload.length + '. Будет выдано позиций: ' + totalItems + '.';
+        } else {
+            totalEl.style.display = 'none';
+        }
+    }
+
+    groupForm.addEventListener('submit', function() { syncJSON(); });
+    addBtn.addEventListener('click', buildGroup);
+
+    // Создаём первую группу при загрузке
+    buildGroup();
+})();
+</script>
+{% endif %}
 {% endblock %}

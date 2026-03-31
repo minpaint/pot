@@ -1,10 +1,64 @@
 # directory/utils/docx_cleaner.py
 
 import logging
-from docx import Document
+import re
+import zipfile
 from io import BytesIO
 
+from docx import Document
+
 logger = logging.getLogger(__name__)
+
+
+def remove_headers_footers(doc_bytes: bytes) -> bytes:
+    """
+    Полностью удаляет все колонтитулы из DOCX на уровне ZIP/XML.
+
+    Удаляет:
+    - Файлы word/header*.xml и word/footer*.xml
+    - Ссылки <w:headerReference> и <w:footerReference> из document.xml
+    - Связи (relationships) на header/footer файлы из word/_rels/document.xml.rels
+    """
+    try:
+        in_buf = BytesIO(doc_bytes)
+        out_buf = BytesIO()
+
+        with zipfile.ZipFile(in_buf, 'r') as zin, \
+             zipfile.ZipFile(out_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+
+                # Пропускаем файлы header*.xml и footer*.xml
+                name = item.filename
+                if re.match(r'word/(header|footer)\d*\.xml$', name):
+                    logger.debug(f"[remove_headers_footers] Удалён файл: {name}")
+                    continue
+
+                # Из document.xml убираем <w:headerReference> и <w:footerReference>
+                if name == 'word/document.xml':
+                    text = data.decode('utf-8')
+                    text = re.sub(r'<w:headerReference[^/]*/>', '', text)
+                    text = re.sub(r'<w:footerReference[^/]*/>', '', text)
+                    data = text.encode('utf-8')
+
+                # Из relationships убираем связи на header/footer
+                if name == 'word/_rels/document.xml.rels':
+                    text = data.decode('utf-8')
+                    text = re.sub(
+                        r'<Relationship[^>]*(header|footer)[^>]*/>\s*',
+                        '', text, flags=re.IGNORECASE
+                    )
+                    data = text.encode('utf-8')
+
+                zout.writestr(item, data)
+
+        out_buf.seek(0)
+        return out_buf.getvalue()
+
+    except Exception as e:
+        logger.error(f"[remove_headers_footers] Ошибка: {e}", exc_info=True)
+        return doc_bytes
 
 
 def _remove_marker_from_paragraph(paragraph, marker='__KEEP_EMPTY__'):
@@ -74,52 +128,6 @@ def remove_empty_paragraphs(doc_bytes: bytes) -> bytes:
             p.getparent().remove(p)
 
         logger.info(f"[remove_empty_paragraphs] Удалено {len(paragraphs_to_remove)} из {total_paragraphs} параграфов из body")
-
-        # Удаляем пустые параграфы из headers и footers всех секций
-        headers_footers_removed = 0
-        for section in doc.sections:
-            # Обрабатываем header
-            header_paras_to_remove = []
-            for i, paragraph in enumerate(section.header.paragraphs):
-                text = paragraph.text.strip()
-
-                # Проверяем наличие маркера __KEEP_EMPTY__
-                if '__KEEP_EMPTY__' in text:
-                    _remove_marker_from_paragraph(paragraph)
-                    logger.debug(f"[remove_empty_paragraphs] Header параграф {i} сохранён с маркером keep_empty")
-                    continue
-
-                if not text or all(char in ' -–—' for char in text):
-                    header_paras_to_remove.append(i)
-                    logger.debug(f"[remove_empty_paragraphs] Header параграф {i} будет удалён: '{text}'")
-
-            for i in reversed(header_paras_to_remove):
-                p = section.header.paragraphs[i]._element
-                p.getparent().remove(p)
-                headers_footers_removed += 1
-
-            # Обрабатываем footer
-            footer_paras_to_remove = []
-            for i, paragraph in enumerate(section.footer.paragraphs):
-                text = paragraph.text.strip()
-
-                # Проверяем наличие маркера __KEEP_EMPTY__
-                if '__KEEP_EMPTY__' in text:
-                    _remove_marker_from_paragraph(paragraph)
-                    logger.debug(f"[remove_empty_paragraphs] Footer параграф {i} сохранён с маркером keep_empty")
-                    continue
-
-                if not text or all(char in ' -–—' for char in text):
-                    footer_paras_to_remove.append(i)
-                    logger.debug(f"[remove_empty_paragraphs] Footer параграф {i} будет удалён: '{text}'")
-
-            for i in reversed(footer_paras_to_remove):
-                p = section.footer.paragraphs[i]._element
-                p.getparent().remove(p)
-                headers_footers_removed += 1
-
-        if headers_footers_removed > 0:
-            logger.info(f"[remove_empty_paragraphs] Удалено {headers_footers_removed} параграфов из headers/footers")
 
         # Сохраняем в BytesIO
         buffer = BytesIO()
@@ -197,10 +205,13 @@ def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True) -> bytes:
         Очищенный DOCX документ в виде байтов
     """
     try:
-        # Сначала удаляем пустые параграфы
+        # Удаляем колонтитулы на уровне ZIP (до python-docx, чтобы он их не создал заново)
+        doc_bytes = remove_headers_footers(doc_bytes)
+
+        # Удаляем пустые параграфы из body
         doc_bytes = remove_empty_paragraphs(doc_bytes)
 
-        # Потом удаляем пустые строки таблиц (если нужно)
+        # Удаляем пустые строки таблиц (если нужно)
         if remove_empty_rows:
             doc_bytes = remove_empty_table_rows(doc_bytes)
 

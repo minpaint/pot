@@ -320,6 +320,12 @@ class CommissionCreateView(LoginRequiredMixin, CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                kwargs['initial_org_id'] = int(org_id)
+            except (ValueError, TypeError):
+                pass
         return kwargs
 
     def get_context_data(self, **kwargs):

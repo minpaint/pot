@@ -860,12 +860,29 @@ class HiringCreateView(LoginRequiredMixin, CreateView):
         form.fields['hiring_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
         form.fields['start_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
 
-        # Ограничиваем организации через AccessControlHelper
-        form.fields['organization'].queryset = AccessControlHelper.get_accessible_organizations(
-            self.request.user, self.request
-        )
+        # Ограничиваем организации: по выбранной в шапке, иначе все доступные
+        accessible = AccessControlHelper.get_accessible_organizations(self.request.user, self.request)
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                restricted = accessible.filter(pk=int(org_id))
+                form.fields['organization'].queryset = restricted if restricted.exists() else accessible
+            except (ValueError, TypeError):
+                form.fields['organization'].queryset = accessible
+        else:
+            form.fields['organization'].queryset = accessible
 
         return form
+
+    def get_initial(self):
+        initial = super().get_initial()
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                initial['organization'] = int(org_id)
+            except (ValueError, TypeError):
+                pass
+        return initial
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

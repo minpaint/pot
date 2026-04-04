@@ -162,6 +162,12 @@ class EquipmentCreateView(LoginRequiredMixin, CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                kwargs['initial_org_id'] = int(org_id)
+            except (ValueError, TypeError):
+                pass
         return kwargs
 
     def form_valid(self, form):
@@ -1337,11 +1343,15 @@ class EquipmentUnifiedView(LoginRequiredMixin, TemplateView):
         allowed_orgs = AccessControlHelper.get_accessible_organizations(
             self.request.user, self.request
         )
+        current_org = None
 
         # Фильтр по выбранной организации из глобального селектора в хэдере
         selected_org_id = self.request.session.get('selected_org_id')
         if selected_org_id:
             allowed_orgs = [o for o in allowed_orgs if o.id == int(selected_org_id)]
+            current_org = next((o for o in allowed_orgs if o.id == int(selected_org_id)), None)
+        elif len(allowed_orgs) == 1:
+            current_org = allowed_orgs[0]
 
         qs = self._get_queryset()
         if selected_org_id:
@@ -1350,6 +1360,7 @@ class EquipmentUnifiedView(LoginRequiredMixin, TemplateView):
         context['tree_data'] = self._build_tree(qs, allowed_orgs)
         context['inspection_date'] = inspection_date.isoformat()
         context['journal_type_names'] = self.JOURNAL_TYPE_NAMES
+        context['current_org_for_cart_journal'] = current_org
         context['title'] = '⚙️ ТО оборудования'
         return context
 
@@ -1451,3 +1462,54 @@ class EquipmentUnifiedView(LoginRequiredMixin, TemplateView):
 
         messages.error(request, 'Неизвестное действие')
         return redirect(request.path + '?inspection_date=' + inspection_date.isoformat())
+
+
+@login_required
+def download_cart_journal_view(request):
+    """
+    Скачивание журнала осмотра тележек для выбранной организации без промежуточного экрана.
+    """
+    from deadline_control.models import EquipmentType
+    from directory.document_generators.equipment_journal_generator import generate_equipment_journal
+
+    accessible_orgs = AccessControlHelper.get_accessible_organizations(request.user, request)
+    selected_org_id = request.session.get('selected_org_id')
+    organization = None
+
+    if selected_org_id:
+        organization = accessible_orgs.filter(id=selected_org_id).first()
+    elif accessible_orgs.count() == 1:
+        organization = accessible_orgs.first()
+
+    if organization is None:
+        messages.error(request, 'Сначала выберите организацию в верхнем переключателе.')
+        return redirect('deadline_control:equipment:list')
+
+    try:
+        equipment_type = EquipmentType.objects.get(name='Грузовая тележка', is_active=True)
+    except EquipmentType.DoesNotExist:
+        messages.error(request, 'Тип оборудования "Грузовая тележка" не найден.')
+        return redirect('deadline_control:equipment:list')
+
+    inspection_date = parse_date(request.GET.get('inspection_date') or '') or date.today()
+    start_date = date(inspection_date.year, 1, 1)
+    end_date = date(inspection_date.year, 12, 31)
+
+    result = generate_equipment_journal(
+        organization=organization,
+        equipment_type_name=equipment_type.name,
+        start_date=start_date,
+        end_date=end_date,
+        inspection_date=inspection_date,
+    )
+
+    if not result:
+        messages.error(request, 'Не удалось сформировать журнал осмотра тележек.')
+        return redirect('deadline_control:equipment:list')
+
+    response = HttpResponse(
+        result['content'],
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
+    return response

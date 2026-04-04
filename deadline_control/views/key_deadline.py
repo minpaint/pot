@@ -129,6 +129,15 @@ class KeyDeadlineItemUpdateView(LoginRequiredMixin, AccessControlObjectMixin, Up
     fields = ['organization', 'category', 'name', 'periodicity_months', 'current_date', 'responsible_person', 'is_active', 'notes']
     success_url = reverse_lazy('deadline_control:key_deadline:list')
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        from directory.models import Organization
+        from directory.utils.permissions import AccessControlHelper
+        form.fields['organization'].queryset = AccessControlHelper.get_accessible_organizations(
+            self.request.user, self.request
+        )
+        return form
+
     def form_valid(self, form):
         messages.success(self.request, f'Мероприятие "{form.instance.name}" успешно обновлено')
         return super().form_valid(form)

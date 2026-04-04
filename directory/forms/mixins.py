@@ -24,11 +24,13 @@ class OrganizationRestrictionFormMixin:
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
+        initial_org_id = kwargs.pop('initial_org_id', None)
         super().__init__(*args, **kwargs)
 
         # Суперпользователям ничего не ограничиваем
         # Всегда включаем организацию текущего инстанса, чтобы не терять выбранное значение при редактировании
         instance_org = getattr(getattr(self, 'instance', None), 'organization', None)
+        is_new_instance = not getattr(getattr(self, 'instance', None), 'pk', None)
 
         from directory.models import Organization  # локальный импорт, чтобы избежать циклов
 
@@ -44,9 +46,22 @@ class OrganizationRestrictionFormMixin:
             allowed_orgs = allowed_orgs | Organization.objects.filter(pk=instance_org.pk)
 
         if 'organization' in self.fields:
-            # 🔒 Строго ограничиваем список организаций теми, что есть в профиле пользователя (с учётом текущей)
-            self.fields['organization'].queryset = allowed_orgs
-            self.fields['organization'].initial = self.fields['organization'].initial or getattr(instance_org, 'pk', None)
+            if initial_org_id and is_new_instance:
+                # При создании нового объекта — ограничиваем queryset выбранной организацией
+                # (если она входит в доступные) и предзаполняем поле
+                restricted = allowed_orgs.filter(pk=initial_org_id)
+                if restricted.exists():
+                    self.fields['organization'].queryset = restricted
+                    if not self.data.get('organization') and not self.initial.get('organization'):
+                        self.initial['organization'] = initial_org_id
+                else:
+                    self.fields['organization'].queryset = allowed_orgs
+            else:
+                # При редактировании или без выбранной организации — стандартное поведение
+                self.fields['organization'].queryset = allowed_orgs
+                self.fields['organization'].initial = (
+                    self.fields['organization'].initial or getattr(instance_org, 'pk', None)
+                )
             self.fields['organization'].help_text = "🏢 Выберите организацию из разрешённых"
 
         for field_name in ['subdivision', 'department', 'position', 'document', 'equipment']:

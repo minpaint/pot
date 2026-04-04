@@ -27,7 +27,7 @@ class EmployeeListView(LoginRequiredMixin, AccessControlMixin, ListView):
 
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().visible()
 
         # Фильтр по выбранной организации из глобального селектора
         selected_org_id = self.request.session.get('selected_org_id')
@@ -79,7 +79,7 @@ class EmployeeTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
 
     def get_queryset(self):
         # AccessControlMixin автоматически фильтрует по правам доступа
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().visible()
 
         # Фильтр по выбранной организации из глобального селектора
         selected_org_id = self.request.session.get('selected_org_id')
@@ -210,6 +210,17 @@ class EmployeeCreateView(LoginRequiredMixin, CreateView):
     model = Employee
     form_class = EmployeeForm
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                kwargs['initial_org_id'] = int(org_id)
+            except (ValueError, TypeError):
+                pass
+        return kwargs
+
 
 @login_required
 @require_GET
@@ -217,7 +228,7 @@ def employee_tree_children(request, parent_type, parent_id):
     """
     AJAX endpoint для подгрузки дочерних узлов дерева сотрудников.
     """
-    employees_qs = Employee.objects.all()
+    employees_qs = Employee.objects.visible()
     employees_qs = AccessControlHelper.filter_queryset(employees_qs, request.user, request)
 
     if not request.GET.get('status'):
@@ -289,6 +300,9 @@ class EmployeeUpdateView(LoginRequiredMixin, AccessControlObjectMixin, UpdateVie
     form_class = EmployeeForm
     template_name = 'directory/employees/form.html'
 
+    def get_queryset(self):
+        return Employee.objects.visible()
+
     def get_success_url(self):
         """Перенаправляем на профиль сотрудника после обновления"""
         return reverse('directory:employees:employee_profile', kwargs={'pk': self.object.pk})
@@ -304,10 +318,24 @@ class EmployeeDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteVie
     template_name = 'directory/employees/confirm_delete.html'
     success_url = reverse_lazy('directory:employees:employee_list')
 
+    def get_queryset(self):
+        return Employee.objects.visible()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Удаление сотрудника'
         return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.mark_for_deletion():
+            messages.success(
+                request,
+                f'Сотрудник {self.object.full_name_nominative} помечен на удаление и скрыт из рабочих разделов.'
+            )
+        else:
+            messages.info(request, f'Сотрудник {self.object.full_name_nominative} уже помечен на удаление.')
+        return redirect(self.get_success_url())
 
 
 class EmployeeProfileView(LoginRequiredMixin, AccessControlObjectMixin, DetailView):
@@ -318,6 +346,9 @@ class EmployeeProfileView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
     model = Employee
     template_name = 'directory/employees/profile.html'
     context_object_name = 'employee'
+
+    def get_queryset(self):
+        return Employee.objects.visible()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -374,7 +405,7 @@ class EmployeeHiringView(LoginRequiredMixin, FormView):
         # Фильтруем сотрудников по доступным организациям
         recent_employees_query = Employee.objects.filter(
             organization__in=accessible_orgs
-        ).order_by('-id')[:5]
+        ).visible().order_by('-id')[:5]
 
         context['recent_employees'] = recent_employees_query
         # Добавляем типы договоров для отображения в шаблоне
@@ -437,7 +468,7 @@ def employee_info_api(request, employee_id):
     🔍 API для получения детальной информации о сотруднике
     Используется во вкладке "По сотруднику" на странице карточек СИЗ
     """
-    employee = get_object_or_404(Employee, pk=employee_id)
+    employee = get_object_or_404(Employee.objects.visible(), pk=employee_id)
 
     # Проверка прав доступа
     if not AccessControlHelper.can_access_object(request.user, employee):

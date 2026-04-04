@@ -1,61 +1,427 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
 {% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 
-{% block content %}
-    <h1>{{ title }}</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form|crispy }}
-        <button type="submit" class="btn btn-primary">Сохранить</button>
-        <a href="{% url 'directory:positions:position_list' %}" class="btn btn-secondary">Отмена</a>
-    </form>
+{% block extra_css %}
+{{ form.media.css }}
+<style>
+.pf-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.pf-page-header .pf-title {
+    font-weight: 600;
+    font-size: 1rem;
+    flex: 1;
+}
+
+.pf-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 18px;
+    background: #fff;
+}
+.pf-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pf-card-body {
+    padding: 18px;
+}
+
+.pf-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 20px;
+}
+.pf-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0 20px;
+}
+
+.pf-field {
+    margin-bottom: 16px;
+}
+.pf-field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+}
+.pf-field input[type="text"],
+.pf-field input[type="number"],
+.pf-field select,
+.pf-field textarea {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.88rem;
+    color: #2c3e50;
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pf-field input:focus,
+.pf-field select:focus,
+.pf-field textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+.pf-field textarea {
+    resize: vertical;
+    min-height: 76px;
+}
+.pf-field .helptext,
+.pf-hint {
+    font-size: 0.75rem;
+    color: #9aa0ac;
+    margin-top: 4px;
+}
+.pf-field .errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 5px 0 0;
+    font-size: 0.78rem;
+    color: #c0392b;
+}
+
+.pf-check-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 20px;
+}
+.pf-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+}
+.pf-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+.pf-check label {
+    margin: 0;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.pf-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.pf-card .select2-container {
+    width: 100% !important;
+}
+.pf-card .select2-container--default .select2-selection--single,
+.pf-card .select2-container--default .select2-selection--multiple {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    min-height: 35px;
+    font-size: 0.88rem;
+}
+.pf-card .select2-container--default .select2-selection--single {
+    padding: 4px 8px;
+}
+.pf-card .select2-container--default .select2-selection--multiple {
+    padding: 2px 6px;
+    min-height: 35px;
+}
+.pf-card .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 33px;
+}
+.pf-card .select2-container--default.select2-container--focus .select2-selection--single,
+.pf-card .select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+/* Placeholder и поиск внутри multiple-виджета */
+.pf-card .select2-container--default .select2-selection--multiple .select2-selection__placeholder {
+    color: #9aa0ac;
+    line-height: 29px;
+    padding-left: 2px;
+}
+.pf-card .select2-container--default .select2-selection--multiple .select2-search--inline {
+    float: none;
+    display: inline-flex;
+    align-items: center;
+}
+.pf-card .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field {
+    height: 28px;
+    margin-top: 0;
+    font-size: 0.88rem;
+    min-width: 100px;
+}
+.pf-card .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    margin-top: 4px;
+    margin-bottom: 2px;
+    font-size: 0.82rem;
+    background: #e3eef8;
+    border-color: #b8d4ea;
+    color: #1a5276;
+}
+.pf-card .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #1a5276;
+    margin-right: 4px;
+}
+
+@media (max-width: 767px) {
+    .pf-grid-2,
+    .pf-grid-3,
+    .pf-check-grid {
+        grid-template-columns: 1fr;
+    }
+    .pf-actions {
+        flex-direction: column;
+    }
+    .pf-actions .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
 {% endblock %}
 
-{% block scripts %}
-<script>
-$(document).ready(function() {
-    $('#id_organization').change(function() {
-        const organizationId = $(this).val();
-        if (organizationId) {
-            $.ajax({
-                url: "{% url 'directory:api-subdivisions' %}",
-                data: { organization: organizationId },
-                success: function(data) {
-                    let options = '<option value="">---------</option>';
-                    data.forEach(item => {
-                        options += `<option value="${item.id}">${item.name}</option>`;
-                    });
-                    $('#id_subdivision').html(options).prop('disabled', false);
-                    $('#id_department').html('<option value="">---------</option>').prop('disabled', true);
-                }
-            });
-        } else {
-            $('#id_subdivision').html('<option value="">---------</option>').prop('disabled', true);
-            $('#id_department').html('<option value="">---------</option>').prop('disabled', true);
-        }
-    });
+{% block content %}
+<div class="container-fluid mt-3">
 
-    $('#id_subdivision').change(function() {
-        const subdivisionId = $(this).val();
-        if (subdivisionId) {
-            $.ajax({
-                url: "{% url 'directory:api-departments' %}",
-                data: { subdivision: subdivisionId },
-                success: function(data) {
-                    let options = '<option value="">---------</option>';
-                    data.forEach(item => {
-                        options += `<option value="${item.id}">${item.name}</option>`;
-                    });
-                    $('#id_department').html(options).prop('disabled', false);
-                }
-            });
-        } else {
-            $('#id_department').html('<option value="">---------</option>').prop('disabled', true);
-        }
-    });
-});
-</script>
+    <div class="pf-page-header">
+        <span>{% if object %}✏️{% else %}➕{% endif %}</span>
+        <span class="pf-title">{{ title }}</span>
+        {% if object %}
+        <span style="font-size:0.82rem;opacity:0.82;">{{ object.position_name }}</span>
+        {% endif %}
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="pf-card" style="margin-bottom:14px;">
+            <div class="pf-card-body" style="padding:10px 18px;">
+                <div class="pf-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Сохранить</button>
+                    <a href="{% url 'directory:positions:position_list' %}" class="btn btn-sm btn-secondary">← Назад</a>
+                    {% if object and can_delete_position %}
+                    <a href="{% url 'directory:positions:position_delete' object.pk %}" class="btn btn-sm btn-outline-danger ms-auto">🗑️ Удалить</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger" style="border-radius:10px;font-size:0.88rem;">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="pf-card">
+            <div class="pf-card-header">👔 Основная информация</div>
+            <div class="pf-card-body">
+                <div class="pf-field">
+                    <label for="{{ form.position_name.id_for_label }}">Название должности</label>
+                    {{ form.position_name }}
+                    {% if form.position_name.help_text %}<div class="pf-hint">{{ form.position_name.help_text }}</div>{% endif %}
+                    {% if form.position_name.errors %}<ul class="errorlist">{% for e in form.position_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+
+                <div class="pf-grid-3">
+                    <div class="pf-field">
+                        <label for="{{ form.organization.id_for_label }}">Организация</label>
+                        {{ form.organization }}
+                        {% if form.organization.help_text %}<div class="pf-hint">{{ form.organization.help_text }}</div>{% endif %}
+                        {% if form.organization.errors %}<ul class="errorlist">{% for e in form.organization.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="pf-field">
+                        <label for="{{ form.subdivision.id_for_label }}">Подразделение</label>
+                        {{ form.subdivision }}
+                        {% if form.subdivision.help_text %}<div class="pf-hint">{{ form.subdivision.help_text }}</div>{% endif %}
+                        {% if form.subdivision.errors %}<ul class="errorlist">{% for e in form.subdivision.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="pf-field">
+                        <label for="{{ form.department.id_for_label }}">Отдел</label>
+                        {{ form.department }}
+                        {% if form.department.help_text %}<div class="pf-hint">{{ form.department.help_text }}</div>{% endif %}
+                        {% if form.department.errors %}<ul class="errorlist">{% for e in form.department.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+
+                <div class="pf-field">
+                    <label for="{{ form.responsibility_types.id_for_label }}">Виды ответственности</label>
+                    {{ form.responsibility_types }}
+                    {% if form.responsibility_types.help_text %}<div class="pf-hint">{{ form.responsibility_types.help_text }}</div>{% endif %}
+                    {% if form.responsibility_types.errors %}<ul class="errorlist">{% for e in form.responsibility_types.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+
+                <div class="pf-check-grid">
+                    <div class="pf-check">
+                        {{ form.is_responsible_for_safety }}
+                        <label for="{{ form.is_responsible_for_safety.id_for_label }}">Ответственный за ОТ</label>
+                    </div>
+                    <div class="pf-check">
+                        {{ form.can_be_internship_leader }}
+                        <label for="{{ form.can_be_internship_leader.id_for_label }}">Может быть руководителем стажировки</label>
+                    </div>
+                    <div class="pf-check">
+                        {{ form.can_sign_orders }}
+                        <label for="{{ form.can_sign_orders.id_for_label }}">Может подписывать распоряжения</label>
+                    </div>
+                    <div class="pf-check">
+                        {{ form.is_electrical_personnel }}
+                        <label for="{{ form.is_electrical_personnel.id_for_label }}">Электротехнический персонал</label>
+                    </div>
+                    <div class="pf-check">
+                        {{ form.drives_company_vehicle }}
+                        <label for="{{ form.drives_company_vehicle.id_for_label }}">Управляет служебным автомобилем</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pf-card">
+            <div class="pf-card-header">📄 Документация</div>
+            <div class="pf-card-body">
+                <div class="pf-field">
+                    <label for="{{ form.contract_work_name.id_for_label }}">Наименование работы по договору подряда</label>
+                    {{ form.contract_work_name }}
+                    {% if form.contract_work_name.help_text %}<div class="pf-hint">{{ form.contract_work_name.help_text }}</div>{% endif %}
+                    {% if form.contract_work_name.errors %}<ul class="errorlist">{% for e in form.contract_work_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+
+                <div class="pf-grid-2">
+                    <div class="pf-field">
+                        <label for="{{ form.safety_instructions_numbers.id_for_label }}">Номера инструкций по ОТ</label>
+                        {{ form.safety_instructions_numbers }}
+                        {% if form.safety_instructions_numbers.help_text %}<div class="pf-hint">{{ form.safety_instructions_numbers.help_text }}</div>{% endif %}
+                        {% if form.safety_instructions_numbers.errors %}<ul class="errorlist">{% for e in form.safety_instructions_numbers.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="pf-field">
+                        <label for="{{ form.contract_safety_instructions.id_for_label }}">Инструкции по договору подряда</label>
+                        {{ form.contract_safety_instructions }}
+                        {% if form.contract_safety_instructions.help_text %}<div class="pf-hint">{{ form.contract_safety_instructions.help_text }}</div>{% endif %}
+                        {% if form.contract_safety_instructions.errors %}<ul class="errorlist">{% for e in form.contract_safety_instructions.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+
+                <div class="pf-grid-3">
+                    <div class="pf-field">
+                        <label for="{{ form.company_vehicle_instructions.id_for_label }}">Инструкции при управлении служебным авто</label>
+                        {{ form.company_vehicle_instructions }}
+                        {% if form.company_vehicle_instructions.help_text %}<div class="pf-hint">{{ form.company_vehicle_instructions.help_text }}</div>{% endif %}
+                        {% if form.company_vehicle_instructions.errors %}<ul class="errorlist">{% for e in form.company_vehicle_instructions.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="pf-field">
+                        <label for="{{ form.electrical_safety_group.id_for_label }}">Группа по электробезопасности</label>
+                        {{ form.electrical_safety_group }}
+                        {% if form.electrical_safety_group.help_text %}<div class="pf-hint">{{ form.electrical_safety_group.help_text }}</div>{% endif %}
+                        {% if form.electrical_safety_group.errors %}<ul class="errorlist">{% for e in form.electrical_safety_group.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="pf-field">
+                        <label for="{{ form.internship_period_days.id_for_label }}">Срок стажировки, дни</label>
+                        {{ form.internship_period_days }}
+                        {% if form.internship_period_days.help_text %}<div class="pf-hint">{{ form.internship_period_days.help_text }}</div>{% endif %}
+                        {% if form.internship_period_days.errors %}<ul class="errorlist">{% for e in form.internship_period_days.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pf-card">
+            <div class="pf-card-header">🛡️ Переопределение норм СИЗ</div>
+            <div class="pf-card-body">
+                <div class="pf-check-grid">
+                    <div class="pf-check">
+                        {{ form.requires_siz }}
+                        <label for="{{ form.requires_siz.id_for_label }}">Требуются СИЗ</label>
+                    </div>
+                    <div class="pf-check">
+                        {{ form.siz_norms_overridden }}
+                        <label for="{{ form.siz_norms_overridden.id_for_label }}">Нормы СИЗ переопределены</label>
+                    </div>
+                </div>
+                <div class="pf-hint">
+                    Включайте переопределение, если для должности используются свои нормы СИЗ или СИЗ вообще не положены.
+                </div>
+            </div>
+        </div>
+
+        <div class="pf-card">
+            <div class="pf-card-header">🏥 Переопределение норм медосмотров</div>
+            <div class="pf-card-body">
+                <div class="pf-check">
+                    {{ form.medical_norms_overridden }}
+                    <label for="{{ form.medical_norms_overridden.id_for_label }}">Нормы медосмотров переопределены</label>
+                </div>
+                <div class="pf-hint">
+                    Используйте этот флаг, если для должности нужен отдельный набор вредных факторов или медосмотры не требуются.
+                </div>
+            </div>
+        </div>
+
+        <div class="pf-card">
+            <div class="pf-card-header">📎 Связанные документы и оборудование</div>
+            <div class="pf-card-body">
+                <div class="pf-grid-2">
+                    <div class="pf-field">
+                        <label for="{{ form.documents.id_for_label }}">Документы</label>
+                        {{ form.documents }}
+                        {% if form.documents.help_text %}<div class="pf-hint">{{ form.documents.help_text }}</div>{% endif %}
+                        {% if form.documents.errors %}<ul class="errorlist">{% for e in form.documents.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="pf-field">
+                        <label for="{{ form.equipment.id_for_label }}">Оборудование</label>
+                        {{ form.equipment }}
+                        {% if form.equipment.help_text %}<div class="pf-hint">{{ form.equipment.help_text }}</div>{% endif %}
+                        {% if form.equipment.errors %}<ul class="errorlist">{% for e in form.equipment.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pf-card">
+            <div class="pf-card-body" style="padding:10px 18px;">
+                <div class="pf-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">💾 Сохранить</button>
+                    <a href="{% url 'directory:positions:position_list' %}" class="btn btn-sm btn-secondary">← Назад</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ form.media.js }}
 {% endblock %}

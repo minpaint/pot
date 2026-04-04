@@ -209,6 +209,10 @@ class EmployeeTreeView(LoginRequiredMixin, AccessControlMixin, ListView):
 class EmployeeCreateView(LoginRequiredMixin, CreateView):
     model = Employee
     form_class = EmployeeForm
+    template_name = 'directory/employees/form.html'
+
+    def get_success_url(self):
+        return reverse('directory:employees:employee_profile', kwargs={'pk': self.object.pk})
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()

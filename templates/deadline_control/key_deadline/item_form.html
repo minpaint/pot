@@ -1,20 +1,361 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% load static %}
 
-{% block title %}{% if object %}Редактировать мероприятие{% else %}Добавить мероприятие{% endif %}{% endblock %}
+{% block title %}{% if object %}✏️ Редактировать мероприятие{% else %}➕ Добавить мероприятие{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Топбар ── */
+.kdi-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.kdi-topbar-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #2c3e50;
+    flex: 1;
+}
+
+/* ── Карточка формы ── */
+.kdi-card {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.kdi-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 14px 22px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.kdi-card-body {
+    padding: 24px 26px;
+}
+
+/* ── Разделители секций ── */
+.kdi-section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9aa0ac;
+    margin-bottom: 12px;
+    margin-top: 20px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.kdi-section-label:first-child {
+    margin-top: 0;
+}
+
+/* ── Поля ── */
+.kdi-field-group {
+    margin-bottom: 16px;
+}
+.kdi-field-group label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.kdi-field-group .form-control,
+.kdi-field-group select,
+.kdi-field-group input[type="text"],
+.kdi-field-group input[type="number"],
+.kdi-field-group input[type="date"],
+.kdi-field-group textarea {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    background: #fff;
+    color: #2c3e50;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+.kdi-field-group .form-control:focus,
+.kdi-field-group select:focus,
+.kdi-field-group input:focus,
+.kdi-field-group textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+.kdi-field-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+.kdi-field-group .helptext {
+    font-size: 0.76rem;
+    color: #9aa0ac;
+    margin-top: 4px;
+}
+.kdi-field-group .errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 5px 0 0 0;
+}
+.kdi-field-group .errorlist li {
+    font-size: 0.8rem;
+    color: #c0392b;
+    background: #fde8e8;
+    border-radius: 4px;
+    padding: 3px 8px;
+}
+
+/* ── Чекбокс is_active ── */
+.kdi-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    margin-bottom: 16px;
+}
+.kdi-checkbox-row:hover {
+    background: #f0f7ff;
+    border-color: #3498db;
+}
+.kdi-checkbox-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #3498db;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.kdi-checkbox-row label {
+    margin: 0;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+.kdi-checkbox-row .kdi-checkbox-hint {
+    font-size: 0.76rem;
+    color: #9aa0ac;
+    margin-left: auto;
+}
+
+/* ── Кнопки действий ── */
+.kdi-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-top: 18px;
+    margin-top: 4px;
+    border-top: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+}
+
+/* ── Сетка двух колонок ── */
+.kdi-row {
+    display: flex;
+    gap: 18px;
+}
+.kdi-row .kdi-field-group {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .kdi-topbar { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .kdi-card-body { padding: 16px; }
+    .kdi-row { flex-direction: column; gap: 0; }
+    .kdi-actions { flex-direction: column; }
+    .kdi-actions .btn { width: 100%; text-align: center; }
+    .kdi-checkbox-row .kdi-checkbox-hint { display: none; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>{% if object %}✏️ Редактировать мероприятие{% else %}➕ Добавить мероприятие{% endif %}</h2>
+<div class="container-fluid mt-3">
 
-    <form method="post" class="mt-4">
-        {% csrf_token %}
-        {{ form|crispy }}
+    <!-- Топбар -->
+    <div class="kdi-topbar">
+        <a href="{% url 'deadline_control:key_deadline:list' %}" class="btn btn-sm btn-outline-secondary" style="padding:4px 10px;font-size:0.8rem;">← Ключевые сроки</a>
+        <span class="kdi-topbar-title">
+            {% if object %}✏️ Редактировать мероприятие{% else %}➕ Добавить мероприятие{% endif %}
+        </span>
+    </div>
 
-        <div class="mt-3">
-            <button type="submit" class="btn btn-primary">💾 Сохранить</button>
-            <a href="{% url 'deadline_control:key_deadline:list' %}" class="btn btn-secondary">Отмена</a>
+    <div class="kdi-card">
+        <div class="kdi-card-header">
+            {% if object %}✏️ Редактирование мероприятия{% else %}➕ Новое мероприятие{% endif %}
         </div>
-    </form>
+        <div class="kdi-card-body">
+            <form method="post" id="kdi-form">
+                {% csrf_token %}
+
+                <!-- Секция: Организация и категория -->
+                <div class="kdi-section-label">🏢 Организация и категория</div>
+                <div class="kdi-row">
+                    <div class="kdi-field-group">
+                        <label for="{{ form.organization.id_for_label }}">
+                            Организация{% if form.organization.field.required %} *{% endif %}
+                        </label>
+                        {{ form.organization }}
+                        {% if form.organization.help_text %}
+                            <div class="helptext">{{ form.organization.help_text }}</div>
+                        {% endif %}
+                        {% if form.organization.errors %}
+                            <ul class="errorlist">{% for e in form.organization.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                        {% endif %}
+                    </div>
+                    <div class="kdi-field-group">
+                        <label for="{{ form.category.id_for_label }}">
+                            Категория{% if form.category.field.required %} *{% endif %}
+                        </label>
+                        {{ form.category }}
+                        {% if form.category.help_text %}
+                            <div class="helptext">{{ form.category.help_text }}</div>
+                        {% endif %}
+                        {% if form.category.errors %}
+                            <ul class="errorlist">{% for e in form.category.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Секция: Наименование -->
+                <div class="kdi-section-label">📋 Наименование мероприятия</div>
+                <div class="kdi-field-group">
+                    <label for="{{ form.name.id_for_label }}">
+                        Наименование{% if form.name.field.required %} *{% endif %}
+                    </label>
+                    {{ form.name }}
+                    {% if form.name.help_text %}
+                        <div class="helptext">{{ form.name.help_text }}</div>
+                    {% endif %}
+                    {% if form.name.errors %}
+                        <ul class="errorlist">{% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Секция: Сроки -->
+                <div class="kdi-section-label">📅 Сроки проведения</div>
+                <div class="kdi-row">
+                    <div class="kdi-field-group">
+                        <label for="{{ form.current_date.id_for_label }}">
+                            Дата проведения{% if form.current_date.field.required %} *{% endif %}
+                        </label>
+                        {{ form.current_date }}
+                        {% if form.current_date.help_text %}
+                            <div class="helptext">{{ form.current_date.help_text }}</div>
+                        {% endif %}
+                        {% if form.current_date.errors %}
+                            <ul class="errorlist">{% for e in form.current_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                        {% endif %}
+                    </div>
+                    <div class="kdi-field-group">
+                        <label for="{{ form.periodicity_months.id_for_label }}">
+                            Периодичность (месяцев)
+                        </label>
+                        {{ form.periodicity_months }}
+                        {% if form.periodicity_months.help_text %}
+                            <div class="helptext">{{ form.periodicity_months.help_text }}</div>
+                        {% endif %}
+                        {% if form.periodicity_months.errors %}
+                            <ul class="errorlist">{% for e in form.periodicity_months.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Секция: Ответственный и статус -->
+                <div class="kdi-section-label">👤 Ответственный и статус</div>
+                <div class="kdi-field-group">
+                    <label for="{{ form.responsible_person.id_for_label }}">
+                        Ответственное лицо
+                    </label>
+                    {{ form.responsible_person }}
+                    {% if form.responsible_person.help_text %}
+                        <div class="helptext">{{ form.responsible_person.help_text }}</div>
+                    {% endif %}
+                    {% if form.responsible_person.errors %}
+                        <ul class="errorlist">{% for e in form.responsible_person.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <div class="kdi-checkbox-row" onclick="toggleActive(this)">
+                    {{ form.is_active }}
+                    <label for="{{ form.is_active.id_for_label }}">Мероприятие активно</label>
+                    <span class="kdi-checkbox-hint">Неактивные не участвуют в уведомлениях</span>
+                </div>
+
+                <!-- Секция: Примечания -->
+                <div class="kdi-section-label">📝 Примечания</div>
+                <div class="kdi-field-group">
+                    <label for="{{ form.notes.id_for_label }}">Примечания</label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}
+                        <ul class="errorlist">{% for e in form.notes.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Глобальные ошибки -->
+                {% if form.non_field_errors %}
+                <div style="background:#fde8e8;border:1px solid #f5c6cb;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;color:#721c24;">
+                    {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Кнопки -->
+                <div class="kdi-actions">
+                    <button type="submit" class="btn btn-success" style="font-size:0.88rem;">
+                        💾 Сохранить
+                    </button>
+                    <a href="{% url 'deadline_control:key_deadline:list' %}" class="btn btn-outline-secondary" style="font-size:0.88rem;">
+                        ← Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleActive(row) {
+    const cb = row.querySelector('input[type="checkbox"]');
+    if (event.target !== cb) cb.checked = !cb.checked;
+}
+
+// Добавляем класс form-control ко всем полям
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#kdi-form select, #kdi-form input[type="text"], #kdi-form input[type="number"], #kdi-form input[type="date"], #kdi-form textarea').forEach(function(el) {
+        if (!el.classList.contains('form-control')) {
+            el.classList.add('form-control');
+        }
+    });
+    // Для input[type=date] добавляем type явно (Django может не добавить)
+    const cur = document.getElementById('{{ form.current_date.id_for_label }}');
+    if (cur && cur.tagName === 'INPUT') cur.type = 'date';
+});
+</script>
 {% endblock %}

@@ -90,6 +90,33 @@ class KeyDeadlineItemCreateView(LoginRequiredMixin, CreateView):
     fields = ['organization', 'category', 'name', 'periodicity_months', 'current_date', 'responsible_person', 'is_active', 'notes']
     success_url = reverse_lazy('deadline_control:key_deadline:list')
 
+    def _get_selected_org_id(self):
+        """Возвращает int(org_id) из сессии или None."""
+        raw = self.request.session.get('selected_org_id')
+        if raw:
+            try:
+                return int(raw)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    def get_initial(self):
+        initial = super().get_initial()
+        org_id = self._get_selected_org_id()
+        if org_id:
+            initial['organization'] = org_id
+        return initial
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        from directory.models import Organization
+        org_id = self._get_selected_org_id()
+        if org_id:
+            form.fields['organization'].queryset = Organization.objects.filter(pk=org_id)
+        else:
+            form.fields['organization'].queryset = Organization.objects.all()
+        return form
+
     def form_valid(self, form):
         messages.success(self.request, f'Мероприятие "{form.instance.name}" успешно создано')
         return super().form_valid(form)

@@ -170,6 +170,7 @@ class CombinedEmployeeHiringForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
+        initial_org_id = kwargs.pop('initial_org_id', None)
         super().__init__(*args, **kwargs)
 
         self.helper = FormHelper()
@@ -264,11 +265,21 @@ class CombinedEmployeeHiringForm(forms.Form):
 
         if self.user and hasattr(self.user, 'profile') and not self.user.is_superuser:
             user_orgs = self.user.profile.organizations.all()
-            self.fields['organization'].queryset = user_orgs
-            if user_orgs.count() == 1 and not self.data.get('organization') and not self.initial.get('organization'):
-                self.initial['organization'] = user_orgs.first().pk
+            if initial_org_id:
+                restricted = user_orgs.filter(pk=initial_org_id)
+                self.fields['organization'].queryset = restricted if restricted.exists() else user_orgs
+            else:
+                self.fields['organization'].queryset = user_orgs
+            effective_orgs = self.fields['organization'].queryset
+            if effective_orgs.count() == 1 and not self.data.get('organization') and not self.initial.get('organization'):
+                self.initial['organization'] = effective_orgs.first().pk
         else:
-            self.fields['organization'].queryset = Organization.objects.all()
+            if initial_org_id:
+                self.fields['organization'].queryset = Organization.objects.filter(pk=initial_org_id)
+                if not self.data.get('organization') and not self.initial.get('organization'):
+                    self.initial['organization'] = initial_org_id
+            else:
+                self.fields['organization'].queryset = Organization.objects.all()
 
         organization_value = None
         if self.is_bound:

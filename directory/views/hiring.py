@@ -58,6 +58,12 @@ class SimpleHiringView(LoginRequiredMixin, FormView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                kwargs['initial_org_id'] = int(org_id)
+            except (ValueError, TypeError):
+                pass
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -351,31 +357,56 @@ class HiringListView(LoginRequiredMixin, AccessControlMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        # AccessControlMixin автоматически фильтрует по правам доступа
+        from datetime import date, timedelta
+        import calendar as cal
+
         queryset = super().get_queryset()
 
-        # Фильтр по выбранной организации из глобального селектора
         selected_org_id = self.request.session.get('selected_org_id')
         if selected_org_id:
             queryset = queryset.filter(organization_id=selected_org_id)
 
-        # Применяем те же фильтры, что и в TreeView
-        is_active = self.request.GET.get('is_active')
-        if is_active == 'true':
-            queryset = queryset.filter(is_active=True)
-        elif is_active == 'false':
-            queryset = queryset.filter(is_active=False)
-
-        hiring_type = self.request.GET.get('hiring_type')
-        if hiring_type:
-            queryset = queryset.filter(hiring_type=hiring_type)
-
+        # Фильтр по поиску
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
                 Q(employee__full_name_nominative__icontains=search) |
                 Q(position__position_name__icontains=search)
             )
+
+        # Быстрые периоды
+        today = date.today()
+        period = self.request.GET.get('period', '')
+        date_from_str = self.request.GET.get('date_from', '')
+        date_to_str = self.request.GET.get('date_to', '')
+
+        if period == 'today':
+            queryset = queryset.filter(hiring_date=today)
+        elif period == 'week':
+            week_start = today - timedelta(days=today.weekday())
+            queryset = queryset.filter(hiring_date__gte=week_start, hiring_date__lte=today)
+        elif period == 'month':
+            queryset = queryset.filter(hiring_date__year=today.year, hiring_date__month=today.month)
+        elif period == 'last_month':
+            first_day = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+            last_day = today.replace(day=1) - timedelta(days=1)
+            queryset = queryset.filter(hiring_date__gte=first_day, hiring_date__lte=last_day)
+        elif period == 'year':
+            queryset = queryset.filter(hiring_date__year=today.year)
+        else:
+            # Произвольный диапазон
+            if date_from_str:
+                try:
+                    from datetime import datetime
+                    queryset = queryset.filter(hiring_date__gte=datetime.strptime(date_from_str, '%Y-%m-%d').date())
+                except ValueError:
+                    pass
+            if date_to_str:
+                try:
+                    from datetime import datetime
+                    queryset = queryset.filter(hiring_date__lte=datetime.strptime(date_to_str, '%Y-%m-%d').date())
+                except ValueError:
+                    pass
 
         return queryset.select_related(
             'employee', 'organization', 'subdivision', 'department', 'position'
@@ -384,13 +415,10 @@ class HiringListView(LoginRequiredMixin, AccessControlMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = _('Приемы на работу')
-        context['hiring_types'] = EmployeeHiring.HIRING_TYPE_CHOICES
-
-        # Для фильтров
-        context['current_hiring_type'] = self.request.GET.get('hiring_type', '')
-        context['current_is_active'] = self.request.GET.get('is_active', '')
         context['search_query'] = self.request.GET.get('search', '')
-
+        context['current_period'] = self.request.GET.get('period', '')
+        context['date_from'] = self.request.GET.get('date_from', '')
+        context['date_to'] = self.request.GET.get('date_to', '')
         return context
 
 

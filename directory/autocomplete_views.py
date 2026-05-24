@@ -154,10 +154,7 @@ class PositionAutocomplete(autocomplete.Select2QuerySetView):
         if department_id:
             qs = qs.filter(department_id=department_id)
         elif subdivision_id:
-            # Должности подразделения + общеорганизационные (без подразделения)
-            qs = qs.filter(
-                Q(subdivision_id=subdivision_id) | Q(subdivision__isnull=True)
-            )
+            qs = qs.filter(subdivision_id=subdivision_id)
         else:
             qs = qs.filter(subdivision__isnull=True)
 

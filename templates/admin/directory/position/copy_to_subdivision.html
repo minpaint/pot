@@ -1,0 +1,173 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Копировать должности в другое подразделение{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.copy-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 14px 20px;
+    border-radius: 10px 10px 0 0;
+    font-weight: 600;
+    font-size: 1rem;
+}
+.copy-card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+.copy-body {
+    background: #fff;
+    padding: 20px 24px;
+}
+.copy-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+    display: block;
+}
+.copy-select {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    background: #fff;
+    margin-bottom: 16px;
+    height: 220px;
+}
+.copy-select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.15); }
+.copy-select option { padding: 5px 8px; line-height: 1.6; }
+.copy-select optgroup { font-weight: 700; color: #3498db; }
+.copy-pos-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 6px; }
+.copy-pos-table th {
+    padding: 8px 12px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    text-align: left;
+}
+.copy-pos-table td { padding: 9px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.copy-pos-table tbody tr:hover td { background: #f0f7ff; }
+.sub-badge {
+    display: inline-block;
+    background: #e3eef8;
+    color: #1a5276;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.copy-actions { display: flex; gap: 10px; margin-top: 20px; }
+.btn-confirm {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 22px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-confirm:hover { opacity: 0.9; }
+.btn-cancel {
+    background: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 9px 22px;
+    font-size: 0.88rem;
+    text-decoration: none;
+    display: inline-block;
+}
+.btn-cancel:hover { background: #e9ecef; color: #343a40; }
+.hint {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px;">
+
+    <div class="copy-card">
+        <div class="copy-header">📋 Копировать должности в другое подразделение</div>
+        <div class="copy-body">
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="copy_to_subdivision">
+                <input type="hidden" name="confirm_copy" value="1">
+                {% for pos in queryset %}
+                    <input type="hidden" name="position_ids" value="{{ pos.pk }}">
+                    <input type="hidden" name="_selected_action" value="{{ pos.pk }}">
+                {% endfor %}
+
+                <!-- Выбор целевого подразделения -->
+                <label class="copy-label">Целевое подразделение</label>
+                <select name="target_subdivision" class="copy-select" size="10">
+                    <option value="">— Без подразделения (общеорганизационные) —</option>
+                    {% regroup subdivisions by organization as org_list %}
+                    {% for org_group in org_list %}
+                        <optgroup label="{{ org_group.grouper.short_name_ru }}">
+                            {% for sub in org_group.list %}
+                                <option value="{{ sub.pk }}">{{ sub.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                </select>
+                <p class="hint">Если подразделение не выбрано — должности будут скопированы как общеорганизационные (без привязки к подразделению).</p>
+
+                <!-- Список копируемых должностей -->
+                <label class="copy-label" style="margin-top: 18px;">Копируемые должности ({{ queryset|length }})</label>
+                <table class="copy-pos-table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Текущее подразделение</th>
+                            <th>Организация</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pos in queryset %}
+                        <tr>
+                            <td>{{ pos.position_name }}</td>
+                            <td>
+                                {% if pos.subdivision %}
+                                    <span class="sub-badge">{{ pos.subdivision.name }}</span>
+                                {% else %}
+                                    <span style="color:#aaa;">без подразделения</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ pos.organization.short_name }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="copy-actions">
+                    <button type="submit" class="btn-confirm">✅ Скопировать</button>
+                    <a href="{% url 'admin:directory_position_changelist' %}" class="btn-cancel">✖ Отмена</a>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

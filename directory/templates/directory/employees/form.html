@@ -184,7 +184,7 @@
                        class="btn btn-sm btn-secondary">← Назад</a>
                     {% if object %}
                     <a href="{% url 'directory:employees:employee_delete' object.pk %}"
-                       class="btn btn-sm btn-outline-danger ms-auto">🗑️ Удалить</a>
+                       class="btn btn-sm btn-outline-danger ms-auto">🗑️ Пометить на удаление</a>
                     {% endif %}
                 </div>
             </div>
@@ -329,4 +329,20 @@
 
 {% block extra_js %}
 {{ form.media.js }}
+<script>
+$(document).ready(function() {
+    // При смене подразделения — сбрасываем должность,
+    // чтобы не оставалась должность от старого подразделения
+    $('#id_subdivision').on('change', function() {
+        var $position = $('#id_position');
+        $position.val(null).trigger('change');
+    });
+
+    // При смене отдела — тоже сбрасываем должность
+    $('#id_department').on('change', function() {
+        var $position = $('#id_position');
+        $position.val(null).trigger('change');
+    });
+});
+</script>
 {% endblock %}

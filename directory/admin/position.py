@@ -33,8 +33,8 @@ class SIZNormInlineForPosition(admin.TabularInline):
     extra = 0  # Не показываем пустые строки по умолчанию
     fields = ('siz', 'classification', 'unit', 'quantity', 'wear_period', 'condition', 'order')
     readonly_fields = ('classification', 'unit', 'wear_period')
-    verbose_name = "Норма СИЗ"
-    verbose_name_plural = "Нормы СИЗ"
+    verbose_name = "Переопределённая норма СИЗ"
+    verbose_name_plural = "Переопределённые нормы СИЗ"
 
     # Восстанавливаем autocomplete_fields с добавлением формы
     autocomplete_fields = ['siz']
@@ -142,7 +142,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
     - Прочих атрибутов должности (ответственный за ОТ, ЭБ и др.)
     """
     form = PositionForm
-    actions = ['copy_instructions_from_template']
+    actions = ['copy_instructions_from_template', 'copy_to_subdivision']
     # Путь к шаблону для древовидного отображения
     change_list_template = "admin/directory/position/change_list_tree.html"
     # 🔄 AJAX режим для постепенной загрузки узлов дерева
@@ -1066,3 +1066,120 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
             )
 
     copy_instructions_from_template.short_description = '🔄 Заполнить инструкции и атрибуты из эталона'
+
+    def copy_to_subdivision(self, request, queryset):
+        """📋 Копировать выбранные должности в другое структурное подразделение."""
+        from directory.models import StructuralSubdivision
+        from directory.models.siz import SIZNorm
+        from deadline_control.models.medical_norm import PositionMedicalFactor
+
+        # Шаг 2: пришло подтверждение с выбранным подразделением
+        if request.POST.get('confirm_copy'):
+            target_subdivision_id = request.POST.get('target_subdivision') or None
+            position_ids = request.POST.getlist('position_ids')
+
+            if not position_ids:
+                self.message_user(request, 'Не переданы ID должностей.', level=messages.ERROR)
+                return
+
+            positions = Position.objects.filter(pk__in=position_ids)
+
+            if target_subdivision_id:
+                try:
+                    target_subdivision = StructuralSubdivision.objects.get(pk=target_subdivision_id)
+                except StructuralSubdivision.DoesNotExist:
+                    self.message_user(request, 'Выбранное подразделение не найдено.', level=messages.ERROR)
+                    return
+                target_org = target_subdivision.organization
+            else:
+                target_subdivision = None
+                # Организацию берём из первой должности — все должны быть одной орг.
+                target_org = positions.first().organization
+
+            created, skipped = 0, 0
+            for pos in positions:
+                # Проверяем уникальность: такая же должность в целевом подразделении
+                if Position.objects.filter(
+                    position_name=pos.position_name,
+                    organization=target_org,
+                    subdivision=target_subdivision,
+                    department=None,
+                ).exists():
+                    skipped += 1
+                    continue
+
+                # Создаём копию
+                new_pos = Position(
+                    position_name=pos.position_name,
+                    organization=target_org,
+                    subdivision=target_subdivision,
+                    department=None,
+                    safety_instructions_numbers=pos.safety_instructions_numbers,
+                    electrical_safety_group=pos.electrical_safety_group,
+                    internship_period_days=pos.internship_period_days,
+                    is_responsible_for_safety=pos.is_responsible_for_safety,
+                    is_electrical_personnel=pos.is_electrical_personnel,
+                    can_be_internship_leader=pos.can_be_internship_leader,
+                    can_sign_orders=pos.can_sign_orders,
+                    drives_company_vehicle=pos.drives_company_vehicle,
+                    requires_siz=pos.requires_siz,
+                    siz_norms_overridden=pos.siz_norms_overridden,
+                    medical_norms_overridden=pos.medical_norms_overridden,
+                )
+                new_pos.save()
+
+                # M2M: документы, оборудование, виды ответственности
+                new_pos.documents.set(pos.documents.all())
+                new_pos.equipment.set(pos.equipment.all())
+                new_pos.responsibility_types.set(pos.responsibility_types.all())
+
+                # Нормы СИЗ (переопределённые)
+                for norm in pos.siz_norms.all():
+                    SIZNorm.objects.create(
+                        position=new_pos,
+                        siz=norm.siz,
+                        condition=norm.condition,
+                        quantity=norm.quantity,
+                        order=norm.order,
+                    )
+
+                # Медицинские факторы
+                for mf in pos.medical_factors.all():
+                    PositionMedicalFactor.objects.create(
+                        position=new_pos,
+                        harmful_factor=mf.harmful_factor,
+                        periodicity_override=mf.periodicity_override,
+                        is_disabled=mf.is_disabled,
+                        notes=mf.notes,
+                    )
+
+                created += 1
+
+            parts = []
+            if created:
+                parts.append(f'создано {created} должн.')
+            if skipped:
+                parts.append(f'пропущено {skipped} (уже существуют)')
+            sub_label = target_subdivision.name if target_subdivision else 'без подразделения'
+            self.message_user(
+                request,
+                f'Копирование в «{sub_label}» завершено: {", ".join(parts)}.',
+                level=messages.SUCCESS if created else messages.WARNING,
+            )
+            return
+
+        # Шаг 1: показать форму выбора подразделения
+        orgs = queryset.values_list('organization_id', flat=True).distinct()
+        subdivisions = StructuralSubdivision.objects.filter(
+            organization_id__in=orgs
+        ).select_related('organization').order_by('organization__short_name_ru', 'name')
+
+        return render(request, 'admin/directory/position/copy_to_subdivision.html', {
+            'queryset': queryset,
+            'subdivisions': subdivisions,
+            'opts': self.model._meta,
+            'title': 'Копировать должности в другое подразделение',
+            **self.admin_site.each_context(request),
+        })
+
+    copy_to_subdivision.short_description = '📋 Скопировать в другое подразделение'

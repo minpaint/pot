@@ -1,0 +1,129 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+<li>
+  <a href="/admin/contracts/act/create_month_form/" class="addlink">Акты за месяц</a>
+</li>
+{{ block.super }}
+{% endblock %}
+
+{% block result_list %}
+<div id="grouped-acts">
+  {% if grouped_acts %}
+  <table class="acts-table">
+    <thead>
+      <tr>
+        <th class="action-checkbox-column">
+          <input type="checkbox" id="action-toggle" aria-label="Выбрать все акты">
+        </th>
+        <th>Контрагент</th>
+        <th>Дата акта</th>
+        <th>Договор</th>
+        <th>Сумма</th>
+        <th>Статус</th>
+        <th></th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group in grouped_acts %}
+      <tr class="month-header-row {% if group.all_paid %}month-paid{% else %}month-unpaid{% endif %}">
+        <td colspan="9">
+          <div class="month-header-inner">
+            <div class="month-left">
+              <span class="month-title">{{ group.month_label }}</span>
+              <span class="month-meta">
+                {{ group.total_cnt }} акт.&nbsp;&nbsp;·&nbsp;&nbsp;{{ group.total_sum }} руб.
+                {% if group.all_paid %}
+                  &nbsp;&nbsp;·&nbsp;&nbsp;<span class="month-all-paid">✓ все оплачено</span>
+                {% else %}
+                  &nbsp;&nbsp;·&nbsp;&nbsp;<span class="month-debt">долг: {{ group.unpaid_sum }} руб.</span>
+                  &nbsp;&nbsp;
+                  <a href="{{ group.mark_month_paid_url }}"
+                     class="btn-month-pay"
+                     onclick="return confirm('Отметить все акты за {{ group.month_label }} как оплаченные?')">
+                    ✓ Все оплачены
+                  </a>
+                {% endif %}
+              </span>
+            </div>
+            <div class="month-right">
+              <a href="{{ group.create_acts_url }}" class="btn-month-create">+ Сформировать акты</a>
+              <a href="{{ group.download_month_url }}" class="btn-month-download">↓ Скачать акты</a>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% for act in group.acts %}
+      <tr class="{% if act.is_paid %}act-row-paid{% else %}act-row-unpaid{% endif %}">
+        <td class="action-checkbox">
+          <input type="checkbox"
+                 class="action-select"
+                 name="{{ action_checkbox_name|default:'_selected_action' }}"
+                 value="{{ act.id }}"
+                 aria-label="Выбрать акт {{ act.client }} от {{ act.act_date|date:'d.m.Y' }}">
+        </td>
+        <td><strong>{{ act.client }}</strong></td>
+        <td>{{ act.act_date|date:"d.m.Y" }}</td>
+        <td><a href="{{ act.edit_url }}">№{{ act.contract_number }}</a></td>
+        <td class="act-amount">{{ act.amount }} руб.</td>
+        <td>
+          {% if act.is_paid %}
+            <span class="badge-paid">✓{% if act.paid_date %} {{ act.paid_date|date:"d.m.Y" }}{% endif %}</span>
+          {% else %}
+            <span class="badge-unpaid">✗ не оплачен</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ act.toggle_url }}"
+             class="{% if act.is_paid %}btn-unpay{% else %}btn-pay{% endif %}">
+            {% if act.is_paid %}Снять{% else %}Оплачен{% endif %}
+          </a>
+        </td>
+        <td>
+          <a href="{{ act.regenerate_url }}"
+             class="button"
+             onclick="return confirm('Перегенерировать акт {{ act.client }} от {{ act.act_date|date:'d.m.Y' }}?');">
+            Перегенерировать
+          </a>
+        </td>
+        <td><a href="{{ act.download_url }}" class="button">Скачать</a></td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="padding:16px;color:#666">Актов не найдено.</p>
+  {% endif %}
+</div>
+
+{% if totals %}
+<div class="act-totals">
+  <table>
+    <thead>
+      <tr>
+        <th>Всего актов</th>
+        <th>Общая сумма</th>
+        <th style="color:green">Оплачено</th>
+        <th style="color:red">Не оплачено</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ totals.total_cnt }}</td>
+        <td>{{ totals.total_sum|default:"0" }} руб.</td>
+        <td style="color:green">
+          {{ totals.paid_sum|default:"0" }} руб. ({{ totals.paid_cnt }} акт.)
+        </td>
+        <td style="color:red">
+          {{ totals.unpaid_sum|default:"0" }} руб. ({{ totals.unpaid_cnt }} акт.)
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

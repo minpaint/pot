@@ -1,0 +1,168 @@
+/* ─── Итоговая таблица ─────────────────────────────────────────────────── */
+.act-totals {
+    margin: 16px 0;
+    padding: 12px 16px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+.act-totals table {
+    border-collapse: collapse;
+    width: auto;
+}
+.act-totals th, .act-totals td {
+    padding: 6px 20px 6px 0;
+    font-size: 14px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+.act-totals th {
+    font-weight: bold;
+    color: #333;
+}
+
+/* ─── Группировка месяц → клиент ──────────────────────────────────────── */
+#grouped-acts {
+    margin: 0;
+}
+
+/* ─── Таблица актов ────────────────────────────────────────────────────── */
+.acts-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+}
+.acts-table thead th {
+    background: #f0f0f0;
+    padding: 7px 12px;
+    text-align: left;
+    font-size: 12px;
+    color: #444;
+    border-bottom: 2px solid #ccc;
+    font-weight: bold;
+}
+.acts-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+    vertical-align: middle;
+}
+.act-row-paid td {
+    background: #f9fff9;
+    color: #444;
+}
+.act-row-unpaid td {
+    background: #fff;
+}
+.act-amount {
+    font-weight: bold;
+}
+
+/* ─── Строка-заголовок месяца внутри таблицы ──────────────────────────── */
+.month-header-row td {
+    padding: 7px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid transparent;
+}
+.month-header-row.month-paid td {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+}
+.month-header-row.month-unpaid td {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+.month-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.month-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.month-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.month-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    margin-right: 12px;
+    white-space: nowrap;
+}
+.month-meta {
+    font-size: 12px;
+    color: #555;
+}
+.month-all-paid {
+    color: #155724;
+    font-weight: bold;
+}
+.month-debt {
+    color: #856404;
+    font-weight: bold;
+}
+
+/* ─── Бейджи статуса ───────────────────────────────────────────────────── */
+.badge-paid {
+    color: #2d862d;
+    font-weight: bold;
+}
+.badge-unpaid {
+    color: #c00;
+}
+
+/* ─── Кнопки оплаты ────────────────────────────────────────────────────── */
+.btn-pay, .btn-unpay, .btn-month-pay, .btn-month-create, .btn-month-download {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 12px;
+    white-space: nowrap;
+    line-height: 1.5;
+}
+.btn-pay {
+    background: #28a745;
+    color: #fff !important;
+}
+.btn-pay:hover {
+    background: #218838;
+}
+.btn-unpay {
+    background: #6c757d;
+    color: #fff !important;
+}
+.btn-unpay:hover {
+    background: #545b62;
+}
+.btn-month-pay {
+    background: #28a745;
+    color: #fff !important;
+    font-weight: normal;
+    margin-left: 4px;
+}
+.btn-month-pay:hover {
+    background: #218838;
+}
+.btn-month-create {
+    background: #17a2b8;
+    color: #fff !important;
+    font-weight: normal;
+}
+.btn-month-create:hover {
+    background: #138496;
+}
+.btn-month-download {
+    background: #6f42c1;
+    color: #fff !important;
+    font-weight: normal;
+}
+.btn-month-download:hover {
+    background: #5a32a3;
+}

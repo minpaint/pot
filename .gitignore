@@ -110,6 +110,7 @@ check-vpn-routes.sh
 *.docx
 !directory/data/templates/*.docx
 !/templates/**/*.docx
+!/templates_docx/*.docx
 *.bak
 *~
 

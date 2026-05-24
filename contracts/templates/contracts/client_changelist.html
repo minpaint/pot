@@ -1,0 +1,9 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+<li>
+  <a href="/admin/contracts/client/envelopes/" class="addlink">Шильдики для конвертов</a>
+</li>
+{{ block.super }}
+{% endblock %}

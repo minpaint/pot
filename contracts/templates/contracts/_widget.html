@@ -1,0 +1,418 @@
+{# ─── Виджет «Договоры и акты» (только для суперпользователя) ─── #}
+<style>
+.cw-section { margin-top: 1rem; margin-bottom: 1.5rem; }
+
+/* Заголовок-переключатель */
+.cw-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-radius 0.2s;
+}
+.cw-toggle.open { border-radius: 10px 10px 0 0; }
+.cw-toggle-title { font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.cw-toggle-meta { display: flex; align-items: center; gap: 8px; }
+.cw-badge { font-size: 0.72rem; font-weight: 600; padding: 2px 9px; border-radius: 10px; white-space: nowrap; }
+.cw-badge-warn { background: #fde8e8; color: #c0392b; }
+.cw-badge-ok   { background: rgba(255,255,255,0.25); color: #fff; }
+.cw-chevron { font-size: 0.8rem; transition: transform 0.2s; }
+.cw-chevron.open { transform: rotate(180deg); }
+
+/* Тело виджета */
+.cw-body {
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    background: #fff;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+    opacity: 0;
+}
+.cw-body.open { max-height: 6000px; opacity: 1; }
+
+.cw-body-inner { padding: 12px 14px; }
+
+/* Summary bar */
+.cw-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    align-items: center;
+}
+.cw-summary-item { display: flex; align-items: center; gap: 4px; }
+.cw-summary-label { color: #6c757d; }
+.cw-summary-val { font-weight: 700; color: #2c3e50; }
+.cw-summary-val-danger { color: #c0392b; }
+
+/* Клиент-блок */
+.cw-client {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.cw-client-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8f9fa;
+    padding: 7px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.82rem;
+}
+.cw-client-name { font-weight: 600; color: #2c3e50; }
+.cw-client-meta { display: flex; gap: 6px; align-items: center; }
+.cw-client-debt { font-size: 0.72rem; font-weight: 600; background: #fde8e8; color: #c0392b; padding: 2px 7px; border-radius: 8px; }
+
+.cw-client-body { padding: 0 12px 8px; display: none; }
+.cw-client-body.open { display: block; }
+
+/* Договор */
+.cw-contract { margin-top: 8px; }
+.cw-contract-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* Таблица актов */
+.cw-acts-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.cw-acts-table th {
+    padding: 5px 8px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    white-space: nowrap;
+    background: #fff;
+    text-align: left;
+}
+.cw-acts-table td { padding: 6px 8px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
+.cw-acts-table tbody tr:hover td { background: #f0f7ff; }
+.cw-acts-table tr:last-child td { border-bottom: none; }
+
+.cw-paid-btn {
+    border: none;
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+}
+.cw-paid-btn:hover { opacity: 0.8; }
+.cw-paid-btn.paid   { background: #d1f5d3; color: #1e7e34; }
+.cw-paid-btn.unpaid { background: #fde8e8; color: #c0392b; }
+.cw-paid-date { font-size: 0.68rem; color: #6c757d; margin-left: 4px; }
+
+/* Раздел налогов */
+.cw-taxes {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid #dee2e6;
+}
+.cw-taxes-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.cw-tax-year {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.cw-tax-year-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8f9fa;
+    padding: 6px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+.cw-tax-year-body { padding: 8px 12px; display: none; }
+.cw-tax-year-body.open { display: block; }
+
+.cw-tax-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.cw-tax-table th {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #9aa0ac;
+    font-weight: 600;
+    border-bottom: 2px solid #f0f0f0;
+    text-align: right;
+    background: #fff;
+}
+.cw-tax-table th:first-child { text-align: left; }
+.cw-tax-table td { padding: 5px 8px; border-bottom: 1px solid #f5f5f5; text-align: right; }
+.cw-tax-table td:first-child { text-align: left; font-weight: 600; }
+.cw-tax-table tfoot td { font-weight: 700; color: #2c3e50; border-top: 2px solid #dee2e6; border-bottom: none; }
+.cw-tax-table tr:last-child td { border-bottom: none; }
+
+/* Ссылки */
+.cw-admin-links { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.cw-admin-link {
+    font-size: 0.75rem;
+    color: #3498db;
+    text-decoration: none;
+    padding: 3px 10px;
+    border: 1px solid #b8d9f5;
+    border-radius: 6px;
+    background: #f0f8ff;
+    transition: background 0.12s;
+}
+.cw-admin-link:hover { background: #dbeeff; color: #2980b9; text-decoration: none; }
+
+@media (max-width: 767px) {
+    .cw-summary { flex-direction: column; gap: 6px; }
+    .cw-acts-table th:nth-child(3),
+    .cw-acts-table td:nth-child(3) { display: none; }
+}
+</style>
+
+<div class="cw-section" id="cw-section">
+
+  <div class="cw-toggle" id="cw-toggle" onclick="cwToggle()">
+    <div class="cw-toggle-title">
+      💼 Договоры и акты
+    </div>
+    <div class="cw-toggle-meta">
+      {% if contracts_data.unpaid_count > 0 %}
+      <span class="cw-badge cw-badge-warn">⚠️ {{ contracts_data.unpaid_count }} не оплачено — {{ contracts_data.unpaid_sum|floatformat:2 }} руб.</span>
+      {% else %}
+      <span class="cw-badge cw-badge-ok">✅ Все акты оплачены</span>
+      {% endif %}
+      <span class="cw-chevron" id="cw-chevron">▼</span>
+    </div>
+  </div>
+
+  <div class="cw-body" id="cw-body">
+    <div class="cw-body-inner">
+
+      {# Summary #}
+      <div class="cw-summary">
+        <div class="cw-summary-item">
+          <span class="cw-summary-label">Клиентов:</span>
+          <span class="cw-summary-val">{{ contracts_data.clients|length }}</span>
+        </div>
+        <div class="cw-summary-item">
+          <span class="cw-summary-label">Актов неоплачено:</span>
+          <span class="cw-summary-val {% if contracts_data.unpaid_count > 0 %}cw-summary-val-danger{% endif %}">{{ contracts_data.unpaid_count }}</span>
+        </div>
+        <div class="cw-summary-item">
+          <span class="cw-summary-label">Долг:</span>
+          <span class="cw-summary-val {% if contracts_data.unpaid_count > 0 %}cw-summary-val-danger{% endif %}">{{ contracts_data.unpaid_sum|floatformat:2 }} руб.</span>
+        </div>
+        <div class="cw-summary-item">
+          <span class="cw-summary-label">Оплачено (всего):</span>
+          <span class="cw-summary-val">{{ contracts_data.paid_sum|floatformat:2 }} руб.</span>
+        </div>
+      </div>
+
+      {# Клиенты #}
+      {% for client in contracts_data.clients %}
+      {% with client_debt=contracts_data.client_debts|dictsort:0 %}
+      <div class="cw-client">
+        <div class="cw-client-header" onclick="cwClientToggle(this)">
+          <span class="cw-client-name">{{ client.org_name_short }}</span>
+          <div class="cw-client-meta">
+            {% for cd in contracts_data.client_debts %}
+              {% if cd.0 == client.id and cd.1 > 0 %}
+              <span class="cw-client-debt">{{ cd.1|floatformat:2 }} руб.</span>
+              {% endif %}
+            {% endfor %}
+            <span style="color:#adb5bd;font-size:0.75rem;">▶</span>
+          </div>
+        </div>
+        <div class="cw-client-body">
+          {% for contract in client.contracts.all %}
+          <div class="cw-contract">
+            <div class="cw-contract-title">
+              📄 Договор №{{ contract.number }} от {{ contract.date|date:"d.m.Y" }}
+              &nbsp;·&nbsp; {{ contract.monthly_amount }} {{ contract.currency }}/мес.
+            </div>
+            {% if contract.acts.all %}
+            <table class="cw-acts-table">
+              <thead>
+                <tr>
+                  <th>Дата</th>
+                  <th>Сумма</th>
+                  <th>Дата оплаты</th>
+                  <th>Статус</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for act in contract.acts.all %}
+                <tr id="cw-act-{{ act.id }}">
+                  <td>{{ act.act_date|date:"d.m.Y" }}</td>
+                  <td><strong>{{ act.amount|floatformat:2 }}</strong></td>
+                  <td>
+                    <span class="cw-paid-date" id="cw-paid-date-{{ act.id }}">
+                      {% if act.paid_date %}{{ act.paid_date|date:"d.m.Y" }}{% else %}—{% endif %}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="cw-paid-btn {% if act.is_paid %}paid{% else %}unpaid{% endif %}"
+                            id="cw-paid-btn-{{ act.id }}"
+                            onclick="cwTogglePaid({{ act.id }}, this)">
+                      {% if act.is_paid %}✓ Оплачен{% else %}✗ Не оплачен{% endif %}
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <div style="color:#adb5bd;font-size:0.78rem;padding:6px 0;">Нет актов</div>
+            {% endif %}
+          </div>
+          {% empty %}
+          <div style="color:#adb5bd;font-size:0.78rem;padding:8px 0;">Нет договоров</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endwith %}
+      {% empty %}
+      <div style="color:#adb5bd;font-size:0.82rem;padding:8px 0;">Нет клиентов</div>
+      {% endfor %}
+
+      {# Налоги #}
+      {% if contracts_data.tax_years %}
+      <div class="cw-taxes">
+        <div class="cw-taxes-title">🧾 Налоги</div>
+        {% for ty in contracts_data.tax_years %}
+        {% with calc=ty.calculation %}
+        <div class="cw-tax-year">
+          <div class="cw-tax-year-header" onclick="cwTaxToggle(this)">
+            <span>{{ ty.year }} год</span>
+            <span style="color:#6c757d;font-size:0.78rem;">
+              Доход: {{ calc.total_income|floatformat:2 }} руб. &nbsp;·&nbsp;
+              К уплате: {{ calc.total_due|floatformat:2 }} руб.
+              &nbsp;▶
+            </span>
+          </div>
+          <div class="cw-tax-year-body">
+            <table class="cw-tax-table">
+              <thead>
+                <tr>
+                  <th>Квартал</th>
+                  <th>Доход</th>
+                  <th>Налог к уплате</th>
+                  <th>ФСЗН</th>
+                  <th>Итого</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for q in calc.quarters %}
+                {% if q.income_q > 0 or q.fszn_due_q > 0 %}
+                <tr>
+                  <td>{{ q.quarter }} кв.</td>
+                  <td>{{ q.income_q|floatformat:2 }}</td>
+                  <td>{{ q.tax_due_q|floatformat:2 }}</td>
+                  <td>{{ q.fszn_due_q|floatformat:2 }}</td>
+                  <td><strong>{{ q.total_due_q|floatformat:2 }}</strong></td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Итого {{ ty.year }}</td>
+                  <td>{{ calc.total_income|floatformat:2 }}</td>
+                  <td>{{ calc.total_tax|floatformat:2 }}</td>
+                  <td>{{ calc.total_fszn|floatformat:2 }}</td>
+                  <td>{{ calc.total_due|floatformat:2 }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {# Ссылки в админку #}
+      <div class="cw-admin-links">
+        <a href="/admin/contracts/client/" class="cw-admin-link">👤 Клиенты</a>
+        <a href="/admin/contracts/contract/" class="cw-admin-link">📄 Договоры</a>
+        <a href="/admin/contracts/act/" class="cw-admin-link">🧾 Акты</a>
+        <a href="/admin/taxes/taxyear/" class="cw-admin-link">💰 Налоги</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function cwToggle() {
+    const body    = document.getElementById('cw-body');
+    const toggle  = document.getElementById('cw-toggle');
+    const chevron = document.getElementById('cw-chevron');
+    const open = body.classList.toggle('open');
+    toggle.classList.toggle('open', open);
+    chevron.classList.toggle('open', open);
+}
+
+function cwClientToggle(header) {
+    const body = header.nextElementSibling;
+    body.classList.toggle('open');
+    const arrow = header.querySelector('span:last-child');
+    if (arrow) arrow.textContent = body.classList.contains('open') ? '▼' : '▶';
+}
+
+function cwTaxToggle(header) {
+    const body = header.nextElementSibling;
+    body.classList.toggle('open');
+}
+
+function cwTogglePaid(pk, btn) {
+    const fd = new FormData();
+    fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    fetch(`/contracts/act/${pk}/toggle-paid/`, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.is_paid) {
+                btn.textContent = '✓ Оплачен';
+                btn.className = 'cw-paid-btn paid';
+            } else {
+                btn.textContent = '✗ Не оплачен';
+                btn.className = 'cw-paid-btn unpaid';
+            }
+            const dateEl = document.getElementById('cw-paid-date-' + pk);
+            if (dateEl) dateEl.textContent = data.paid_date || '—';
+        })
+        .catch(() => alert('Ошибка соединения'));
+}
+</script>

@@ -1,0 +1,65 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>Сформировать и скачать акты за месяц</h1>
+<p>
+  Если для выбранного месяца актов нет, они будут <strong>созданы и сохранены в базе</strong>.
+  Новые акты датируются <strong>последним днём выбранного месяца</strong>.
+</p>
+
+<form method="post">
+  {% csrf_token %}
+  <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-top:16px;">
+
+    <div>
+      <label for="month" style="display:block;font-weight:bold;margin-bottom:4px;">Месяц</label>
+      <select id="month" name="month" style="padding:6px 10px; font-size:14px;">
+        {% for num, name in months %}
+          <option value="{{ num }}" {% if num == current_month %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="year" style="display:block;font-weight:bold;margin-bottom:4px;">Год</label>
+      <select id="year" name="year" style="padding:6px 10px; font-size:14px;">
+        {% for y in years %}
+          <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="font-weight:bold; margin-bottom:10px;">Формат скачивания:</p>
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+
+      <button type="submit" name="fmt" value="combined"
+              style="padding:10px 24px; font-size:15px; background:#417690; color:white;
+                     border:none; border-radius:4px; cursor:pointer; font-weight:bold;">
+        📄 Один файл .docx
+        <span style="display:block; font-size:11px; font-weight:normal; opacity:.85;">
+          все акты в одном документе
+        </span>
+      </button>
+
+      <button type="submit" name="fmt" value="zip"
+              style="padding:10px 24px; font-size:15px; background:#5b80b2; color:white;
+                     border:none; border-radius:4px; cursor:pointer;">
+        🗜 Архив ZIP
+        <span style="display:block; font-size:11px; opacity:.85;">
+          каждый акт отдельным файлом
+        </span>
+      </button>
+
+    </div>
+  </div>
+
+</form>
+
+<p style="margin-top:28px;">
+  <a href="../">← Назад к списку договоров</a>
+</p>
+{% endblock %}

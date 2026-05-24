@@ -154,9 +154,9 @@ class PositionAutocomplete(autocomplete.Select2QuerySetView):
         if department_id:
             qs = qs.filter(department_id=department_id)
         elif subdivision_id:
+            # Должности подразделения + общеорганизационные (без подразделения)
             qs = qs.filter(
-                Q(subdivision_id=subdivision_id, department__isnull=True) |
-                Q(subdivision_id=subdivision_id)
+                Q(subdivision_id=subdivision_id) | Q(subdivision__isnull=True)
             )
         else:
             qs = qs.filter(subdivision__isnull=True)
@@ -361,8 +361,8 @@ class EmployeeAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Employee.objects.none()
 
-        # Активные сотрудники: исключаем кандидатов и уволенных
-        qs = Employee.objects.exclude(status__in=['candidate', 'fired'])
+        # Доступные сотрудники: исключаем кандидатов, уволенных и помеченных на удаление
+        qs = Employee.objects.selectable()
 
         # 🔒 Ограничение по правам пользователя
         if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
@@ -402,7 +402,7 @@ class EmployeeForSIZAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Employee.objects.none()
 
-        qs = Employee.objects.exclude(status__in=['candidate', 'fired'])
+        qs = Employee.objects.selectable()
 
         is_admin = self.request.user.is_superuser or self.request.user.is_staff
 

@@ -7,6 +7,7 @@
 """
 
 from django import forms
+from django.db.models import Q
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
 from dal import autocomplete
@@ -146,7 +147,10 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             if department_id:
                 position_qs = position_qs.filter(department_id=department_id)
             elif subdivision_id:
-                position_qs = position_qs.filter(subdivision_id=subdivision_id)
+                # Должности подразделения + общеорганизационные (без подразделения)
+                position_qs = position_qs.filter(
+                    Q(subdivision_id=subdivision_id) | Q(subdivision__isnull=True)
+                )
             else:
                 position_qs = position_qs.filter(subdivision__isnull=True)
         else:

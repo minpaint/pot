@@ -1,14 +1,151 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}👤 {{ employee.full_name_nominative }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.ep-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.ep-topbar-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #2c3e50;
+    flex: 1;
+}
+
+.ep-card {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 16px;
+}
+.ep-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 11px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.ep-card-header a {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    background: rgba(255,255,255,0.15);
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+    white-space: nowrap;
+}
+.ep-card-header a:hover { background: rgba(255,255,255,0.25); color: #fff; }
+.ep-card-body { padding: 16px 18px; }
+
+.ep-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9aa0ac;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.ep-info-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 16px; }
+.ep-info-table tr td:first-child {
+    color: #6c757d;
+    font-weight: 600;
+    width: 42%;
+    padding: 5px 0;
+    vertical-align: top;
+}
+.ep-info-table tr td:last-child {
+    color: #2c3e50;
+    padding: 5px 0 5px 8px;
+}
+
+/* Действия */
+.ep-action-link {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #2c3e50;
+    border: 1px solid #dee2e6;
+    margin-bottom: 8px;
+    transition: background 0.15s, border-color 0.15s;
+}
+.ep-action-link:hover { background: #f0f7ff; border-color: #3498db; color: #2c3e50; }
+.ep-action-link.disabled { opacity: 0.45; pointer-events: none; }
+.ep-action-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+.ep-action-title { font-weight: 700; font-size: 0.88rem; margin-bottom: 2px; }
+.ep-action-desc { font-size: 0.76rem; color: #6c757d; line-height: 1.3; }
+
+/* Статус */
+.ep-status-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 0.84rem;
+}
+.ep-status-row:last-child { border-bottom: none; }
+.ep-status-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.ep-status-dot.ok   { background: #1e7e34; }
+.ep-status-dot.warn { background: #856404; }
+.ep-status-dot.no   { background: #ced4da; }
+.ep-status-label { flex: 1; font-weight: 600; color: #2c3e50; }
+.ep-status-val { font-size: 0.78rem; color: #6c757d; }
+
+/* Уведомление о новом сотруднике */
+.ep-success-alert {
+    background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
+    color: #fff;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+}
+.ep-success-alert strong { font-size: 0.95rem; }
+.ep-success-alert ul { margin: 8px 0 0 0; padding-left: 18px; }
+.ep-success-alert li { margin-bottom: 3px; }
+
+@media (max-width: 767px) {
+    .ep-topbar { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .ep-topbar-title { font-size: 0.92rem; }
+    .ep-card-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .ep-info-table tr td:first-child { width: 46%; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-3">
+
     {% if is_new_employee %}
-    <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i> Сотрудник успешно принят на работу! Теперь вы можете:
-        <ul class="mt-2 mb-0">
+    <div class="ep-success-alert">
+        <strong>✅ Сотрудник успешно принят на работу!</strong> Теперь вы можете:
+        <ul>
             <li>Сгенерировать необходимые документы</li>
             <li>Выдать направление на медосмотр</li>
             <li>Настроить выдачу СИЗ</li>
@@ -16,83 +153,102 @@
     </div>
     {% endif %}
 
-    <div class="row">
-        <!-- Информация о сотруднике -->
+    <!-- Топбар -->
+    <div class="ep-topbar">
+        <a href="{% url 'directory:employees:employee_list' %}" class="btn btn-sm btn-outline-secondary" style="padding:4px 10px;font-size:0.8rem;">← Сотрудники</a>
+        <span class="ep-topbar-title">👤 {{ employee.full_name_nominative }}</span>
+        <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-sm btn-outline-primary" style="padding:4px 10px;font-size:0.8rem;">✏️ Редактировать</a>
+    </div>
+
+    <div class="row g-3">
+        <!-- Левая колонка: информация о сотруднике -->
         <div class="col-lg-8">
-            <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-user mr-2"></i>Информация о сотруднике</h5>
-                    <div>
-                        <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-light btn-sm">
-                            <i class="fas fa-edit"></i> Редактировать
-                        </a>
-                    </div>
+            <div class="ep-card">
+                <div class="ep-card-header">
+                    👤 Информация о сотруднике
                 </div>
-                <div class="card-body">
-                    <div class="row">
+                <div class="ep-card-body">
+                    <div class="row g-3">
+                        <!-- Основная информация -->
                         <div class="col-md-6">
-                            <h6>Основная информация</h6>
-                            <table class="table table-sm">
+                            <div class="ep-section-title">Основное</div>
+                            <table class="ep-info-table">
                                 <tr>
-                                    <th style="width: 40%">ФИО:</th>
-                                    <td>{{ employee.full_name_nominative }}</td>
+                                    <td>ФИО:</td>
+                                    <td><strong>{{ employee.full_name_nominative }}</strong></td>
                                 </tr>
+                                {% if employee.date_of_birth %}
                                 <tr>
-                                    <th>Дата приема:</th>
-                                    <td>{{ employee.hire_date|date:"d.m.Y" }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Дата начала:</th>
-                                    <td>{{ employee.start_date|date:"d.m.Y" }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Тип договора:</th>
-                                    <td>{{ employee.get_contract_type_display }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Дата рождения:</th>
+                                    <td>Дата рождения:</td>
                                     <td>{{ employee.date_of_birth|date:"d.m.Y" }}</td>
                                 </tr>
+                                {% endif %}
+                                {% if employee.place_of_residence %}
                                 <tr>
-                                    <th>Место проживания:</th>
+                                    <td>Место проживания:</td>
                                     <td>{{ employee.place_of_residence }}</td>
                                 </tr>
+                                {% endif %}
+                                {% if employee.email %}
+                                <tr>
+                                    <td>Email:</td>
+                                    <td>{{ employee.email }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td>Тип договора:</td>
+                                    <td>{{ employee.get_contract_type_display }}</td>
+                                </tr>
+                                {% if employee.hire_date %}
+                                <tr>
+                                    <td>Дата приёма:</td>
+                                    <td>{{ employee.hire_date|date:"d.m.Y" }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if employee.start_date %}
+                                <tr>
+                                    <td>Дата начала:</td>
+                                    <td>{{ employee.start_date|date:"d.m.Y" }}</td>
+                                </tr>
+                                {% endif %}
                             </table>
                         </div>
+
+                        <!-- Организационная структура -->
                         <div class="col-md-6">
-                            <h6>Организационная структура</h6>
-                            <table class="table table-sm">
+                            <div class="ep-section-title">Организационная структура</div>
+                            <table class="ep-info-table">
                                 <tr>
-                                    <th style="width: 40%">Организация:</th>
+                                    <td>Организация:</td>
                                     <td>{{ employee.organization.short_name_ru }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Подразделение:</th>
-                                    <td>{{ employee.subdivision.name|default:"-" }}</td>
+                                    <td>Подразделение:</td>
+                                    <td>{{ employee.subdivision.name|default:"—" }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Отдел:</th>
-                                    <td>{{ employee.department.name|default:"-" }}</td>
+                                    <td>Отдел:</td>
+                                    <td>{{ employee.department.name|default:"—" }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Должность:</th>
-                                    <td>{{ employee.position.position_name }}</td>
+                                    <td>Должность:</td>
+                                    <td><strong>{{ employee.position.position_name }}</strong></td>
                                 </tr>
                             </table>
 
-                            <h6 class="mt-4">Размеры для СИЗ</h6>
-                            <table class="table table-sm">
+                            <div class="ep-section-title mt-3">Размеры для СИЗ</div>
+                            <table class="ep-info-table">
                                 <tr>
-                                    <th style="width: 40%">Рост:</th>
-                                    <td>{{ employee.height|default:"-" }}</td>
+                                    <td>Рост:</td>
+                                    <td>{{ employee.height|default:"—" }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Размер одежды:</th>
-                                    <td>{{ employee.clothing_size|default:"-" }}</td>
+                                    <td>Размер одежды:</td>
+                                    <td>{{ employee.clothing_size|default:"—" }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Размер обуви:</th>
-                                    <td>{{ employee.shoe_size|default:"-" }}</td>
+                                    <td>Размер обуви:</td>
+                                    <td>{{ employee.shoe_size|default:"—" }}</td>
                                 </tr>
                             </table>
                         </div>
@@ -101,97 +257,76 @@
             </div>
         </div>
 
-        <!-- Доступные действия -->
+        <!-- Правая колонка: действия + статус -->
         <div class="col-lg-4">
-            <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-tasks mr-2"></i>Действия</h5>
-                </div>
-                <div class="card-body">
-                    <div class="list-group">
-                        <a href="{% url 'directory:documents:document_selection' employee.id %}" class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h5 class="mb-1"><i class="fas fa-file-alt mr-2"></i>Документы</h5>
-                            </div>
-                            <p class="mb-1">Сгенерировать документы приема на работу, распоряжения, протоколы</p>
-                        </a>
+            <!-- Действия -->
+            <div class="ep-card">
+                <div class="ep-card-header">⚡ Действия</div>
+                <div class="ep-card-body">
+                    <a href="{% url 'directory:documents:document_selection' employee.id %}" class="ep-action-link">
+                        <span class="ep-action-icon">📄</span>
+                        <div>
+                            <div class="ep-action-title">Документы</div>
+                            <div class="ep-action-desc">Распоряжения, протоколы, лист ознакомления</div>
+                        </div>
+                    </a>
 
-                        {% if has_siz_norms %}
-                        <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h5 class="mb-1"><i class="fas fa-shield-alt mr-2"></i>Карточка СИЗ</h5>
-                            </div>
-                            <p class="mb-1">Оформить выдачу средств индивидуальной защиты</p>
-                        </a>
-                        {% endif %}
+                    {% if has_siz_norms %}
+                    <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="ep-action-link">
+                        <span class="ep-action-icon">🛡️</span>
+                        <div>
+                            <div class="ep-action-title">Карточка СИЗ</div>
+                            <div class="ep-action-desc">Выдача и учёт средств индивидуальной защиты</div>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="ep-action-link disabled">
+                        <span class="ep-action-icon">🛡️</span>
+                        <div>
+                            <div class="ep-action-title">Карточка СИЗ</div>
+                            <div class="ep-action-desc">Нет норм выдачи для должности</div>
+                        </div>
+                    </div>
+                    {% endif %}
 
-                        <button disabled class="list-group-item list-group-item-action disabled">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h5 class="mb-1"><i class="fas fa-stethoscope mr-2"></i>Медосмотр</h5>
-                                <small class="text-muted">В разработке</small>
-                            </div>
-                            <p class="mb-1">Выдать направление на предварительный медосмотр</p>
-                        </button>
+                    <div class="ep-action-link disabled">
+                        <span class="ep-action-icon">🏥</span>
+                        <div>
+                            <div class="ep-action-title">Медосмотр</div>
+                            <div class="ep-action-desc">Направление на предварительный медосмотр</div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Информация о статусе -->
-            <div class="card shadow">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-info-circle mr-2"></i>Статус</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="mr-3">
-                            <span class="badge badge-success p-2">
-                                <i class="fas fa-check-circle fa-lg"></i>
-                            </span>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Принят на работу</h6>
-                            <small class="text-muted">{{ employee.hire_date|date:"d.m.Y" }}</small>
-                        </div>
+            <!-- Статус -->
+            <div class="ep-card">
+                <div class="ep-card-header">📊 Статус</div>
+                <div class="ep-card-body">
+                    <div class="ep-status-row">
+                        <div class="ep-status-dot ok"></div>
+                        <div class="ep-status-label">Принят на работу</div>
+                        <div class="ep-status-val">{{ employee.hire_date|date:"d.m.Y" }}</div>
                     </div>
-
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="mr-3">
-                            {% if has_siz_norms and has_issued_siz %}
-                            <span class="badge badge-success p-2">
-                                <i class="fas fa-check-circle fa-lg"></i>
-                            </span>
-                            {% else %}
-                            <span class="badge badge-secondary p-2">
-                                <i class="fas fa-clock fa-lg"></i>
-                            </span>
+                    <div class="ep-status-row">
+                        <div class="ep-status-dot {% if has_siz_norms and has_issued_siz %}ok{% elif has_siz_norms %}warn{% else %}no{% endif %}"></div>
+                        <div class="ep-status-label">СИЗ</div>
+                        <div class="ep-status-val">
+                            {% if has_siz_norms and has_issued_siz %}Оформлены
+                            {% elif has_siz_norms %}Не выданы
+                            {% else %}Не предусмотрены
                             {% endif %}
                         </div>
-                        <div>
-                            <h6 class="mb-0">СИЗ оформлены</h6>
-                            <small class="text-muted">
-                                {% if has_siz_norms and has_issued_siz %}
-                                Да
-                                {% else %}
-                                Нет
-                                {% endif %}
-                            </small>
-                        </div>
                     </div>
-
-                    <div class="d-flex align-items-center">
-                        <div class="mr-3">
-                            <span class="badge badge-secondary p-2">
-                                <i class="fas fa-clock fa-lg"></i>
-                            </span>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Медосмотр пройден</h6>
-                            <small class="text-muted">Нет</small>
-                        </div>
+                    <div class="ep-status-row">
+                        <div class="ep-status-dot no"></div>
+                        <div class="ep-status-label">Медосмотр</div>
+                        <div class="ep-status-val">Нет данных</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}

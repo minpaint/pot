@@ -12,6 +12,7 @@ equipment_patterns = [
     path('table/', RedirectView.as_view(pattern_name='deadline_control:equipment:list', permanent=False), name='list_table'),
     path('tree/', RedirectView.as_view(pattern_name='deadline_control:equipment:list', permanent=False), name='list_tree'),
     path('journal/', RedirectView.as_view(pattern_name='deadline_control:equipment:list', permanent=False), name='journal'),
+    path('journal/download-cart/', equipment.download_cart_journal_view, name='download_cart_journal'),
     path('create/', equipment.EquipmentCreateView.as_view(), name='create'),
     path('<int:pk>/', equipment.EquipmentDetailView.as_view(), name='detail'),
     path('<int:pk>/update/', equipment.EquipmentUpdateView.as_view(), name='update'),

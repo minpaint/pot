@@ -14,11 +14,12 @@
             --bg-color: #f5f5f5;
             --card-bg: white;
             --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --ot-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
         }
 
         /* 📱 Общие стили */
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: var(--ot-font-sans);
             background-color: var(--bg-color);
             display: flex;
             justify-content: center;
@@ -82,6 +83,15 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
+        /* Twemoji */
+        img.emoji {
+            height: 1em;
+            width: 1em;
+            margin: 0 .05em 0 .1em;
+            vertical-align: -0.1em;
+            display: inline-block;
+        }
+
         /* 🖼️ Иконка ошибки */
         .error-icon {
             font-size: 4rem;
@@ -117,5 +127,15 @@
         {% endif %}
         <a href="/" class="back-button">Вернуться на главную</a>
     </div>
+
+    <!-- Twemoji: кроссбраузерное отображение эмодзи -->
+    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
+    <script>
+        twemoji.parse(document.body, {
+            folder: 'svg',
+            ext: '.svg',
+            base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@v14.0.2/assets/'
+        });
+    </script>
 </body>
 </html>

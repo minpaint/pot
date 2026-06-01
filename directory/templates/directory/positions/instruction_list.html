@@ -1,0 +1,478 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.pos-page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pos-page-header .hdr-title {
+    font-weight: 600;
+    font-size: 1rem;
+    flex: 1;
+}
+.pos-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 16px;
+    background: #fff;
+}
+.pos-actionbar,
+.pos-treebar {
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+.pos-treebar {
+    background: #f8f9fa;
+    align-items: center;
+    padding: 8px 16px;
+    gap: 8px;
+}
+.pos-actionbar label {
+    display: block;
+    font-size: 0.78rem;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.pos-actionbar input[type="text"] {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: 240px;
+    font-size: 0.88rem;
+}
+.pos-actionbar input[type="text"]:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+.pos-actionbar .form-check {
+    margin-bottom: 7px;
+}
+.pos-actionbar .form-check-label {
+    font-size: 0.85rem;
+}
+.pos-actionbar .btn {
+    min-height: 38px;
+    padding: 6px 12px;
+    font-size: 0.88rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.pos-actionbar-meta {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: #6c757d;
+    white-space: nowrap;
+}
+.pos-treebar .btn {
+    font-size: 0.8rem;
+    padding: 3px 8px;
+}
+.pos-view-switch {
+    margin-left: auto;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    line-height: 1;
+}
+.pos-tree-wrap {
+    overflow: hidden;
+}
+.pos-tree-head {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.5fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr) 36px;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 12px 9px 52px;
+    border-top: 1px solid #eef2f5;
+    border-bottom: 2px solid #f0f0f0;
+    background: #fff;
+    color: #9aa0ac;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+}
+.org-header,
+.sub-header,
+.dept-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    border-top: 1px solid #eef2f5;
+}
+.org-header {
+    background: #f0f4f8;
+    color: #2c3e50;
+    padding: 10px 16px;
+    font-weight: 600;
+}
+.sub-header {
+    background: #f8f9fa;
+    color: #2c3e50;
+    padding: 8px 16px 8px 20px;
+    font-weight: 600;
+}
+.dept-header {
+    background: #fafafa;
+    color: #495057;
+    padding: 7px 16px 7px 32px;
+}
+.org-title,
+.sub-title,
+.dept-title {
+    flex: 1;
+    font-weight: 600;
+}
+.cnt-badge,
+.cnt-badge-light {
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.cnt-badge {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+}
+.cnt-badge-light {
+    color: #1a5276;
+    background: #e3eef8;
+}
+.toggle-icon {
+    font-size: 0.66rem;
+    transition: transform 0.22s ease;
+}
+.collapsed > .toggle-icon,
+.org-header.collapsed .toggle-icon,
+.sub-header.collapsed .toggle-icon,
+.dept-header.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+.collapsible {
+    overflow: hidden;
+    transition: max-height 0.24s ease, opacity 0.18s ease;
+}
+.collapsible.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+}
+.position-row {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.5fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr) 36px;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 12px 7px 52px;
+    border-top: 1px solid #f5f5f5;
+    background: #fff;
+}
+.position-row.level-2 { padding-left: 68px; }
+.position-row.level-3 { padding-left: 84px; }
+.position-row:hover { background: #f8fbff; }
+.position-main {
+    min-width: 0;
+}
+.position-name {
+    font-weight: 600;
+    color: #2c3e50;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.position-name .crown {
+    margin-right: 4px;
+}
+.position-name .icon {
+    margin-right: 4px;
+}
+.pos-info {
+    min-width: 0;
+    font-size: 0.8rem;
+    color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pos-info-empty {
+    color: #adb5bd;
+}
+.pos-info-blank {
+    min-height: 1.2em;
+}
+.pos-edit-btn {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    padding: 0;
+    justify-self: end;
+    line-height: 1;
+}
+.empty-state {
+    background: #fff;
+    border-radius: 12px;
+    padding: 48px 20px;
+    text-align: center;
+    color: #7f8c8d;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 1100px) {
+    .pos-tree-head,
+    .position-row {
+        grid-template-columns: minmax(180px, 1.3fr) repeat(3, minmax(110px, 1fr)) 36px;
+        padding-left: 16px;
+    }
+    .position-row.level-2,
+    .position-row.level-3 {
+        padding-left: 16px;
+    }
+}
+
+@media (max-width: 767px) {
+    .pos-actionbar,
+    .pos-treebar {
+        padding: 10px 12px;
+        gap: 8px;
+    }
+    .pos-page-header {
+        flex-wrap: wrap;
+    }
+    .pos-actionbar {
+        align-items: stretch;
+    }
+    .pos-actionbar > div,
+    .pos-actionbar .form-check {
+        width: 100%;
+    }
+    .pos-actionbar input[type="text"] {
+        width: 100%;
+        min-width: 0;
+    }
+    .pos-actionbar .btn,
+    .pos-treebar .btn {
+        width: 100%;
+    }
+    .pos-treebar .pos-view-switch {
+        width: auto;
+        margin-left: 0;
+        align-self: flex-end;
+    }
+    .pos-actionbar-meta {
+        margin-left: 0;
+        width: 100%;
+        text-align: center;
+    }
+    .org-header { padding: 9px 12px; }
+    .sub-header { padding: 7px 12px 7px 14px; }
+    .dept-header { padding: 6px 12px 6px 18px; }
+    .pos-tree-head {
+        display: none;
+    }
+    .position-row {
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+        padding: 7px 10px;
+    }
+    .position-row.level-2,
+    .position-row.level-3 {
+        padding-left: 10px;
+    }
+    .position-main {
+        grid-column: 1 / 2;
+        grid-row: 1;
+    }
+    .pos-edit-btn {
+        width: 26px;
+        min-width: 26px;
+        height: 26px;
+        padding: 0;
+        grid-column: 2 / 3;
+        grid-row: 1;
+        justify-self: end;
+    }
+    .pos-field-main {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+    .pos-field-contract {
+        grid-column: 1 / -1;
+        grid-row: 3;
+    }
+    .pos-field-vehicle {
+        grid-column: 1 / -1;
+        grid-row: 4;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="pos-page-header">
+        <span>👔</span>
+        <span class="hdr-title">Должности</span>
+    </div>
+
+    <div class="pos-card">
+        <form method="get" class="pos-actionbar">
+            <div>
+                <label for="id_q">Поиск по должности</label>
+                <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Например: монтажник">
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="id_no_instructions" name="no_instructions" value="1"{% if no_instructions %} checked{% endif %}>
+                <label class="form-check-label" for="id_no_instructions">Без инструкций</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="id_responsible" name="responsible" value="1"{% if responsible_only %} checked{% endif %}>
+                <label class="form-check-label" for="id_responsible">Только ответственные</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="id_vehicle" name="vehicle" value="1"{% if vehicle_only %} checked{% endif %}>
+                <label class="form-check-label" for="id_vehicle">Только авто</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Показать</button>
+            <a href="{% url 'directory:positions:position_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+            <a href="{% url 'directory:positions:position_create' %}" class="btn btn-outline-success">+ Добавить должность</a>
+            <span class="pos-actionbar-meta">Должностей: <strong>{{ positions_count }}</strong></span>
+        </form>
+
+        <div class="pos-treebar">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="expand-all">▼ Развернуть все</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="collapse-all">▲ Свернуть все</button>
+            <a href="{% url 'directory:positions:position_table' %}" class="btn btn-sm btn-outline-primary pos-view-switch" title="Открыть табличный список">≡</a>
+        </div>
+
+        <div class="pos-tree-wrap">
+        {% if tree %}
+            <div class="pos-tree-head">
+                <div>Должность / структура</div>
+                <div>ИОТ</div>
+                <div>Договор</div>
+                <div>Авто</div>
+                <div></div>
+            </div>
+            {% for org_entry in tree %}
+            <div class="org-header" data-target="org-{{ org_entry.org.id }}">
+                <span>🏢</span>
+                <span class="org-title">{{ org_entry.org.short_name_ru|default:org_entry.org.full_name_ru }}</span>
+                <span class="cnt-badge">{{ org_entry.positions_count }}</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+            <div class="collapsible" id="org-{{ org_entry.org.id }}" style="max-height:9999px;">
+                {% for position in org_entry.direct_positions %}
+                    {% include 'directory/positions/partials/position_row.html' with position=position row_level=1 %}
+                {% endfor %}
+
+                {% for sub_entry in org_entry.subdivisions.values %}
+                <div class="sub-header" data-target="sub-{{ sub_entry.subdivision.id }}">
+                    <span>🏭</span>
+                    <span class="sub-title">{{ sub_entry.subdivision.name }}</span>
+                    <span class="cnt-badge-light">{{ sub_entry.positions_count }}</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible" id="sub-{{ sub_entry.subdivision.id }}" style="max-height:9999px;">
+                    {% for position in sub_entry.direct_positions %}
+                        {% include 'directory/positions/partials/position_row.html' with position=position row_level=2 %}
+                    {% endfor %}
+
+                    {% for dept_entry in sub_entry.departments.values %}
+                    <div class="dept-header" data-target="dept-{{ dept_entry.department.id }}">
+                        <span>📂</span>
+                        <span class="dept-title">{{ dept_entry.department.name }}</span>
+                        <span class="cnt-badge-light">{{ dept_entry.positions_count }}</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="collapsible" id="dept-{{ dept_entry.department.id }}" style="max-height:9999px;">
+                        {% for position in dept_entry.positions %}
+                            {% include 'directory/positions/partials/position_row.html' with position=position row_level=3 %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div style="font-size: 2.2rem;">👔</div>
+                <div class="mt-2">Подходящие должности не найдены</div>
+            </div>
+        {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function toggleBlock(header, forceCollapse) {
+        const targetId = header.dataset.target;
+        if (!targetId) return;
+        const block = document.getElementById(targetId);
+        if (!block) return;
+        const collapse = forceCollapse !== undefined ? forceCollapse : !block.classList.contains('collapsed');
+        block.classList.toggle('collapsed', collapse);
+        header.classList.toggle('collapsed', collapse);
+        if (!collapse) {
+            block.style.maxHeight = block.scrollHeight + 'px';
+        } else {
+            block.style.maxHeight = '0px';
+        }
+    }
+
+    document.querySelectorAll('.org-header, .sub-header, .dept-header').forEach(function(header) {
+        header.addEventListener('click', function() {
+            toggleBlock(header);
+        });
+    });
+
+    document.getElementById('expand-all')?.addEventListener('click', function() {
+        document.querySelectorAll('.org-header, .sub-header, .dept-header').forEach(function(header) {
+            toggleBlock(header, false);
+        });
+    });
+
+    document.getElementById('collapse-all')?.addEventListener('click', function() {
+        document.querySelectorAll('.org-header, .sub-header, .dept-header').forEach(function(header) {
+            toggleBlock(header, true);
+        });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% if upcoming_medical %}
+{% for exam in upcoming_medical %}
+{% with days=exam.days_until_next_exam %}
+<div class="event-item">
+    <div class="event-dot {% if days is not None and days < 0 %}event-dot-danger{% elif days is not None and days <= 14 %}event-dot-warning{% endif %}"></div>
+    <div class="flex-grow-1 overflow-hidden">
+        <div class="event-name text-truncate">{{ exam.employee.full_name_nominative }}</div>
+        <div class="event-sub text-truncate">{{ exam.harmful_factor }} · {{ exam.employee.organization.short_name_ru }}</div>
+    </div>
+    <div class="med-date-badge {% if days is not None and days < 0 %}med-date-danger{% elif days is not None and days <= 14 %}med-date-warning{% else %}med-date-ok{% endif %}">
+        {{ exam.next_date|date:"d.m.Y" }}
+    </div>
+</div>
+{% endwith %}
+{% endfor %}
+{% else %}
+<div class="text-muted small p-2">Нет предстоящих медосмотров в ближайшие 60 дней</div>
+{% endif %}

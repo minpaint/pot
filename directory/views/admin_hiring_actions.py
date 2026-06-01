@@ -111,96 +111,40 @@ def admin_hiring_documents_action(request):
 
 
 def _handle_generate_documents(request, hirings, document_types):
-    """Генерация и скачивание документов для выбранных записей о приеме"""
+    """Асинхронная генерация документов приёма — ставит задачу в очередь."""
+    from directory.models import GenerationJob
+    from directory.generation_tasks import run_admin_hiring_generate_job
+    from django.urls import reverse
 
-    # Импортируем генераторы
-    from directory.document_generators.order_generator import generate_all_orders
-    from directory.document_generators.protocol_generator import generate_knowledge_protocol
-    from directory.document_generators.familiarization_generator import generate_familiarization_document
-    from directory.document_generators.ot_card_generator import generate_personal_ot_card
-    from directory.document_generators.journal_example_generator import generate_journal_example
-    from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
-    from directory.document_generators.vvodny_journal_generator import generate_vvodny_journal
+    hiring_ids = [h.id for h in hirings]
 
-    generator_map = {
-        'all_orders': generate_all_orders,
-        'knowledge_protocol': generate_knowledge_protocol,
-        'doc_familiarization': generate_familiarization_document,
-        'personal_ot_card': generate_personal_ot_card,
-        'journal_example': generate_journal_example,
-        'siz_card': generate_siz_card_docx,
-        'vvodny_journal_template': generate_vvodny_journal,
-    }
+    if len(hirings) == 1:
+        emp_name = hirings[0].employee.full_name_nominative
+        title = f'Документы приёма — {emp_name}'
+    else:
+        org = hirings[0].organization
+        org_name = org.short_name_ru if org else ''
+        title = f'Документы приёма — {org_name} ({len(hirings)} чел.)'
 
-    all_files = []  # Список всех файлов для архива
+    job = GenerationJob.objects.create(
+        user=request.user,
+        job_type='admin_hiring_generate',
+        status='pending',
+        title=title,
+        params={
+            'hiring_ids': hiring_ids,
+            'document_types': list(document_types),
+        },
+        progress_total=len(hiring_ids),
+    )
+    run_admin_hiring_generate_job.enqueue(job.id)
 
-    # Генерируем документы для каждой записи о приеме
-    for hiring in hirings:
-        employee = hiring.employee
-
-        for doc_type in document_types:
-            try:
-                generator_func = generator_map.get(doc_type)
-                if generator_func:
-                    if doc_type == 'doc_familiarization':
-                        result = generator_func(employee=employee, user=request.user, document_list=None)
-                    else:
-                        result = generator_func(employee=employee, user=request.user)
-
-                    # Обрабатываем результат
-                    if result:
-                        if isinstance(result, list):
-                            for doc in result:
-                                if isinstance(doc, dict) and 'content' in doc and 'filename' in doc:
-                                    # Добавляем префикс с ФИО для различения файлов
-                                    employee_initials = get_initials_from_name(employee.full_name_nominative)
-                                    prefixed_filename = f"{employee_initials}_{doc['filename']}"
-                                    all_files.append((doc['content'], prefixed_filename))
-                        elif isinstance(result, dict) and 'content' in result and 'filename' in result:
-                            employee_initials = get_initials_from_name(employee.full_name_nominative)
-                            prefixed_filename = f"{employee_initials}_{result['filename']}"
-                            all_files.append((result['content'], prefixed_filename))
-            except Exception as e:
-                logger.error(
-                    f"Ошибка при генерации {doc_type} для {employee.full_name_nominative}: {str(e)}",
-                    exc_info=True
-                )
-                messages.warning(
-                    request,
-                    f"Ошибка при генерации документа {doc_type} для {employee.full_name_nominative}"
-                )
-                continue
-
-    if not all_files:
-        messages.error(request, "Не удалось сгенерировать ни один документ")
-        return redirect('admin:directory_employeehiring_changelist')
-
-    # Создаем архив
-    try:
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for content, filename in all_files:
-                zipf.writestr(filename, content)
-
-        zip_buffer.seek(0)
-
-        if len(hirings) == 1:
-            employee_initials = get_initials_from_name(hirings[0].employee.full_name_nominative)
-            zip_filename = f"Документы_{employee_initials}.zip"
-        else:
-            zip_filename = f"Документы_приема_{len(hirings)}_сотрудников.zip"
-
-        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-        encoded_filename = quote(zip_filename)
-        response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
-
-        messages.success(request, f"✅ Успешно сгенерировано документов: {len(all_files)}")
-        return response
-
-    except Exception as e:
-        logger.error(f"Ошибка при создании архива: {str(e)}", exc_info=True)
-        messages.error(request, f"Ошибка при создании архива: {str(e)}")
-        return redirect('admin:directory_employeehiring_changelist')
+    messages.success(
+        request,
+        f'✅ Задача генерации документов поставлена в очередь ({len(hirings)} чел.). '
+        f'Откройте страницу статуса для скачивания.'
+    )
+    return redirect(reverse('directory:generation_job_detail', args=[job.id]))
 
 
 def _handle_send_documents(request, hirings, document_types):

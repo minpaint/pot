@@ -50,6 +50,8 @@ THIRD_PARTY_APPS = [
     'import_export',          # Для импорта/экспорта данных
     'nested_admin',           # Для вложенных админ-интерфейсов
     'django_ckeditor_5',      # WYSIWYG редактор CKEditor 5 📝✨
+    'django_tasks',           # Фоновые задачи (async генерация документов) ⚙️
+    'django_tasks.backends.database',  # БД-бэкенд для django_tasks
 ]
 
 # 🏠 Локальные приложения
@@ -57,6 +59,9 @@ LOCAL_APPS = [
     'directory.apps.DirectoryConfig',  # Наше приложение "directory" 📦
     'deadline_control.apps.DeadlineControlConfig',  # Контроль сроков 🕐
     'production_training.apps.ProductionTrainingConfig',  # Обучение на производстве 🎓
+    'contracts',  # Договоры и акты (только суперпользователь) 💼
+    'taxes',  # Расчёт налогов ИП (только суперпользователь) 💰
+    'tasks.apps.TasksConfig',  # Списки задач по организациям ✅
 ]
 
 # Добавляем debug_toolbar только если не в режиме тестирования и DEBUG=True
@@ -184,6 +189,13 @@ STATICFILES_FINDERS = [
 # 📸 Медиа файлы
 MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
 MEDIA_ROOT = BASE_DIR / 'media' # Директория для загружаемых пользователем файлов
+
+# ⚙️ django-tasks: бэкенд фоновых задач (для массовой генерации документов)
+TASKS = {
+    'default': {
+        'BACKEND': 'django_tasks.backends.database.DatabaseBackend',
+    }
+}
 
 # 🔑 Тип первичного ключа
 DEFAULT_AUTO_FIELD = os.getenv('DEFAULT_AUTO_FIELD', 'django.db.models.BigAutoField')

@@ -1,391 +1,434 @@
 {% extends "base.html" %}
 {% load static %}
 {% load i18n %}
-{% load crispy_forms_tags %}
 
-{% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12 col-md-7 mx-auto">
-            <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">✅ Завершение оформления сотрудника</h5>
-                </div>
-                <div class="card-body">
-                    {% if employee %}
-                    <div class="employee-info">
-                        <strong>👤 {{ employee.full_name_nominative }}</strong> — {{ employee.position.position_name }}
-                        {% if employee.department %}({{ employee.department.name }}){% elif employee.subdivision %}({{ employee.subdivision.name }}){% endif %}{% if employee.hire_date %}, дата начала работы: <strong>{{ employee.hire_date|date:"d.m.Y" }}</strong>{% endif %}
-                    </div>
-                    {% endif %}
-
-                    <div class="alert alert-info mb-3" style="font-size: 0.9rem;">
-                        <strong>📋 Что нужно сделать:</strong>
-                        <ol class="mb-0 pl-3" style="margin-top: 8px;">
-                            <li>Скачайте необходимые документы</li>
-                            <li>Заполните журналы по охране труда</li>
-                            <li>Распечатайте и подпишите документы</li>
-                        </ol>
-                    </div>
-
-                    <form method="post" action="" id="document-generation-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="generate_documents" value="1">
-                        <input type="hidden" name="employee_id" value="{{ employee.id }}">
-
-                        <h6 class="mb-2">📄 Документы для скачивания</h6>
-
-                        {% if employee.position.drives_company_vehicle %}
-                        <div class="alert alert-info" style="font-size: 0.85rem; padding: 8px 12px;">
-                            <strong>🚗 Управление служебным автомобилем:</strong> Для данного сотрудника будут автоматически созданы дополнительные документы для управления служебным автомобилем (стажировка 5 дней, отдельная строка в протоколе).
-                        </div>
-                        {% endif %}
-
-                        <div class="document-types-container">
-                            {% for value, text in document_selection_form.fields.document_types.choices %}
-                            <div class="document-type-item">
-                                <div class="custom-control custom-checkbox">
-                                    <input type="checkbox" name="document_types"
-                                           value="{{ value }}"
-                                           class="custom-control-input"
-                                           id="id_document_types_{{ forloop.counter }}"
-                                           {% if value in document_selection_form.initial.document_types %}checked{% endif %}>
-                                    <label class="custom-control-label" for="id_document_types_{{ forloop.counter }}">
-                                        {{ text }}
-                                        {% if value == 'all_orders' and employee.position.drives_company_vehicle %}
-                                        <span class="badge badge-info ml-1" title="Будет создано 2 распоряжения: основное и для управления автомобилем">🚗 +1</span>
-                                        {% endif %}
-                                    </label>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="submit-btn-container">
-                            <button type="button" id="downloadDocsBtn" class="btn btn-success">
-                                <i class="fas fa-download"></i> Скачать документы
-                            </button>
-
-                            <!-- ✉️ Кнопка отправки документов (показывает предпросмотр) -->
-                            <button type="button" id="previewEmailBtn" class="btn btn-primary ml-2">
-                                <i class="fas fa-envelope"></i> Отправить документы
-                            </button>
-
-                            <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-secondary ml-2">
-                                Назад к списку
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Модальное окно предпросмотра письма -->
-<div class="modal fade" id="emailPreviewModal" tabindex="-1" role="dialog" aria-labelledby="emailPreviewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="emailPreviewModalLabel">
-                    <i class="fas fa-envelope-open-text"></i> Предпросмотр письма
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="previewLoading" class="text-center" style="display: none;">
-                    <i class="fas fa-spinner fa-spin fa-2x"></i>
-                    <p class="mt-2">Загрузка предпросмотра...</p>
-                </div>
-
-                <div id="previewError" class="alert alert-danger" style="display: none;"></div>
-
-                <div id="previewContent" style="display: none;">
-                    <!-- Получатели -->
-                    <div class="mb-3">
-                        <h6><i class="fas fa-users"></i> Получатели:</h6>
-                        <div id="previewRecipients" class="alert alert-info"></div>
-                    </div>
-
-                    <!-- Тема письма -->
-                    <div class="mb-3">
-                        <h6><i class="fas fa-heading"></i> Тема письма:</h6>
-                        <div id="previewSubject" class="alert alert-secondary"></div>
-                    </div>
-
-                    <!-- Документы -->
-                    <div class="mb-3">
-                        <h6><i class="fas fa-file-alt"></i> Документы для отправки:</h6>
-                        <div id="previewDocuments" class="alert alert-success"></div>
-                    </div>
-
-                    <!-- Тело письма -->
-                    <div class="mb-3">
-                        <h6><i class="fas fa-envelope"></i> Текст письма:</h6>
-                        <div id="previewBody" class="border p-3" style="background: #f8f9fa; max-height: 300px; overflow-y: auto;"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times"></i> Отмена
-                </button>
-                <button type="button" class="btn btn-primary" id="confirmSendBtn">
-                    <i class="fas fa-paper-plane"></i> Отправить письмо
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+{% block title %}✅ Оформление: {{ employee.full_name_nominative }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    .badge-new {
-        background-color: #28a745;
-        color: white;
-    }
+.hd-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.hd-topbar-title { font-weight: 700; font-size: 0.95rem; color: #2c3e50; flex: 1; }
 
-    .badge-transfer {
-        background-color: #007bff;
-        color: white;
-    }
+.hd-card {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 16px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.hd-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding: 12px 20px;
+}
+.hd-card-body { padding: 18px 20px; }
 
-    .badge-return {
-        background-color: #6f42c1;
-        color: white;
-    }
+/* Инфо о сотруднике */
+.hd-emp-info {
+    background: #eef4fb;
+    border-left: 3px solid #3498db;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+    color: #1a5276;
+}
+.hd-emp-info strong { font-size: 0.92rem; color: #2c3e50; }
 
-    .badge-contractor {
-        background-color: #fd7e14;
-        color: white;
-    }
+/* Инструкция */
+.hd-tip {
+    background: #f0f7ff;
+    border: 1px solid #d0e8f5;
+    border-radius: 8px;
+    padding: 11px 14px;
+    margin-bottom: 16px;
+    font-size: 0.84rem;
+    color: #1a5276;
+}
+.hd-tip strong { font-size: 0.86rem; }
+.hd-tip ol { margin: 6px 0 0 0; padding-left: 18px; }
+.hd-tip li { margin-bottom: 2px; }
 
-    .badge-part_time {
-        background-color: #17a2b8;
-        color: white;
-    }
+/* Предупреждение авто */
+.hd-car-warn {
+    background: #fff8e1;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 0.84rem;
+    color: #664d03;
+}
 
-    .document-link {
-        text-decoration: none;
-    }
+/* Заголовок раздела */
+.hd-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9aa0ac;
+    margin-bottom: 10px;
+}
 
-    .document-link:hover {
-        text-decoration: underline;
-    }
+/* Чекбоксы документов */
+.hd-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    font-size: 0.88rem;
+    color: #2c3e50;
+}
+.hd-doc-item:hover { background: #f0f7ff; border-color: #3498db; }
+.hd-doc-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #3498db; }
+.hd-doc-item label { cursor: pointer; margin: 0; flex: 1; }
+.hd-doc-badge {
+    font-size: 0.7rem; font-weight: 600;
+    background: #fff3cd; color: #856404;
+    padding: 1px 6px; border-radius: 10px; white-space: nowrap;
+}
 
-    /* Стили для формы генерации документов */
-    .document-type-item {
-        padding: 8px 12px;
-        margin-bottom: 6px;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        transition: background-color 0.2s;
-    }
+/* Блок руководителя стажировки */
+.hd-leader-block {
+    background: #f8fafb;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+.hd-leader-found {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+.hd-leader-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    background: #d1f5d3;
+    color: #1e7e34;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.hd-leader-none { color: #856404; font-size: 0.85rem; margin-bottom: 8px; }
+.hd-leader-name { font-weight: 600; font-size: 0.9rem; color: #2c3e50; }
+.hd-leader-pos { font-size: 0.82rem; color: #6c757d; }
+.hd-leader-select-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hd-leader-select-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.35px; color: #9aa0ac; white-space: nowrap;
+}
+.hd-leader-select {
+    font-size: 0.84rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: #2c3e50;
+    background: #fff;
+    flex: 1;
+    min-width: 220px;
+    max-width: 480px;
+}
+.hd-leader-select:focus { border-color: #3498db; outline: none; box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
 
-    .document-type-item:hover {
-        background-color: #f8f9fa;
-    }
+/* Кнопки */
+.hd-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+}
 
-    .document-type-item .custom-control-label {
-        font-weight: 500;
-        font-size: 0.95rem;
-        cursor: pointer;
-    }
+/* Модальное окно */
+.hd-modal-section { margin-bottom: 14px; }
+.hd-modal-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.35px; color: #9aa0ac; margin-bottom: 6px;
+}
+.hd-modal-value {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: #2c3e50;
+}
+.hd-modal-body-text {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.83rem;
+    max-height: 280px;
+    overflow-y: auto;
+    color: #495057;
+}
 
-    .submit-btn-container {
-        margin-top: 15px;
-    }
-
-    .employee-info {
-        background: #f8f9fa;
-        padding: 10px 15px;
-        border-radius: 4px;
-        margin-bottom: 15px;
-        font-size: 0.9rem;
-    }
-
-    /* Адаптивность для мобильных устройств */
-    @media (max-width: 768px) {
-        .card-header h5 {
-            font-size: 1.1rem;
-        }
-
-        .employee-info {
-            padding: 8px 10px;
-            font-size: 0.85rem;
-        }
-
-        .document-type-item {
-            padding: 10px;
-            margin-bottom: 8px;
-        }
-
-        .document-type-item .custom-control-label {
-            font-size: 0.9rem;
-        }
-
-        .submit-btn-container {
-            margin-top: 12px;
-        }
-
-        .submit-btn-container .btn {
-            width: 100%;
-            margin-bottom: 8px;
-        }
-
-        .submit-btn-container .btn.ml-2 {
-            margin-left: 0 !important;
-        }
-    }
-
-    @media (max-width: 576px) {
-        .card-header h5 {
-            font-size: 1rem;
-        }
-
-        .document-type-item {
-            padding: 8px;
-        }
-
-        .document-type-item .custom-control-label {
-            font-size: 0.85rem;
-            line-height: 1.4;
-        }
-    }
+@media (max-width: 767px) {
+    .hd-topbar { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .hd-actions { flex-direction: column; }
+    .hd-actions .btn { width: 100%; }
+    .hd-leader-select-wrap { flex-direction: column; align-items: stretch; }
+    .hd-leader-select { max-width: 100%; min-width: 0; }
+}
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+
+    <!-- Топбар -->
+    <div class="hd-topbar">
+        <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary" style="padding:4px 10px;font-size:0.8rem;">← Список приёмов</a>
+        <span class="hd-topbar-title">✅ Оформление: {{ employee.full_name_nominative }}</span>
+    </div>
+
+    <div class="hd-card">
+        <div class="hd-card-header">
+            ✅ Завершение оформления сотрудника
+        </div>
+        <div class="hd-card-body">
+
+            {% if employee %}
+            <div class="hd-emp-info">
+                <strong>👤 {{ employee.full_name_nominative }}</strong>
+                — {{ employee.position.position_name }}
+                {% if employee.department %}({{ employee.department.name }}){% elif employee.subdivision %}({{ employee.subdivision.name }}){% endif %}
+                {% if employee.hire_date %}&nbsp;· дата начала: <strong>{{ employee.hire_date|date:"d.m.Y" }}</strong>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if employee.position.drives_company_vehicle %}
+            <div class="hd-car-warn">
+                🚗 <strong>Управление служебным автомобилем:</strong> Для данного сотрудника будут автоматически созданы дополнительные документы (стажировка 5 дней, отдельная строка в протоколе).
+            </div>
+            {% endif %}
+
+            <form method="post" action="" id="document-generation-form">
+                {% csrf_token %}
+                <input type="hidden" name="generate_documents" value="1">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+
+                <div class="hd-section-title">📄 Документы для скачивания</div>
+
+                <div class="hd-doc-list">
+                    {% for value, text in document_selection_form.fields.document_types.choices %}
+                    <div class="hd-doc-item" onclick="toggleDocCheckbox(this)">
+                        <input type="checkbox"
+                               name="document_types"
+                               value="{{ value }}"
+                               id="id_document_types_{{ forloop.counter }}"
+                               {% if value in document_selection_form.initial.document_types %}checked{% endif %}
+                               onclick="event.stopPropagation()">
+                        <label for="id_document_types_{{ forloop.counter }}">{{ text }}</label>
+                        {% if value == 'all_orders' and employee.position.drives_company_vehicle %}
+                        <span class="hd-doc-badge">🚗 +1 документ</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Руководитель стажировки -->
+                <div class="hd-section-title" style="margin-top:18px;">👤 Руководитель стажировки</div>
+                <div class="hd-leader-block">
+                    {% if internship_leader %}
+                    <div class="hd-leader-found">
+                        {% if internship_leader_level_display %}
+                        <span class="hd-leader-badge">{{ internship_leader_level_display }}</span>
+                        {% endif %}
+                        <span class="hd-leader-name">{{ internship_leader.full_name_nominative }}</span>
+                        {% if internship_leader.position %}
+                        <span class="hd-leader-pos">— {{ internship_leader.position.position_name }}</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="hd-leader-none">⚠️ Руководитель стажировки не определён автоматически. Выберите вручную:</div>
+                    {% endif %}
+
+                    {% if internship_leader_candidates %}
+                    <div class="hd-leader-select-wrap">
+                        <span class="hd-leader-select-label">Изменить:</span>
+                        <select name="internship_leader_id" class="hd-leader-select" id="internshipLeaderSelect">
+                            <option value="">— Авто{% if internship_leader %}: {{ internship_leader.full_name_nominative }}{% endif %}</option>
+                            {% for candidate in internship_leader_candidates %}
+                            <option value="{{ candidate.id }}"
+                                    {% if internship_leader and candidate.id == internship_leader.id %}selected{% endif %}>
+                                {{ candidate.full_name_nominative }}{% if candidate.position %} ({{ candidate.position.position_name }}){% endif %}{% if candidate.subdivision %} · {{ candidate.subdivision.name }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif not internship_leader %}
+                    <div style="font-size:0.82rem;color:#999;margin-top:4px;">В организации нет сотрудников с должностью «руководитель стажировки».</div>
+                    {% endif %}
+                </div>
+
+                <div class="hd-tip" style="margin-top:14px;">
+                    <strong>📋 Что нужно сделать:</strong>
+                    <ol>
+                        <li>Скачайте необходимые документы</li>
+                        <li>Заполните журналы по охране труда</li>
+                        <li>Распечатайте и подпишите документы</li>
+                    </ol>
+                </div>
+
+                <div class="hd-actions">
+                    <button type="button" id="downloadDocsBtn" class="btn btn-success" style="font-size:0.88rem;">
+                        📥 Скачать документы
+                    </button>
+                    <button type="button" id="previewEmailBtn" class="btn btn-outline-primary" style="font-size:0.88rem;">
+                        ✉️ Отправить документы
+                    </button>
+                    <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-outline-secondary" style="font-size:0.88rem;">
+                        ← Назад к списку
+                    </a>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Модальное окно предпросмотра письма -->
+<div class="modal fade" id="emailPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius:10px;overflow:hidden;border:none;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#2c3e50 0%,#3498db 100%);color:#fff;border:none;">
+                <h5 class="modal-title" style="font-size:0.92rem;font-weight:700;">✉️ Предпросмотр письма</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px 20px;">
+                <div id="previewLoading" class="text-center py-4" style="display:none;">
+                    <div class="spinner-border text-primary" style="width:2rem;height:2rem;"></div>
+                    <p class="mt-2 text-muted" style="font-size:0.85rem;">Загрузка предпросмотра…</p>
+                </div>
+
+                <div id="previewError" class="hd-car-warn" style="display:none;background:#fde8e8;border-color:#f5c6cb;color:#721c24;"></div>
+
+                <div id="previewContent" style="display:none;">
+                    <div class="hd-modal-section">
+                        <div class="hd-modal-label">👥 Получатели</div>
+                        <div id="previewRecipients" class="hd-modal-value"></div>
+                    </div>
+                    <div class="hd-modal-section">
+                        <div class="hd-modal-label">📌 Тема письма</div>
+                        <div id="previewSubject" class="hd-modal-value"></div>
+                    </div>
+                    <div class="hd-modal-section">
+                        <div class="hd-modal-label">📄 Документы для отправки</div>
+                        <div id="previewDocuments" class="hd-modal-value"></div>
+                    </div>
+                    <div class="hd-modal-section">
+                        <div class="hd-modal-label">✉️ Текст письма</div>
+                        <div id="previewBody" class="hd-modal-body-text"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #f0f0f0;padding:12px 20px;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary btn-sm" id="confirmSendBtn" style="background:linear-gradient(135deg,#2c3e50 0%,#3498db 100%);border:none;">
+                    📤 Отправить письмо
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('document-generation-form');
+function toggleDocCheckbox(item) {
+    const cb = item.querySelector('input[type="checkbox"]');
+    cb.checked = !cb.checked;
+}
 
-        // Обработчик кнопки скачивания документов
-        const downloadDocsBtn = document.getElementById('downloadDocsBtn');
-        if (downloadDocsBtn && form) {
-            downloadDocsBtn.addEventListener('click', function(e) {
-                e.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('document-generation-form');
 
-                const checkboxes = document.querySelectorAll('input[name="document_types"]:checked');
-                if (checkboxes.length === 0) {
-                    alert('Пожалуйста, выберите хотя бы один тип документа.');
-                    return;
-                }
-
-                // Добавить скрытое поле для скачивания
-                const downloadInput = document.createElement('input');
-                downloadInput.type = 'hidden';
-                downloadInput.name = 'generate_documents';
-                downloadInput.value = '1';
-                form.appendChild(downloadInput);
-
-                // Показать индикатор загрузки
-                downloadDocsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Генерация документов...';
-                downloadDocsBtn.disabled = true;
-
-                // Отправить форму
-                form.submit();
-            });
-        }
-
-        // Делаем строки с чекбоксами кликабельными
-        const documentTypeItems = document.querySelectorAll('.document-type-item');
-        documentTypeItems.forEach(function(item) {
-            item.addEventListener('click', function(e) {
-                // Проверяем, что клик был не на самом чекбоксе или лейбле
-                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
-                    const checkbox = item.querySelector('input[type="checkbox"]');
-                    checkbox.checked = !checkbox.checked;
-                }
-            });
-        });
-
-        // Обработчик кнопки предпросмотра письма
-        const previewEmailBtn = document.getElementById('previewEmailBtn');
-        if (previewEmailBtn) {
-            previewEmailBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-
-                // Проверить что выбран хотя бы один документ
-                const checkedBoxes = document.querySelectorAll('input[name="document_types"]:checked');
-                if (checkedBoxes.length === 0) {
-                    alert('Пожалуйста, выберите хотя бы один тип документа для отправки.');
-                    return;
-                }
-
-                // Показать модальное окно с индикатором загрузки (Bootstrap 5 API)
-                const modalElement = document.getElementById('emailPreviewModal');
-                const modal = new bootstrap.Modal(modalElement);
-                modal.show();
-
-                $('#previewLoading').show();
-                $('#previewError').hide();
-                $('#previewContent').hide();
-
-                // Собрать данные формы
-                const formData = new FormData();
-                formData.append('csrfmiddlewaretoken', $('input[name="csrfmiddlewaretoken"]').val());
-
-                checkedBoxes.forEach(function(checkbox) {
-                    formData.append('document_types', checkbox.value);
-                });
-
-                // AJAX запрос к preview endpoint
-                fetch('{% url "directory:hiring:preview_hiring_email" hiring.id %}', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    $('#previewLoading').hide();
-
-                    if (data.success) {
-                        // Заполнить данные предпросмотра
-                        $('#previewRecipients').html('<strong>' + data.recipients.join(', ') + '</strong>');
-                        $('#previewSubject').text(data.subject);
-                        $('#previewDocuments').html(data.document_names.map(name =>
-                            '<div>' + name + '</div>'
-                        ).join(''));
-                        $('#previewBody').html(data.body);
-
-                        $('#previewContent').show();
-                    } else {
-                        $('#previewError').text(data.error || 'Произошла ошибка при загрузке предпросмотра').show();
-                    }
-                })
-                .catch(error => {
-                    $('#previewLoading').hide();
-                    $('#previewError').text('Ошибка при загрузке предпросмотра: ' + error.message).show();
-                });
-            });
-        }
-
-        // Обработчик кнопки подтверждения отправки
-        const confirmSendBtn = document.getElementById('confirmSendBtn');
-        if (confirmSendBtn) {
-            confirmSendBtn.addEventListener('click', function() {
-                // Скрыть модальное окно (Bootstrap 5 API)
-                const modalElement = document.getElementById('emailPreviewModal');
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) {
-                    modal.hide();
-                }
-
-                // Отправить форму с флагом send_documents
-                const form = document.getElementById('document-generation-form');
-
-                // Создать скрытое поле для отправки
-                const sendInput = document.createElement('input');
-                sendInput.type = 'hidden';
-                sendInput.name = 'send_documents';
-                sendInput.value = '1';
-                form.appendChild(sendInput);
-
-                // Отправить форму
-                form.submit();
-            });
-        }
+    // Скачать документы
+    document.getElementById('downloadDocsBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        const checked = document.querySelectorAll('input[name="document_types"]:checked');
+        if (!checked.length) { alert('Пожалуйста, выберите хотя бы один тип документа.'); return; }
+        this.textContent = '⏳ Генерация…';
+        this.disabled = true;
+        form.submit();
     });
+
+    // Предпросмотр письма
+    document.getElementById('previewEmailBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        const checked = document.querySelectorAll('input[name="document_types"]:checked');
+        if (!checked.length) { alert('Пожалуйста, выберите хотя бы один тип документа для отправки.'); return; }
+
+        const modal = new bootstrap.Modal(document.getElementById('emailPreviewModal'));
+        modal.show();
+
+        document.getElementById('previewLoading').style.display = '';
+        document.getElementById('previewError').style.display = 'none';
+        document.getElementById('previewContent').style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        checked.forEach(cb => formData.append('document_types', cb.value));
+
+        fetch('{% url "directory:hiring:preview_hiring_email" hiring.id %}', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('previewLoading').style.display = 'none';
+            if (data.success) {
+                document.getElementById('previewRecipients').innerHTML = '<strong>' + data.recipients.join(', ') + '</strong>';
+                document.getElementById('previewSubject').textContent = data.subject;
+                document.getElementById('previewDocuments').innerHTML = data.document_names.map(n => '<div>📄 ' + n + '</div>').join('');
+                document.getElementById('previewBody').innerHTML = data.body;
+                document.getElementById('previewContent').style.display = '';
+            } else {
+                const err = document.getElementById('previewError');
+                err.textContent = data.error || 'Ошибка при загрузке предпросмотра';
+                err.style.display = '';
+            }
+        })
+        .catch(err => {
+            document.getElementById('previewLoading').style.display = 'none';
+            const el = document.getElementById('previewError');
+            el.textContent = 'Ошибка: ' + err.message;
+            el.style.display = '';
+        });
+    });
+
+    // Подтвердить отправку
+    document.getElementById('confirmSendBtn').addEventListener('click', function() {
+        bootstrap.Modal.getInstance(document.getElementById('emailPreviewModal')).hide();
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'send_documents'; inp.value = '1';
+        form.appendChild(inp);
+        form.submit();
+    });
+});
 </script>
 {% endblock %}

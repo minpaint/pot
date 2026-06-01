@@ -45,8 +45,8 @@ class SIZ(models.Model):
     )
 
     class Meta:
-        verbose_name = "🦺 Средство индивидуальной защиты"
-        verbose_name_plural = "🦺 Средства индивидуальной защиты"
+        verbose_name = "🦺 Справочник СИЗ"
+        verbose_name_plural = "🦺 Справочник СИЗ"
         ordering = ['name']
 
     def __str__(self):
@@ -94,8 +94,8 @@ class ProfessionSIZNorm(models.Model):
     )
 
     class Meta:
-        verbose_name = "📖 Эталонная норма СИЗ профессии"
-        verbose_name_plural = "📖 1. Эталонные нормы СИЗ (справочник)"
+        verbose_name = "📖 Эталонная норма СИЗ"
+        verbose_name_plural = "📖 Эталонные нормы СИЗ"
         unique_together = [['profession_name', 'siz', 'condition']]
         ordering = ['profession_name', 'condition', 'order', 'siz__name']
         indexes = [
@@ -138,8 +138,8 @@ class SIZNorm(models.Model):
     )
 
     class Meta:
-        verbose_name = "📏 Норма выдачи СИЗ"
-        verbose_name_plural = "📏 Нормы выдачи СИЗ"
+        verbose_name = "📏 Переопределённая норма"
+        verbose_name_plural = "📏 Переопределённые нормы"
         # Возвращаем прежнее unique_together вместо constraints
         unique_together = [['position', 'siz', 'condition']]
         ordering = ['position', 'condition', 'order', 'siz__name']

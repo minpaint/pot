@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}📤 Журнал выдачи СИЗ{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Топбар ── */
+.jn-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.jn-topbar-title { font-weight: 700; font-size: 0.95rem; color: #2c3e50; flex: 1; }
+.jn-topbar-info  { font-size: 0.8rem; color: #6c757d; }
+
+/* ── Карточка-контейнер ── */
+.jn-card {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 6px;
+}
+
+/* ── Таблица ── */
+.jn-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.jn-table th {
+    padding: 9px 14px;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.35px;
+    color: #9aa0ac; font-weight: 600;
+    border-bottom: 2px solid #f0f0f0; background: #fff; white-space: nowrap;
+}
+.jn-table td { padding: 9px 14px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
+
+/* Иерархия */
+.jn-org-row td {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff; font-weight: 700; font-size: 0.88rem;
+    padding: 9px 18px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.jn-org-row:hover td { filter: brightness(1.08); }
+.jn-sub-row td {
+    background: #f0f4f8; color: #2c3e50; font-weight: 600; font-size: 0.84rem;
+    padding: 7px 18px 7px 32px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid #dde3ea;
+}
+.jn-sub-row:hover td { background: #e4eaf2; }
+.jn-dept-row td {
+    background: #fafafa; color: #495057; font-weight: 600; font-size: 0.82rem;
+    padding: 6px 18px 6px 48px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid #ededee;
+}
+.jn-dept-row:hover td { background: #f2f2f2; }
+
+/* Строка сотрудника */
+.jn-table tr.row-emp td {
+    background: #fff; font-weight: 600;
+    cursor: pointer; user-select: none;
+    border-bottom: 1px solid #f0f0f0;
+}
+.jn-table tr.row-emp:hover td { background: #f0f7ff; }
+
+/* Строка условия выдачи */
+.jn-table tr.row-condition td {
+    background: #eef4fb;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #1a5276;
+    font-style: italic;
+    padding: 5px 14px;
+    border-bottom: 1px solid #d6e8f7;
+}
+
+/* Строка СИЗ */
+.jn-table tr.row-siz:hover td { background: #f8fbff; }
+
+/* Иконка toggle */
+.jn-toggle {
+    display: inline-block; font-size: 0.6rem; margin-right: 7px;
+    transition: transform 0.2s; opacity: 0.8;
+}
+.jn-org-row.open .jn-toggle,
+.jn-sub-row.open .jn-toggle,
+.jn-dept-row.open .jn-toggle,
+.row-emp.open .emp-toggle { transform: rotate(90deg); }
+.emp-toggle {
+    display: inline-block; font-size: 0.6rem; margin-right: 7px;
+    transition: transform 0.2s; color: #6c757d;
+}
+
+/* Бейджи */
+.jn-badge {
+    display: inline-block; font-size: 0.72rem; font-weight: 600;
+    padding: 2px 9px; border-radius: 20px; white-space: nowrap;
+}
+.jn-badge-active   { background: #d1f5d3; color: #1e7e34; }
+.jn-badge-returned { background: #f0f0f0; color: #999; }
+
+/* Пагинация */
+.jn-pagination {
+    display: flex; justify-content: center; gap: 4px; padding: 16px 18px;
+}
+.jn-pagination a, .jn-pagination span {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 34px; height: 34px; padding: 0 9px;
+    border: 1px solid #dee2e6; border-radius: 6px;
+    font-size: 0.84rem; text-decoration: none; color: #495057; background: #fff;
+}
+.jn-pagination a:hover { background: #f0f7ff; border-color: #3498db; color: #3498db; }
+.jn-pagination .current { background: #3498db; border-color: #3498db; color: #fff; font-weight: 700; }
+.jn-pagination .disabled { color: #ccc; pointer-events: none; }
+
+.jn-empty { padding: 28px; text-align: center; color: #9aa0ac; font-size: 0.88rem; }
+
+@media (max-width: 767px) {
+    .jn-topbar { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .jn-sub-row td { padding-left: 18px; }
+    .jn-dept-row td { padding-left: 28px; }
+    .jn-table th:nth-child(3), .jn-table td:nth-child(3),
+    .jn-table th:nth-child(4), .jn-table td:nth-child(4) { display: none; }
+    .jn-pagination { flex-wrap: wrap; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+
+    <!-- Топбар -->
+    <div class="jn-topbar">
+        <a href="{% url 'directory:siz:siz_list' %}" class="btn btn-sm btn-outline-secondary" style="padding:4px 10px;font-size:0.8rem;">← Дашборд</a>
+        <span class="jn-topbar-title">📤 Журнал выдачи СИЗ</span>
+        {% if journal_page %}
+        <span class="jn-topbar-info">
+            Всего сотрудников: <strong>{{ journal_page.paginator.count }}</strong>
+            &nbsp;·&nbsp; Стр. {{ journal_page.number }} из {{ journal_page.paginator.num_pages }}
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- Таблица с иерархией -->
+    <div class="jn-card">
+        {% if journal_hierarchy %}
+        <div style="overflow-x:auto;">
+            <table class="jn-table">
+                <thead>
+                    <tr>
+                        <th style="width:38%;">Структура / Сотрудник / СИЗ</th>
+                        <th>Дата выдачи</th>
+                        <th>Кол-во</th>
+                        <th>Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for org_entry in journal_hierarchy %}
+                {# ── Организация ── #}
+                <tr class="jn-org-row open" onclick="toggleJn(this, 'org-{{ org_entry.org.id }}')">
+                    <td colspan="5">
+                        <span class="jn-toggle">▶</span>
+                        🏢 {{ org_entry.org.short_name_ru|default:org_entry.org.full_name_ru }}
+                    </td>
+                </tr>
+                {% for sub_key, sub_entry in org_entry.subdivisions.items %}
+                {# ── Подразделение ── #}
+                <tr class="jn-sub-row open" data-grp="org-{{ org_entry.org.id }}"
+                    onclick="toggleJn(this, 'sub-{{ org_entry.org.id }}-{{ forloop.counter }}')">
+                    <td colspan="5">
+                        <span class="jn-toggle">▶</span>
+                        🏭 {% if sub_entry.subdivision %}{{ sub_entry.subdivision.name }}{% else %}Без подразделения{% endif %}
+                    </td>
+                </tr>
+                {% for dept_key, dept_entry in sub_entry.departments.items %}
+                {% if dept_entry.department %}
+                {# ── Отдел ── #}
+                <tr class="jn-dept-row open"
+                    data-grp="sub-{{ org_entry.org.id }}-{{ forloop.parentloop.counter }}"
+                    onclick="toggleJn(this, 'dept-{{ org_entry.org.id }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')">
+                    <td colspan="5">
+                        <span class="jn-toggle">▶</span>
+                        📂 {{ dept_entry.department.name }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% for emp_entry in dept_entry.employees %}
+                {% with emp=emp_entry.employee %}
+                {% with grp="emp-{{ org_entry.org.id }}-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" %}
+                {# ── Сотрудник ── #}
+                <tr class="row-emp"
+                    data-grp="{% if dept_entry.department %}dept-{{ org_entry.org.id }}-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}{% else %}sub-{{ org_entry.org.id }}-{{ forloop.parentloop.parentloop.counter }}{% endif %}"
+                    onclick="toggleEmpGroup(this, '{{ grp }}')">
+                    <td colspan="2" style="padding-left:{% if dept_entry.department %}62px{% else %}46px{% endif %};">
+                        <span class="emp-toggle">▶</span>
+                        👤 {{ emp.full_name_nominative }}
+                        <span style="font-size:0.74rem;color:#9aa0ac;margin-left:6px;">({{ emp_entry.items_count }} записей)</span>
+                    </td>
+                    <td></td><td></td>
+                    <td class="td-acts" onclick="event.stopPropagation()">
+                        <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
+                           class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;padding:2px 8px;">🪪 Карточка</a>
+                    </td>
+                </tr>
+                {# ── СИЗ по группам условий ── #}
+                {% for cgrp in emp_entry.item_groups %}
+                {# Строка-заголовок условия (только если условие задано) #}
+                {% if cgrp.condition %}
+                <tr class="row-condition" data-grp="{{ grp }}" style="display:none;">
+                    <td colspan="5" style="padding-left:{% if dept_entry.department %}78px{% else %}62px{% endif %};">
+                        📌 {{ cgrp.condition }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% for item in cgrp.items %}
+                <tr class="row-siz" data-grp="{{ grp }}" style="display:none;">
+                    <td data-label="СИЗ" style="padding-left:{% if dept_entry.department %}{% if cgrp.condition %}94px{% else %}78px{% endif %}{% else %}{% if cgrp.condition %}78px{% else %}62px{% endif %}{% endif %};">
+                        🔹 {{ item.siz.name }}
+                    </td>
+                    <td data-label="Дата выдачи">{{ item.issue_date|date:"d.m.Y" }}</td>
+                    <td data-label="Кол-во">{{ item.quantity }}</td>
+                    <td data-label="Статус">
+                        {% if item.is_returned %}
+                        <span class="jn-badge jn-badge-returned">⚪ Возвращено</span>
+                        {% else %}
+                        <span class="jn-badge jn-badge-active">🟢 Активно</span>
+                        {% endif %}
+                    </td>
+                    <td class="td-acts">
+                        {% if not item.is_returned %}
+                        <a href="{% url 'directory:siz:siz_return' item.id %}"
+                           class="btn btn-sm btn-outline-warning" style="font-size:0.75rem;padding:2px 8px;">↩ Вернуть</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}{# item_groups #}
+                {% endwith %}{% endwith %}
+                {% endfor %}{# employees #}
+                {% endfor %}{# departments #}
+                {% endfor %}{# subdivisions #}
+                {% endfor %}{# orgs #}
+                </tbody>
+            </table>
+        </div>
+
+        {# ── Пагинация ── #}
+        {% if journal_page.has_other_pages %}
+        <div class="jn-pagination">
+            {% if journal_page.has_previous %}
+            <a href="?page={{ journal_page.previous_page_number }}">‹</a>
+            {% else %}<span class="disabled">‹</span>{% endif %}
+
+            {% for num in journal_page.paginator.page_range %}
+                {% if journal_page.number == num %}
+                <span class="current">{{ num }}</span>
+                {% elif num >= journal_page.number|add:"-3" and num <= journal_page.number|add:"3" %}
+                <a href="?page={{ num }}">{{ num }}</a>
+                {% elif num == 1 or num == journal_page.paginator.num_pages %}
+                <a href="?page={{ num }}">{{ num }}</a>
+                {% elif num == journal_page.number|add:"-4" or num == journal_page.number|add:"4" %}
+                <span class="disabled">…</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if journal_page.has_next %}
+            <a href="?page={{ journal_page.next_page_number }}">›</a>
+            {% else %}<span class="disabled">›</span>{% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="jn-empty">Нет данных о выдаче СИЗ</div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleJn(headerRow, grpKey) {
+    const isOpen = headerRow.classList.contains('open');
+    if (isOpen) {
+        collapseJn(grpKey);
+        headerRow.classList.remove('open');
+    } else {
+        document.querySelectorAll('tr[data-grp="' + grpKey + '"]').forEach(r => r.style.display = '');
+        headerRow.classList.add('open');
+    }
+}
+
+function collapseJn(grpKey) {
+    document.querySelectorAll('tr[data-grp="' + grpKey + '"]').forEach(r => {
+        r.style.display = 'none';
+        r.classList.remove('open');
+        const oc = r.getAttribute('onclick') || '';
+        const m1 = oc.match(/toggleJn\(this,\s*'([^']+)'\)/);
+        if (m1) collapseJn(m1[1]);
+        const m2 = oc.match(/toggleEmpGroup\(this,\s*'([^']+)'\)/);
+        if (m2) document.querySelectorAll('tr[data-grp="' + m2[1] + '"]').forEach(sr => sr.style.display = 'none');
+    });
+}
+
+function toggleEmpGroup(headerRow, grpKey) {
+    const isOpen = headerRow.classList.contains('open');
+    const rows = document.querySelectorAll('tr[data-grp="' + grpKey + '"]');
+    if (isOpen) {
+        rows.forEach(r => r.style.display = 'none');
+        headerRow.classList.remove('open');
+    } else {
+        rows.forEach(r => r.style.display = '');
+        headerRow.classList.add('open');
+    }
+}
+</script>
+{% endblock %}

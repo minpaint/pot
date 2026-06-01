@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}⚙️ Задача #{{ job.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.job-card {
+    border: none; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px;
+}
+.job-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px;
+}
+.job-card-body { background: #fff; padding: 20px; }
+.job-meta { font-size: 0.88rem; color: #6c757d; margin-bottom: 14px; }
+.job-meta strong { color: #2c3e50; }
+.progress-wrap {
+    background: #f0f0f0; border-radius: 6px; height: 24px;
+    overflow: hidden; margin: 14px 0;
+}
+.progress-bar-fill {
+    background: linear-gradient(90deg, #3498db 0%, #2c3e50 100%);
+    height: 100%; transition: width 0.4s ease;
+    color: #fff; font-size: 0.78rem; line-height: 24px;
+    text-align: center; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    min-width: 40px;
+}
+.status-badge {
+    display: inline-block; padding: 4px 12px; border-radius: 12px;
+    font-size: 0.78rem; font-weight: 600;
+}
+.status-pending   { background: #f0f0f0; color: #6c757d; }
+.status-running   { background: #cfe8ff; color: #1a5276; }
+.status-done      { background: #d1f5d3; color: #1e7e34; }
+.status-failed    { background: #fde8e8; color: #c0392b; }
+.download-btn {
+    display: inline-block; padding: 10px 20px; background: #3498db; color: #fff;
+    border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 10px;
+}
+.download-btn:hover { background: #2c3e50; color: #fff; }
+.error-box {
+    background: #fde8e8; color: #c0392b; padding: 14px; border-radius: 6px;
+    margin-top: 12px; white-space: pre-wrap; font-size: 0.85rem;
+    font-family: monospace; max-height: 300px; overflow: auto;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="job-card">
+        <div class="job-card-header">
+            <span style="font-size: 1.2rem;">⚙️</span>
+            <div style="flex: 1;">
+                <div style="font-size: 1.05rem; font-weight: 600;">
+                    {{ job.title|default:job.get_job_type_display }}
+                </div>
+                <div style="font-size: 0.8rem; opacity: 0.85;">
+                    Задача #{{ job.id }} · создана {{ job.created_at|date:"d.m.Y H:i" }}
+                </div>
+            </div>
+            <a href="{% url 'directory:generation_job_list' %}"
+               style="color:#fff; text-decoration:underline; font-size:0.85rem;">
+                ← все задачи
+            </a>
+        </div>
+
+        <div class="job-card-body">
+            <div class="job-meta">
+                <div>Статус:
+                    <span id="job-status" class="status-badge status-{{ job.status }}">
+                        {{ job.get_status_display }}
+                    </span>
+                </div>
+                <div style="margin-top: 6px;">
+                    Сотрудников:
+                    <strong id="job-progress-text">
+                        {{ job.progress_current }} / {{ job.progress_total }}
+                    </strong>
+                </div>
+            </div>
+
+            <div class="progress-wrap">
+                <div id="job-progress-bar" class="progress-bar-fill"
+                     style="width: {{ job.progress_percent }}%;">
+                    <span id="job-progress-percent">{{ job.progress_percent }}%</span>
+                </div>
+            </div>
+
+            <div id="job-download" style="{% if job.status != 'done' %}display:none;{% endif %}">
+                <p style="margin: 10px 0 0; color: #1e7e34; font-weight: 600;">
+                    ✅ Готово. Файл: <span id="job-filename">{{ job.result_filename }}</span>
+                </p>
+                {% if job.status == 'done' and job.result_file %}
+                <a href="{% url 'directory:generation_job_download' job.id %}" class="download-btn">
+                    📥 Скачать
+                </a>
+                {% else %}
+                <a href="#" id="job-download-link" class="download-btn">📥 Скачать</a>
+                {% endif %}
+            </div>
+
+            <div id="job-error" class="error-box" style="{% if job.status != 'failed' %}display:none;{% endif %}">{{ job.error_message }}</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var JOB_ID = {{ job.id }};
+    var STATUS_URL = "{% url 'directory:generation_job_status' job.id %}";
+    var finished = {% if job.is_finished %}true{% else %}false{% endif %};
+
+    function applyState(s) {
+        var badge = document.getElementById('job-status');
+        badge.textContent = s.status_display;
+        badge.className = 'status-badge status-' + s.status;
+
+        document.getElementById('job-progress-text').textContent =
+            s.progress_current + ' / ' + s.progress_total;
+        var pct = s.progress_percent || 0;
+        document.getElementById('job-progress-bar').style.width = pct + '%';
+        document.getElementById('job-progress-percent').textContent = pct + '%';
+
+        if (s.status === 'done') {
+            var dl = document.getElementById('job-download');
+            dl.style.display = '';
+            document.getElementById('job-filename').textContent = s.result_filename || '';
+            var link = document.getElementById('job-download-link');
+            if (link && s.download_url) link.setAttribute('href', s.download_url);
+        }
+        if (s.status === 'failed') {
+            var err = document.getElementById('job-error');
+            err.style.display = '';
+            err.textContent = s.error_message || 'Неизвестная ошибка';
+        }
+    }
+
+    function poll() {
+        if (finished) return;
+        fetch(STATUS_URL, {credentials: 'same-origin'})
+            .then(function(r) { return r.json(); })
+            .then(function(s) {
+                applyState(s);
+                if (s.is_finished) { finished = true; return; }
+                setTimeout(poll, 2000);
+            })
+            .catch(function() { setTimeout(poll, 5000); });
+    }
+
+    if (!finished) setTimeout(poll, 1500);
+})();
+</script>
+{% endblock %}

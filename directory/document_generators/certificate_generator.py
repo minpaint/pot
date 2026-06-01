@@ -47,15 +47,17 @@ def _build_certificate_context(employee, commission_cache: Optional[Dict[int, Di
 
     if commission:
         if commission.department:
-            binding = decline_phrase(commission.department.name, 'gent')
+            raw = decline_phrase(commission.department.name, 'gent')
+            binding = raw[0].lower() + raw[1:] if raw else raw
         elif commission.subdivision:
-            binding = decline_phrase(commission.subdivision.name, 'gent')
+            raw = decline_phrase(commission.subdivision.name, 'gent')
+            binding = raw[0].lower() + raw[1:] if raw else raw
         elif commission.organization:
             binding = commission.organization.short_name_ru
         else:
-            binding = ""
+            binding = employee.organization.short_name_ru if employee.organization else ""
     else:
-        binding = ""
+        binding = employee.organization.short_name_ru if employee.organization else ""
 
     context.setdefault('chairman_name_initials', chairman_initials)
     context.setdefault('vice_chairman_name_initials', vice_chairman_initials)

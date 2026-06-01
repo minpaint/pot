@@ -143,7 +143,10 @@
                 <!-- Действия -->
                 <td class="field-actions">
                   <a href="{% url 'admin:directory_employee_change' item.object.pk %}" class="edit-link" title="Редактировать">✏️</a>
-                  <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить">🗑️</a>
+                  {% if item.additional_data.marked_for_deletion %}
+                    <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить сотрудника">↩️</a>
+                  {% endif %}
+                  <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы">🗑️</a>
                   <a href="{% url 'admin:directory_employee_history' item.object.pk %}" class="history-link" title="История">📋</a>
                 </td>
               </tr>
@@ -213,7 +216,10 @@
                   <!-- Действия -->
                   <td class="field-actions">
                     <a href="{% url 'admin:directory_employee_change' item.object.pk %}" class="edit-link" title="Редактировать">✏️</a>
-                    <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить">🗑️</a>
+                    {% if item.additional_data.marked_for_deletion %}
+                      <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить сотрудника">↩️</a>
+                    {% endif %}
+                    <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы">🗑️</a>
                     <a href="{% url 'admin:directory_employee_history' item.object.pk %}" class="history-link" title="История">📋</a>
                   </td>
                 </tr>
@@ -282,7 +288,10 @@
                     <!-- Действия -->
                     <td class="field-actions">
                       <a href="{% url 'admin:directory_employee_change' item.object.pk %}" class="edit-link" title="Редактировать">✏️</a>
-                      <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить">🗑️</a>
+                      {% if item.additional_data.marked_for_deletion %}
+                        <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить сотрудника">↩️</a>
+                      {% endif %}
+                      <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы">🗑️</a>
                       <a href="{% url 'admin:directory_employee_history' item.object.pk %}" class="history-link" title="История">📋</a>
                     </td>
                   </tr>
@@ -410,6 +419,12 @@
       color: white;
     }
 
+    .status-marked-for-deletion {
+      margin-top: 4px;
+      background-color: #f0ad4e;
+      color: #212529;
+    }
+
     /* Действия */
     .field-actions a {
       margin-right: 8px;
@@ -423,6 +438,19 @@
 
     .delete-link:hover {
       color: #dc3545;
+    }
+
+    .restore-link {
+      font-size: 13px;
+      text-decoration: none;
+      color: #1e7e34;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .restore-link:hover {
+      color: #155724;
+      text-decoration: underline;
     }
 
     .history-link:hover {

@@ -28,7 +28,8 @@
     letter-spacing: 0.3px;
 }
 .hl-topbar select,
-.hl-topbar input[type="text"] {
+.hl-topbar input[type="text"],
+.hl-topbar input[type="date"] {
     border: 1px solid #ced4da;
     border-radius: 6px;
     padding: 6px 10px;
@@ -36,11 +37,26 @@
     background: #fff;
 }
 .hl-topbar select:focus,
-.hl-topbar input[type="text"]:focus {
+.hl-topbar input[type="text"]:focus,
+.hl-topbar input[type="date"]:focus {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
 }
+
+/* Кнопки периодов */
+.period-btns { display: flex; gap: 3px; flex-wrap: wrap; }
+.period-btn {
+    padding: 4px 9px; font-size: 0.76rem; font-weight: 600;
+    border: 1px solid #dee2e6; border-radius: 20px;
+    background: #fff; color: #6c757d; cursor: pointer;
+    white-space: nowrap; text-decoration: none;
+    transition: all 0.15s; line-height: 1.4;
+}
+.period-btn:hover { background: #f0f7ff; border-color: #3498db; color: #3498db; }
+.period-btn.active { background: linear-gradient(135deg,#2c3e50 0%,#3498db 100%); border-color: #3498db; color: #fff; }
+
+.hl-divider { width: 1px; background: #dee2e6; align-self: stretch; margin: 0 4px; flex-shrink: 0; }
 
 /* ── Карточка ── */
 .hl-card {
@@ -127,15 +143,42 @@
 .hl-pagination .disabled { opacity: 0.45; pointer-events: none; }
 
 /* ── Адаптив ── */
+/* Кнопка тоггла фильтров — только мобайл */
+.hl-filter-toggle {
+    display: none;
+    padding: 5px 12px; font-size: 0.82rem; font-weight: 600;
+    border: 1px solid #dee2e6; border-radius: 6px;
+    background: #fff; color: #495057; cursor: pointer;
+    white-space: nowrap;
+}
+
 @media (max-width: 767px) {
+    /* Таблица — карточный паттерн */
     .hl-table thead { display: none; }
     .hl-table tbody tr { display: block; padding: 10px 0; border-bottom: 1px solid #eee; }
     .hl-table td { display: flex; justify-content: space-between; align-items: center; padding: 4px 14px; border: none; }
     .hl-table td::before { content: attr(data-label); font-size: 0.7rem; color: #999; font-weight: 600; margin-right: 8px; flex-shrink: 0; }
     .hl-table td.td-acts { justify-content: flex-end; }
     .hl-table td.td-acts::before { content: none; }
-    .hl-topbar { flex-direction: column; align-items: stretch; }
-    .hl-topbar select, .hl-topbar input[type="text"] { width: 100%; }
+
+    /* Топбар */
+    .hl-topbar { flex-wrap: wrap; gap: 8px; align-items: center; }
+    .hl-divider { display: none; }
+
+    /* Мобильная строка: поиск + тоггл + "+" */
+    .hl-topbar input[type="text"] { flex: 1; min-width: 0; box-sizing: border-box; }
+    .hl-filter-toggle { display: inline-flex; align-items: center; gap: 4px; }
+
+    /* Скрываемые фильтры */
+    .hl-filters-collapsible { display: none; flex-basis: 100%; flex-direction: column; gap: 8px; }
+    .hl-filters-collapsible.open { display: flex; }
+    .hl-filters-collapsible input[type="date"] { width: 100%; box-sizing: border-box; }
+    .hl-filters-collapsible .period-btns { flex-wrap: wrap; }
+    .hl-filters-collapsible .period-btn { flex: 1 1 auto; text-align: center; }
+
+    /* Кнопки применить/сбросить — полная ширина */
+    .hl-apply-row { display: flex; gap: 6px; flex-basis: 100%; }
+    .hl-apply-row .btn { flex: 1; }
 }
 </style>
 {% endblock %}
@@ -143,36 +186,52 @@
 {% block content %}
 <div class="container-fluid mt-3">
 
-    <!-- Верхняя панель: фильтры + действия -->
-    <form method="get" class="hl-topbar">
-        <div>
-            <label>Вид приёма</label>
-            <select name="hiring_type">
-                <option value="">Все виды</option>
-                {% for value, label in hiring_types %}
-                    <option value="{{ value }}" {% if current_hiring_type == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
+    <!-- Единая панель фильтров -->
+    <form method="get" class="hl-topbar" id="hiring-filter-form">
+
+        <!-- ── Всегда видимые: поиск + тоггл + "+" ── -->
+        <input type="text" name="search" value="{{ search_query }}" placeholder="🔍 ФИО, должность…" style="flex:1;min-width:160px;">
+
+        <button type="button" class="hl-filter-toggle" id="filterToggleBtn"
+                onclick="toggleHiringFilters()"
+                title="Фильтры по дате">
+            📅 Фильтры{% if current_period or date_from or date_to %} ●{% endif %}
+        </button>
+
+        <button type="submit" class="btn btn-sm btn-primary" style="white-space:nowrap;">🔍</button>
+        <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary" title="Сбросить">✖</a>
+
+        <div class="hl-divider"></div>
+        <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-sm btn-success" style="white-space:nowrap;">➕ Принять на работу</a>
+
+        <!-- ── Фильтры (скрыты на мобиле) ── -->
+        <div class="hl-filters-collapsible {% if current_period or date_from or date_to %}open{% endif %}" id="hiringFilters">
+
+            <div class="period-btns">
+                <a href="?{% if search_query %}search={{ search_query }}{% endif %}"
+                   class="period-btn {% if not current_period and not date_from and not date_to %}active{% endif %}">Все</a>
+                <a href="?period=today{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="period-btn {% if current_period == 'today' %}active{% endif %}">Сегодня</a>
+                <a href="?period=week{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="period-btn {% if current_period == 'week' %}active{% endif %}">Неделя</a>
+                <a href="?period=month{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="period-btn {% if current_period == 'month' %}active{% endif %}">Месяц</a>
+                <a href="?period=last_month{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="period-btn {% if current_period == 'last_month' %}active{% endif %}">Пр. месяц</a>
+                <a href="?period=year{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="period-btn {% if current_period == 'year' %}active{% endif %}">Год</a>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <input type="date" name="date_from" value="{{ date_from }}" title="Дата с" style="width:145px;">
+                <span style="font-size:0.8rem;color:#9aa0ac;">—</span>
+                <input type="date" name="date_to" value="{{ date_to }}" title="Дата по" style="width:145px;">
+                <button type="submit" class="btn btn-sm btn-primary">Применить</button>
+                <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary">✖ Сбросить</a>
+            </div>
+
         </div>
-        <div>
-            <label>Статус</label>
-            <select name="is_active">
-                <option value="">Все</option>
-                <option value="true"  {% if current_is_active == 'true'  %}selected{% endif %}>✅ Активные</option>
-                <option value="false" {% if current_is_active == 'false' %}selected{% endif %}>⬜ Неактивные</option>
-            </select>
-        </div>
-        <div>
-            <label>Поиск</label>
-            <input type="text" name="search" value="{{ search_query }}" placeholder="ФИО, должность…" style="min-width: 200px;">
-        </div>
-        <div style="padding-bottom:1px;">
-            <button type="submit" class="btn btn-sm btn-primary">🔍 Применить</button>
-            <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary ms-1">✖ Сбросить</a>
-        </div>
-        <div class="ms-auto" style="padding-bottom:1px;">
-            <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-sm btn-success">➕ Принять на работу</a>
-        </div>
+
     </form>
 
     <!-- Карточка со списком -->
@@ -241,7 +300,7 @@
             <div class="text-center py-5 text-muted">
                 <div style="font-size:2.5rem;">📋</div>
                 <p class="mt-2">Записи о приёме не найдены</p>
-                {% if search_query or current_hiring_type or current_is_active %}
+                {% if search_query or current_period or date_from or date_to %}
                     <a href="{% url 'directory:hiring:hiring_list' %}" class="btn btn-sm btn-outline-secondary">✖ Сбросить фильтры</a>
                 {% else %}
                     <a href="{% url 'directory:hiring:simple_hiring' %}" class="btn btn-sm btn-success">➕ Принять первого сотрудника</a>
@@ -283,4 +342,16 @@
     {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleHiringFilters() {
+    const panel = document.getElementById('hiringFilters');
+    const btn = document.getElementById('filterToggleBtn');
+    const open = panel.classList.toggle('open');
+    btn.style.borderColor = open ? '#3498db' : '';
+    btn.style.color = open ? '#3498db' : '';
+}
+</script>
 {% endblock %}

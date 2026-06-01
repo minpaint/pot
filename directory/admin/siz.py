@@ -136,8 +136,8 @@ class SIZNormInlineForPosition(admin.TabularInline):
     model = SIZNorm
     extra = 1
     fields = ('siz', 'quantity', 'condition', 'order')
-    verbose_name = "Норма СИЗ"
-    verbose_name_plural = "Нормы СИЗ"
+    verbose_name = "Переопределённая норма СИЗ"
+    verbose_name_plural = "Переопределённые нормы СИЗ"
     autocomplete_fields = ['siz']
 
     def get_queryset(self, request):

@@ -17,6 +17,8 @@ from .hiring import EmployeeHiring
 from .quiz import QuizCategory, QuizCategoryOrder, Quiz, Question, Answer, QuizAttempt, UserAnswer, QuizAccessToken, QuizQuestionOrder
 # Лог импортов
 from .import_log import ImportLog
+# Асинхронные задачи генерации документов
+from .generation_job import GenerationJob
 
 __all__ = [
     'Organization',
@@ -53,4 +55,5 @@ __all__ = [
     'QuizAccessToken',
     'QuizQuestionOrder',
     'ImportLog',
+    'GenerationJob',
 ]

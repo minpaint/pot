@@ -27,12 +27,14 @@ from .employees import (
 
 # Импортируем представления для должностей
 from .positions import (
+    PositionInstructionListView,
     PositionListView,
     PositionCreateView,
     PositionUpdateView,
     PositionDeleteView,
     get_positions,
-    get_departments
+    get_departments,
+    update_position_instructions,
 )
 
 # Импортируем представления из новой модульной структуры документов
@@ -70,6 +72,7 @@ __all__ = [
     'EmployeeDeleteView',
     'EmployeeHiringView',
     'EmployeeProfileView', # Добавляем в список экспорта
+    'PositionInstructionListView',
     'PositionListView',
     'PositionCreateView',
     'PositionUpdateView',
@@ -77,6 +80,7 @@ __all__ = [
     'get_subdivisions',
     'get_positions',
     'get_departments',
+    'update_position_instructions',
     'UserRegistrationView',
     'DocumentSelectionView',
     'GeneratedDocumentListView',

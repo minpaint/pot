@@ -3,17 +3,35 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 class EmployeeQuerySet(models.QuerySet):
+    def visible(self):
+        """Сотрудники, доступные в рабочих разделах (без помеченных на удаление)."""
+        return self.filter(marked_for_deletion=False)
+
     def tree_visible(self):
-        """Сотрудники, которые должны отображаться в древе (исключая кандидатов и уволенных)"""
-        return self.exclude(status__in=['candidate', 'fired'])
+        """Сотрудники для дерева (без кандидатов, уволенных и помеченных на удаление)."""
+        return self.visible().exclude(status__in=['candidate', 'fired'])
+
+    def selectable(self):
+        """Сотрудники, доступные для выбора в рабочих формах."""
+        return self.visible().exclude(status__in=['candidate', 'fired'])
+
+    def active_for_operations(self):
+        """Активные сотрудники, доступные в рабочих процессах."""
+        return self.visible().filter(status='active')
+
     def candidates(self):
         """Только кандидаты"""
-        return self.filter(status='candidate')
+        return self.visible().filter(status='candidate')
 
 class Employee(models.Model):
     """
     👤 Модель для хранения информации о сотрудниках.
     """
+
+    GENDER_CHOICES = [
+        ('М', 'Мужской'),
+        ('Ж', 'Женский'),
+    ]
 
     HEIGHT_CHOICES = [
         ("158-164 см", "158-164 см"),
@@ -134,6 +152,12 @@ class Employee(models.Model):
         blank=True,
         verbose_name="Дата диплома/свидетельства"
     )
+    gender = models.CharField(
+        max_length=1,
+        choices=GENDER_CHOICES,
+        blank=True,
+        verbose_name="Пол"
+    )
     height = models.CharField(
         max_length=15,
         choices=HEIGHT_CHOICES,
@@ -189,6 +213,17 @@ class Employee(models.Model):
         default=False,
         verbose_name="Договор подряда",
         help_text="Устаревшее поле, используйте contract_type"
+    )
+    marked_for_deletion = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="Помечен на удаление",
+        help_text="Сотрудник скрыт из рабочих разделов, но сохранен в базе"
+    )
+    marked_for_deletion_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Дата пометки на удаление"
     )
 
     objects = EmployeeQuerySet.as_manager()
@@ -265,11 +300,36 @@ class Employee(models.Model):
             'fired': '🚫',
         }
         emoji = status_emojis.get(self.status, '')
-        return f"{emoji} {self.get_status_display()}"
+        status_text = f"{emoji} {self.get_status_display()}".strip()
+        if self.marked_for_deletion:
+            return f"{status_text} • 🗂 На удаление"
+        return status_text
 
     def get_contract_type_display(self):
         """Возвращает человекопонятное название типа договора"""
         return dict(self.CONTRACT_TYPE_CHOICES).get(self.contract_type, "Неизвестно")
+
+    def mark_for_deletion(self):
+        """Увольняет сотрудника: ставит статус fired и скрывает из рабочих разделов."""
+        if self.marked_for_deletion:
+            return False
+
+        self.marked_for_deletion = True
+        self.marked_for_deletion_at = timezone.now()
+        self.status = 'fired'
+        self.save(update_fields=['marked_for_deletion', 'marked_for_deletion_at', 'status'])
+        return True
+
+    def restore(self):
+        """Восстанавливает сотрудника: снимает пометку и возвращает статус active."""
+        if not self.marked_for_deletion:
+            return False
+
+        self.marked_for_deletion = False
+        self.marked_for_deletion_at = None
+        self.status = 'active'
+        self.save(update_fields=['marked_for_deletion', 'marked_for_deletion_at', 'status'])
+        return True
 
     @property
     def name_with_position(self):

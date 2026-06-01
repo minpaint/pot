@@ -83,8 +83,8 @@ class SIZIssued(models.Model):
     )
 
     class Meta:
-        verbose_name = "Выданное СИЗ"
-        verbose_name_plural = "Выданные СИЗ"
+        verbose_name = "📦 Выданное СИЗ"
+        verbose_name_plural = "📦 Выданные СИЗ"
         ordering = ['-issue_date', 'employee__full_name_nominative']
 
     def __str__(self):

@@ -8,11 +8,11 @@
         <h3>{{ title }}</h3>
     </div>
     <div class="card-body">
-        <p>Вы уверены, что хотите удалить сотрудника "{{ object.full_name_nominative }}"?</p>
+        <p>Вы уверены, что хотите скрыть сотрудника "{{ object.full_name_nominative }}" из рабочих разделов и пометить его на удаление?</p>
         <form method="post">
             {% csrf_token %}
-            <button type="submit" class="btn btn-danger">Удалить</button>
-            <a href="{% url 'directory:employee_list' %}" class="btn btn-secondary">Отмена</a>
+            <button type="submit" class="btn btn-danger">Пометить на удаление</button>
+            <a href="{% url 'directory:employees:employee_list' %}" class="btn btn-secondary">Отмена</a>
         </form>
     </div>
 </div>

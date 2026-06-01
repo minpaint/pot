@@ -41,8 +41,7 @@ class OTCardMassGenerationView(LoginRequiredMixin, TemplateView):
 
     def get_employees_queryset(self, org_id):
         """Получаем активных сотрудников с должностью для организации"""
-        return Employee.objects.filter(
-            status='active',
+        return Employee.objects.active_for_operations().filter(
             position__isnull=False,
             organization_id=org_id,
         ).select_related(
@@ -107,8 +106,7 @@ class OTCardMassGenerationView(LoginRequiredMixin, TemplateView):
             accessible_orgs = AccessControlHelper.get_accessible_organizations(user, self.request)
 
         # Фильтруем: только организации с активными сотрудниками с должностью
-        org_ids_with_employees = Employee.objects.filter(
-            status='active',
+        org_ids_with_employees = Employee.objects.active_for_operations().filter(
             position__isnull=False,
             organization__in=accessible_orgs,
         ).values_list('organization_id', flat=True).distinct()
@@ -176,10 +174,20 @@ class OTCardMassGenerationView(LoginRequiredMixin, TemplateView):
 @require_POST
 def generate_ot_cards_bulk(request):
     """
-    📋 Генерация ZIP-архива с личными карточками по ОТ для выбранных сотрудников
+    📋 Асинхронная генерация ZIP-архива с личными карточками по ОТ.
+    Ставит задачу в очередь → редиректит на страницу прогресса.
     """
+    from directory.models import GenerationJob
+    from directory.generation_tasks import run_ot_card_bulk_job
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.urls import reverse
+
     employee_ids = request.POST.getlist('employee_ids')
-    instruction_date = (
+    if not employee_ids:
+        return HttpResponse("Не выбрано ни одного сотрудника", status=400)
+
+    instruction_date_raw = (
         request.POST.get('date_povtorny')
         or request.POST.get('instruction_date')
         or ''
@@ -187,92 +195,37 @@ def generate_ot_cards_bulk(request):
     instruction_type = request.POST.get('instruction_type') or 'Повторный'
     instruction_reason = request.POST.get('instruction_reason') or ''
 
-    if not employee_ids:
-        return HttpResponse("Не выбрано ни одного сотрудника", status=400)
-
-    # Форматируем дату
+    # Форматируем дату для хранения в params
     instruction_date_display = ''
-    if instruction_date:
+    if instruction_date_raw:
         try:
-            instruction_date_display = datetime.strptime(instruction_date, '%Y-%m-%d').strftime('%d.%m.%Y')
+            instruction_date_display = datetime.strptime(instruction_date_raw, '%Y-%m-%d').strftime('%d.%m.%Y')
         except ValueError:
-            instruction_date_display = instruction_date
+            instruction_date_display = instruction_date_raw
 
-    # Контекст для шаблона DOCX
-    custom_context = {
-        'instruction_date': instruction_date_display,
-        'instruction_type': instruction_type,
-        'instruction_reason': instruction_reason,
-    }
+    # Берём название организации для заголовка
+    first_emp = Employee.objects.filter(id__in=employee_ids[:1]).select_related('organization').first()
+    org_name = first_emp.organization.short_name_ru if first_emp and first_emp.organization else ''
 
-    # Получаем сотрудников
-    employees = Employee.objects.filter(
-        id__in=employee_ids,
-        status='active',
-        position__isnull=False,
-    ).select_related(
-        'position', 'organization', 'subdivision', 'department'
-    ).order_by(
-        'subdivision__name', 'department__name', 'full_name_nominative'
+    job = GenerationJob.objects.create(
+        user=request.user,
+        job_type='ot_card_bulk',
+        status='pending',
+        title=f'Личные карточки по ОТ — {org_name} ({len(employee_ids)} чел.)',
+        params={
+            'employee_ids': [int(i) for i in employee_ids],
+            'instruction_date': instruction_date_display,
+            'instruction_type': instruction_type,
+            'instruction_reason': instruction_reason,
+        },
+        progress_total=len(employee_ids),
     )
 
-    # Создаём ZIP-архив в памяти
-    zip_buffer = io.BytesIO()
+    run_ot_card_bulk_job.enqueue(job.id)
 
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        generated_count = 0
-        errors = []
-
-        for employee in employees:
-            try:
-                result = generate_personal_ot_card(
-                    employee,
-                    user=request.user,
-                    custom_context=custom_context,
-                )
-            except Exception as e:
-                errors.append(f"Ошибка генерации для {employee.full_name_nominative}: {e}")
-                logger.error(f"Ошибка генерации карточки ОТ для {employee.full_name_nominative}: {e}")
-                continue
-
-            if result and 'content' in result:
-                # Определяем папку в ZIP
-                if employee.subdivision:
-                    folder = re.sub(r'[<>:"/\\|?*]', '_', employee.subdivision.name)
-                else:
-                    org_name = employee.organization.short_name_ru or employee.organization.full_name_ru
-                    folder = re.sub(r'[<>:"/\\|?*]', '_', org_name) + ' (без подразделения)'
-
-                safe_employee = re.sub(r'[<>:"/\\|?*]', '_', employee.full_name_nominative)
-                safe_position = re.sub(r'[<>:"/\\|?*]', '_', employee.position.position_name)
-                file_path = f"{folder}/{safe_employee}_{safe_position}.docx"
-                zip_file.writestr(file_path, result['content'])
-                generated_count += 1
-                logger.info(f"Добавлена карточка ОТ: {file_path}")
-            else:
-                errors.append(f"Ошибка генерации для {employee.full_name_nominative}: результат пустой")
-
-        # Добавляем файл со сводкой
-        summary = f"""Массовая генерация личных карточек по охране труда
-Дата генерации: {datetime.now().strftime('%d.%m.%Y %H:%M')}
-Вид инструктажа: {instruction_type}
-Дата инструктажа: {instruction_date_display or 'не указана'}
-{f'Причина: {instruction_reason}' if instruction_reason else ''}
-Сгенерировано карточек: {generated_count}
-
-"""
-        if errors:
-            summary += "Ошибки:\n" + "\n".join(errors)
-
-        zip_file.writestr("_summary.txt", summary.encode('utf-8'))
-
-    # Отправляем архив пользователю
-    zip_buffer.seek(0)
-    response = HttpResponse(zip_buffer.read(), content_type='application/zip')
-
-    filename = f"Личные_карточки_ОТ_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
-    logger.info(f"Массовая генерация карточек ОТ завершена. Создано файлов: {generated_count}")
-
-    return response
+    messages.success(
+        request,
+        f'Задача генерации карточек ОТ поставлена в очередь ({len(employee_ids)} сотр.). '
+        f'Файл появится на странице статуса.'
+    )
+    return redirect(reverse('directory:generation_job_detail', args=[job.id]))

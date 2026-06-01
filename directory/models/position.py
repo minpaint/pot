@@ -255,3 +255,14 @@ class Position(models.Model):
             parts.append(self.department.name)
         parts.append(self.position_name)
         return " → ".join(parts)
+
+    @classmethod
+    def find_reference_norms(cls, position_name):
+        """
+        Возвращает QuerySet эталонных норм СИЗ (ProfessionSIZNorm)
+        для указанного названия должности (без учёта регистра).
+        """
+        from directory.models.siz import ProfessionSIZNorm
+        return ProfessionSIZNorm.objects.filter(
+            profession_name__iexact=position_name
+        )

@@ -253,6 +253,7 @@
     <div class="pc-card">
         <form id="issue-siz-form" method="post" action="{% url 'directory:siz:issue_selected_siz' employee.id %}">
             {% csrf_token %}
+            {% if norms_from_reference %}<input type="hidden" name="norms_from_reference" value="1">{% endif %}
 
             <!-- Шапка секции норм -->
             <div class="pc-norm-topbar no-print">
@@ -264,13 +265,17 @@
                     </span>
                     {% endif %}
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
-                    <button type="button" id="select-all-btn" class="btn btn-sm btn-outline-secondary">☑️ Снять выделение</button>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <label style="font-size:0.78rem;font-weight:600;color:#6c757d;margin:0;white-space:nowrap;">Дата выдачи:</label>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto;">
+                    <!-- Дата выдачи — выделена визуально -->
+                    <label style="font-size:0.82rem;font-weight:600;color:#495057;margin:0;white-space:nowrap;">📅 Дата выдачи:</label>
+                    <div style="display:flex;align-items:center;
+                                background:#eaf4ff;border:1.5px solid #3498db;
+                                border-radius:8px;padding:5px 12px;"
+                         title="Дату выдачи можно установить вручную — она будет применена ко всем выбранным СИЗ при нажатии «Выдать выбранные и добавить в базу»">
                         <input type="date" name="issue_date" value="{{ today }}"
-                               style="border:1px solid #ced4da;border-radius:6px;padding:4px 8px;font-size:0.84rem;color:#2c3e50;">
+                               style="border:none;background:transparent;padding:0;font-size:0.9rem;font-weight:700;color:#1a5276;outline:none;cursor:pointer;">
                     </div>
+                    <button type="button" id="select-all-btn" class="btn btn-sm btn-outline-secondary">☑️ Снять выделение</button>
                 </div>
             </div>
 
@@ -339,7 +344,7 @@
 
             <!-- Кнопки действий — внизу -->
             <div class="pc-actions no-print">
-                <button type="submit" class="btn btn-sm btn-success">📤 Выдать выбранные</button>
+                <button type="submit" class="btn btn-sm btn-success">📤 Выдать выбранные и добавить в базу</button>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="download-docx-btn">📄 Скачать карточку (DOCX)</button>
             </div>
 
@@ -347,7 +352,7 @@
     </div>
 
     <!-- Недавно выданные СИЗ -->
-    {% if issued_with_dates %}
+    {% if issued_groups %}
     <div class="pc-card">
         <div class="pc-card-header">📋 Журнал выдачи СИЗ</div>
         <div style="overflow-x:auto;">
@@ -357,14 +362,21 @@
                         <th class="col-name" style="width:30%;">Наименование СИЗ</th>
                         <th style="width:11%;">Дата выдачи</th>
                         <th style="width:8%;">Кол-во</th>
-                        <th style="width:20%;">Условие</th>
                         <th style="width:13%;">Плановая замена</th>
                         <th style="width:10%;">Статус</th>
                         <th class="no-print" style="width:8%;">Действие</th>
                     </tr>
                 </thead>
                 <tbody>
-                {% for row in issued_with_dates %}
+                {% for cgrp in issued_groups %}
+                {% if cgrp.condition %}
+                <tr style="background:#eef4fb;">
+                    <td colspan="6" style="padding:5px 14px;font-size:0.78rem;font-weight:600;color:#1a5276;font-style:italic;border-bottom:1px solid #d6e8f7;">
+                        📌 {{ cgrp.condition }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% for row in cgrp.rows %}
                 {% with item=row.item %}
                 <tr>
                     <td class="td-name">
@@ -373,7 +385,6 @@
                     </td>
                     <td>{{ item.issue_date|date:"d.m.Y" }}</td>
                     <td>{{ item.quantity }} {{ item.siz.unit }}</td>
-                    <td style="font-size:0.82rem;color:#495057;">{{ item.condition|default:"—" }}</td>
                     <td>
                         {% if item.is_returned %}
                             <span style="color:#9aa0ac;font-size:0.82rem;">—</span>
@@ -400,6 +411,7 @@
                     </td>
                 </tr>
                 {% endwith %}
+                {% endfor %}
                 {% endfor %}
                 </tbody>
             </table>

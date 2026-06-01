@@ -41,7 +41,7 @@ class OTAdminSite(AdminSite):
             "EmployeeMedicalExamination",
         ]),
         (_("🛡️ СИЗ"), [
-            "SIZ", "SIZNorm",
+            "ProfessionSIZNorm", "SIZNorm", "SIZIssued", "SIZCardSendLog", "SIZ",
         ]),
         (_("📧 Уведомления"), [
             "EmailSettings",
@@ -70,8 +70,15 @@ class OTAdminSite(AdminSite):
         (_("📊 Импорт/Экспорт данных"), [
             "ImportExportMenu",
         ]),
+        (_("✅ Задачи"), [
+            "TaskList", "TaskItem",
+        ]),
+        (_("💼 Договоры и акты"), [
+            "Client", "Contract", "Act",
+            "TaxYear", "TaxQuarter",
+        ]),
         (_("🔑 Администрирование доступа"), [
-            "UserProxy", "GroupProxy",
+            "UserProxy", "GroupProxy", "MenuItem",
         ]),
     ])
 

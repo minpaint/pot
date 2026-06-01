@@ -12,6 +12,7 @@ from .subdivision import StructuralSubdivisionAdmin
 from .user import CustomUserAdmin
 # Убираем SIZNormGroupAdmin из импортов
 from .siz import SIZAdmin, SIZNormAdmin
+from .siz_issued import SIZIssuedAdmin
 from .commission_admin import CommissionAdmin
 from .mixins.org_filter import apply_session_org_filter
 from django.utils.html import format_html

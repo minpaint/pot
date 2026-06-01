@@ -201,6 +201,19 @@
             <input type="date" id="inspection-date-picker" value="{{ inspection_date }}">
         </div>
         <div class="ms-auto d-flex gap-2 flex-wrap">
+            {% if current_org_for_cart_journal %}
+            <a
+                href="{% url 'deadline_control:equipment:download_cart_journal' %}?inspection_date={{ inspection_date }}"
+                id="cart-journal-download-link"
+                class="btn btn-sm btn-outline-primary"
+            >
+                📄 Журнал осмотра тележек
+            </a>
+            {% else %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Сначала выберите организацию в верхнем переключателе">
+                📄 Журнал осмотра тележек
+            </button>
+            {% endif %}
             <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-sm btn-success">➕ Добавить оборудование</a>
         </div>
     </div>
@@ -329,6 +342,13 @@ document.getElementById('inspection-date-picker').addEventListener('change', fun
     document.querySelectorAll('input[name="inspection_date"]').forEach(function(inp) {
         inp.value = this.value;
     }.bind(this));
+
+    const downloadLink = document.getElementById('cart-journal-download-link');
+    if (downloadLink) {
+        const url = new URL(downloadLink.href, window.location.origin);
+        url.searchParams.set('inspection_date', this.value);
+        downloadLink.href = url.pathname + url.search;
+    }
 });
 
 function toggleBlock(headerEl, contentId) {

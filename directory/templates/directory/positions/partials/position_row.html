@@ -1,0 +1,32 @@
+<div class="position-row level-{{ row_level }}{% if not position.has_any_instructions %} no-instructions{% endif %}" data-position-id="{{ position.id }}">
+    <div class="position-main">
+        <div class="position-name">
+            {% if position.is_responsible_for_safety %}<span class="crown">👑</span>{% endif %}
+            <span class="icon">{{ position.profession_icon }}</span>
+            {{ position.position_name }}
+        </div>
+    </div>
+    <div class="pos-info pos-field-main{% if not position.safety_instructions_numbers %} pos-info-empty{% endif %}">
+        {% if position.safety_instructions_numbers %}
+        🧾 ИОТ: {{ position.safety_instructions_numbers }}
+        {% elif not position.has_any_instructions %}
+        🧾 ИОТ: ⚠️ Нет инструкций
+        {% endif %}
+    </div>
+    <div class="pos-info pos-field-contract{% if not position.contract_safety_instructions %} pos-info-blank{% endif %}">
+        {% if position.contract_safety_instructions %}
+        📑 Договор: {{ position.contract_safety_instructions }}
+        {% endif %}
+    </div>
+    <div class="pos-info pos-field-vehicle{% if not position.company_vehicle_instructions %} pos-info-blank{% endif %}">
+        {% if position.company_vehicle_instructions %}
+        🚗 АВТО: {{ position.company_vehicle_instructions }}
+        {% endif %}
+    </div>
+    <a
+        href="{% url 'directory:positions:position_update' position.id %}"
+        class="btn btn-sm btn-outline-primary pos-edit-btn"
+        title="Редактировать должность (профессию)">
+        ✏️
+    </a>
+</div>

@@ -24,75 +24,220 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _siz_add_months(d, months):
+    """Прибавляет N месяцев к дате с учётом граничных дней."""
+    import calendar as _cal
+    from datetime import date as _date
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, _cal.monthrange(year, month)[1])
+    return _date(year, month, day)
+
+
+def _get_accessible_orgs_and_selected(request):
+    """Возвращает (accessible_orgs, selected_org_id)."""
+    accessible_orgs = AccessControlHelper.get_accessible_organizations(request.user, request)
+    selected_org_id = request.session.get('selected_org_id')
+    return accessible_orgs, selected_org_id
+
+
+def _build_deadline_groups(accessible_orgs, selected_org_id, threshold_days=60):
+    """Строит список групп сотрудников с просроченными/заканчивающимися СИЗ."""
+    from collections import defaultdict
+    today = timezone.now().date()
+    active_qs = SIZIssued.objects.filter(
+        employee__organization__in=accessible_orgs,
+        is_returned=False,
+        siz__wear_period__gt=0,
+    ).select_related('employee', 'siz', 'employee__subdivision', 'employee__department',
+                     'employee__organization')
+    if selected_org_id:
+        active_qs = active_qs.filter(employee__organization_id=selected_org_id)
+
+    employee_rows = defaultdict(list)
+    for item in active_qs:
+        planned = _siz_add_months(item.issue_date, item.siz.wear_period)
+        delta = (planned - today).days
+        if delta <= threshold_days:
+            employee_rows[item.employee_id].append({
+                'item': item,
+                'planned_return': planned,
+                'days_left': delta,
+                'is_overdue': delta < 0,
+                'is_soon': 0 <= delta <= 30,
+            })
+
+    groups = []
+    for rows in employee_rows.values():
+        min_days = min(r['days_left'] for r in rows)
+        rows.sort(key=lambda r: r['days_left'])
+        groups.append({
+            'employee': rows[0]['item'].employee,
+            'rows': rows,
+            'has_overdue': any(r['is_overdue'] for r in rows),
+            'has_soon': any(r['is_soon'] for r in rows),
+            'min_days': min_days,
+        })
+    groups.sort(key=lambda g: g['min_days'])
+    return groups
+
+
+def _build_journal_hierarchy(accessible_orgs, selected_org_id, page_number, per_page=20):
+    """Строит иерархию Орг→Подразд→Отдел→Сотрудник для журнала выдачи."""
+    from collections import defaultdict as _dd, OrderedDict as _OD
+    from django.core.paginator import Paginator
+
+    journal_qs = Employee.objects.filter(
+        organization__in=accessible_orgs,
+        issued_siz__isnull=False,
+    ).distinct().select_related(
+        'organization', 'subdivision', 'department'
+    ).order_by(
+        'organization__full_name_ru', 'subdivision__name',
+        'department__name', 'full_name_nominative',
+    )
+    if selected_org_id:
+        journal_qs = journal_qs.filter(organization_id=selected_org_id)
+
+    paginator = Paginator(journal_qs, per_page)
+    page_obj = paginator.get_page(page_number)
+
+    emp_ids = [e.id for e in page_obj]
+    issued_map = _dd(list)
+    for item in SIZIssued.objects.filter(
+        employee_id__in=emp_ids
+    ).select_related('siz').order_by('-issue_date', '-id'):
+        issued_map[item.employee_id].append(item)
+
+    hierarchy = _OD()
+    for emp in page_obj:
+        oid = emp.organization_id
+        sid = emp.subdivision_id or 'none'
+        did = emp.department_id or 'none'
+        if oid not in hierarchy:
+            hierarchy[oid] = {'org': emp.organization, 'subdivisions': _OD()}
+        subs = hierarchy[oid]['subdivisions']
+        if sid not in subs:
+            subs[sid] = {'subdivision': emp.subdivision, 'departments': _OD()}
+        depts = subs[sid]['departments']
+        if did not in depts:
+            depts[did] = {'department': emp.department, 'employees': []}
+        # Группируем СИЗ по условию: без условия — первыми
+        raw_items = issued_map.get(emp.id, [])
+        cond_map = _OD()
+        cond_map[''] = []
+        for it in raw_items:
+            key = it.condition or ''
+            if key not in cond_map:
+                cond_map[key] = []
+            cond_map[key].append(it)
+        item_groups = [
+            {'condition': k, 'items': v}
+            for k, v in cond_map.items() if v
+        ]
+        depts[did]['employees'].append({
+            'employee': emp,
+            'item_groups': item_groups,
+            'items_count': len(raw_items),
+        })
+
+    return list(hierarchy.values()), page_obj
+
+
 class SIZListView(LoginRequiredMixin, ListView):
-    """
-    🛡️ Показ списка СИЗ
-    """
+    """🛡️ Дашборд СИЗ — KPI и навигация."""
     model = SIZ
     template_name = 'directory/siz/list.html'
     context_object_name = 'siz_list'
 
     def get_context_data(self, **kwargs):
-        import calendar as _cal
-        from datetime import date as _date
-
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Средства индивидуальной защиты'
+        context['title'] = 'СИЗ — Дашборд'
 
-        accessible_orgs = AccessControlHelper.get_accessible_organizations(
-            self.request.user, self.request
-        )
-        selected_org_id = self.request.session.get('selected_org_id')
+        accessible_orgs, selected_org_id = _get_accessible_orgs_and_selected(self.request)
 
-        # Список сотрудников для модального поиска
-        employees = Employee.objects.filter(organization__in=accessible_orgs)
+        # Список сотрудников для быстрого поиска
+        employees = Employee.objects.filter(
+            organization__in=accessible_orgs
+        ).select_related('position')
         if selected_org_id:
             employees = employees.filter(organization_id=selected_org_id)
         context['employees'] = employees.order_by('full_name_nominative')
 
-        # Последние выданные СИЗ (блок 2)
-        recent_qs = SIZIssued.objects.filter(
-            employee__organization__in=accessible_orgs
-        ).select_related('employee', 'siz', 'employee__subdivision')
-        if selected_org_id:
-            recent_qs = recent_qs.filter(employee__organization_id=selected_org_id)
-        context['recent_issued'] = recent_qs.order_by('-issue_date', '-id')[:10]
+        # KPI: контроль сроков
+        groups = _build_deadline_groups(accessible_orgs, selected_org_id)
+        context['kpi_overdue'] = sum(1 for g in groups if g['has_overdue'])
+        context['kpi_soon'] = sum(1 for g in groups if g['has_soon'] and not g['has_overdue'])
 
-        # ── Контроль сроков (блок 1) ──
-        def _add_months(d, months):
-            month = d.month - 1 + months
-            year = d.year + month // 12
-            month = month % 12 + 1
-            day = min(d.day, _cal.monthrange(year, month)[1])
-            return _date(year, month, day)
-
+        # KPI: выдано за текущий месяц
         today = timezone.now().date()
-        active_qs = SIZIssued.objects.filter(
+        issued_month_qs = SIZIssued.objects.filter(
             employee__organization__in=accessible_orgs,
-            is_returned=False,
-            siz__wear_period__gt=0,
-        ).select_related('employee', 'siz', 'employee__subdivision', 'employee__department')
+            issue_date__year=today.year,
+            issue_date__month=today.month,
+        )
         if selected_org_id:
-            active_qs = active_qs.filter(employee__organization_id=selected_org_id)
+            issued_month_qs = issued_month_qs.filter(employee__organization_id=selected_org_id)
+        context['kpi_issued_month'] = issued_month_qs.count()
 
-        deadline_items = []
-        for item in active_qs:
-            planned = _add_months(item.issue_date, item.siz.wear_period)
-            delta = (planned - today).days
-            if delta <= 60:
-                deadline_items.append({
-                    'item': item,
-                    'planned_return': planned,
-                    'days_left': delta,
-                    'is_overdue': delta < 0,
-                    'is_soon': 0 <= delta <= 30,
-                })
-        deadline_items.sort(key=lambda x: x['days_left'])
+        # KPI: сотрудников с активными СИЗ
+        employees_qs = Employee.objects.filter(
+            organization__in=accessible_orgs,
+            issued_siz__is_returned=False,
+        )
+        if selected_org_id:
+            employees_qs = employees_qs.filter(organization_id=selected_org_id)
+        context['kpi_employees'] = employees_qs.distinct().count()
 
-        context['deadline_items'] = deadline_items
-        context['deadline_overdue_count'] = sum(1 for x in deadline_items if x['is_overdue'])
-        context['deadline_soon_count'] = sum(1 for x in deadline_items if x['is_soon'])
+        return context
 
+
+class SIZDeadlinesView(LoginRequiredMixin, ListView):
+    """⏰ Контроль сроков СИЗ."""
+    model = SIZ
+    template_name = 'directory/siz/deadlines.html'
+    context_object_name = 'siz_list'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Контроль сроков СИЗ'
+
+        accessible_orgs, selected_org_id = _get_accessible_orgs_and_selected(self.request)
+
+        # Порог: all / overdue / soon / 60days
+        filter_mode = self.request.GET.get('filter', 'all')
+        threshold = 60
+        groups = _build_deadline_groups(accessible_orgs, selected_org_id, threshold_days=threshold)
+
+        if filter_mode == 'overdue':
+            groups = [g for g in groups if g['has_overdue']]
+        elif filter_mode == 'soon':
+            groups = [g for g in groups if g['has_soon'] and not g['has_overdue']]
+
+        context['deadline_groups'] = groups
+        context['deadline_overdue_count'] = sum(1 for g in groups if g['has_overdue'])
+        context['deadline_soon_count'] = sum(1 for g in groups if g['has_soon'] and not g['has_overdue'])
+        context['filter_mode'] = filter_mode
+        return context
+
+
+class SIZJournalView(LoginRequiredMixin, ListView):
+    """📤 Журнал выдачи СИЗ."""
+    model = SIZ
+    template_name = 'directory/siz/journal.html'
+    context_object_name = 'siz_list'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Журнал выдачи СИЗ'
+
+        accessible_orgs, selected_org_id = _get_accessible_orgs_and_selected(self.request)
+        page_number = self.request.GET.get('page', 1)
+
+        hierarchy, page_obj = _build_journal_hierarchy(accessible_orgs, selected_org_id, page_number)
+        context['journal_hierarchy'] = hierarchy
+        context['journal_page'] = page_obj
         return context
 
 
@@ -361,8 +506,7 @@ def _subdivision_employee_queryset(subdivision):
     2) через Position.subdivision
     3) через Position.department.subdivision
     """
-    return Employee.objects.filter(
-        status='active',
+    return Employee.objects.active_for_operations().filter(
         position__isnull=False
     ).annotate(
         effective_subdivision_id=Coalesce(
@@ -735,9 +879,8 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
         orgs_with_direct_employees = []
         for org in orgs_for_context:
             direct_emps_qs = _employees_with_norms_qs(
-                Employee.objects.filter(
+                Employee.objects.active_for_operations().filter(
                     organization=org,
-                    status='active',
                     position__isnull=False,
                     subdivision__isnull=True,
                 ).annotate(
@@ -756,6 +899,12 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
                 })
 
         context['orgs_with_direct_employees'] = orgs_with_direct_employees
+
+        context['gender_choices'] = Employee.GENDER_CHOICES
+        context['height_choices'] = Employee.HEIGHT_CHOICES
+        context['clothing_size_choices'] = Employee.CLOTHING_SIZE_CHOICES
+        context['shoe_size_choices'] = Employee.SHOE_SIZE_CHOICES
+
         return context
 
 
@@ -861,9 +1010,12 @@ def get_siz_recipients(request, subdivision_id):
 
 
 def _generate_siz_cards_for_org(request, org_id, issue_date):
-    """Генерация ZIP-архива карточек СИЗ для всех сотрудников организации без подразделений."""
-    from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
-    from directory.models import Organization
+    """Асинхронная генерация карточек СИЗ для орг без подразделений."""
+    from directory.models import GenerationJob, Organization
+    from directory.generation_tasks import run_siz_cards_bulk_job
+    from django.shortcuts import redirect
+    from django.contrib import messages
+    from django.urls import reverse
 
     try:
         org = Organization.objects.get(pk=org_id)
@@ -874,67 +1026,28 @@ def _generate_siz_cards_for_org(request, org_id, issue_date):
         if not hasattr(request.user, 'profile') or org not in request.user.profile.organizations.all():
             return HttpResponse("Нет доступа к организации", status=403)
 
-    issue_date_display = ''
-    if issue_date:
-        try:
-            issue_date_display = datetime.strptime(issue_date, '%Y-%m-%d').strftime('%d.%m.%Y')
-        except ValueError:
-            issue_date_display = issue_date
+    job = GenerationJob.objects.create(
+        user=request.user,
+        job_type='siz_cards_org',
+        status='pending',
+        title=f'Карточки СИЗ — {org.short_name_ru}',
+        params={'org_id': int(org_id), 'issue_date': issue_date},
+    )
+    run_siz_cards_bulk_job.enqueue(job.id)
 
-    custom_context = {'siz_issue_date': issue_date_display}
-
-    employees = Employee.objects.filter(
-        organization=org,
-        status='active',
-        position__isnull=False,
-        subdivision__isnull=True,
-    ).annotate(
-        effective_subdivision_id=Coalesce(
-            'position__subdivision_id',
-            'position__department__subdivision_id',
-        )
-    ).filter(
-        effective_subdivision_id__isnull=True
-    ).select_related('position')
-
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        generated_count = 0
-        errors = []
-        for employee in employees:
-            if not employee.position or not has_effective_siz_norms(employee.position):
-                continue
-            try:
-                result = generate_siz_card_docx(employee, request.user, custom_context, raise_on_error=True)
-            except Exception as e:
-                errors.append(f"Ошибка для {employee.full_name_nominative}: {e}")
-                continue
-            if result and 'content' in result:
-                safe_emp = _safe_name(employee.full_name_nominative)
-                zip_file.writestr(f"{safe_emp}_карточка_СИЗ.docx", result['content'])
-                generated_count += 1
-
-        summary = (
-            f"Массовая генерация карточек СИЗ\n"
-            f"Организация: {org.short_name_ru}\n"
-            f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-            f"Сгенерировано: {generated_count}\n"
-        )
-        if errors:
-            summary += "\nОшибки:\n" + "\n".join(errors)
-        zip_file.writestr("_summary.txt", summary.encode('utf-8'))
-
-    zip_buffer.seek(0)
-    response = HttpResponse(zip_buffer.read(), content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="Карточки_СИЗ_{_safe_name(org.short_name_ru)}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip"'
-    return response
+    messages.success(request, f'Задача генерации карточек СИЗ поставлена в очередь.')
+    return redirect(reverse('directory:generation_job_detail', args=[job.id]))
 
 
 @login_required
 @require_POST
 def generate_siz_cards_bulk(request):
-    """POST: генерирует ZIP-архив с карточками СИЗ для выбранных подразделений или организации"""
-    from directory.document_generators.siz_card_docx_generator import generate_siz_card_docx
+    """POST: асинхронная генерация ZIP-архива карточек СИЗ по подразделениям или организации."""
+    from directory.models import GenerationJob, StructuralSubdivision
+    from directory.generation_tasks import run_siz_cards_bulk_job
+    from django.shortcuts import redirect
+    from django.contrib import messages
+    from django.urls import reverse
 
     subdivision_ids = request.POST.getlist('subdivision_ids')
     org_id = request.POST.get('org_id')
@@ -947,66 +1060,24 @@ def generate_siz_cards_bulk(request):
     if not subdivision_ids:
         return HttpResponse("Не выбрано ни одного подразделения", status=400)
 
-    issue_date_display = ''
-    if issue_date:
-        try:
-            issue_date_display = datetime.strptime(issue_date, '%Y-%m-%d').strftime('%d.%m.%Y')
-        except ValueError:
-            issue_date_display = issue_date
+    # Считаем примерное число сотрудников для заголовка
+    subs = StructuralSubdivision.objects.filter(pk__in=subdivision_ids).select_related('organization')
+    org_name = subs.first().organization.short_name_ru if subs.exists() else ''
 
-    custom_context = {
-        'siz_issue_date': issue_date_display
-    }
+    job = GenerationJob.objects.create(
+        user=request.user,
+        job_type='siz_cards_bulk',
+        status='pending',
+        title=f'Карточки СИЗ — {org_name} ({len(subdivision_ids)} подразд.)',
+        params={
+            'subdivision_ids': [int(i) for i in subdivision_ids],
+            'issue_date': issue_date,
+        },
+    )
+    run_siz_cards_bulk_job.enqueue(job.id)
 
-    # Создаём ZIP-архив в памяти
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        generated_count = 0
-        errors = []
-
-        for subdivision_id in subdivision_ids:
-            try:
-                subdivision = StructuralSubdivision.objects.get(pk=subdivision_id)
-                employees = _subdivision_employee_queryset(subdivision)
-
-                for employee in employees:
-                    if not employee.position or not has_effective_siz_norms(employee.position):
-                        continue
-
-                    try:
-                        result = generate_siz_card_docx(
-                            employee,
-                            request.user,
-                            custom_context,
-                            raise_on_error=True,
-                        )
-                    except Exception as e:
-                        errors.append(f"Ошибка для {employee.full_name_nominative}: {e}")
-                        continue
-
-                    if result and 'content' in result:
-                        safe_sub = _safe_name(subdivision.name)
-                        safe_emp = _safe_name(employee.full_name_nominative)
-                        zip_file.writestr(f"{safe_sub}/{safe_emp}_карточка_СИЗ.docx", result['content'])
-                        generated_count += 1
-
-            except Exception as e:
-                errors.append(f"Ошибка подразделения ID={subdivision_id}: {str(e)}")
-
-        summary = (
-            f"Массовая генерация карточек СИЗ\n"
-            f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-            f"Сгенерировано: {generated_count}\n"
-        )
-        if errors:
-            summary += "\nОшибки:\n" + "\n".join(errors)
-        zip_file.writestr("_summary.txt", summary.encode('utf-8'))
-
-    zip_buffer.seek(0)
-    response = HttpResponse(zip_buffer.read(), content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="Карточки_СИЗ_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip"'
-    return response
+    messages.success(request, f'Задача генерации карточек СИЗ поставлена в очередь.')
+    return redirect(reverse('directory:generation_job_detail', args=[job.id]))
 
 
 def _send_for_subdivision(
@@ -1213,10 +1284,9 @@ def send_siz_cards_for_department(request, department_id):
         return JsonResponse({'success': False, 'error': 'SMTP сервер не настроен'}, status=400)
 
     test_email = getattr(email_settings, 'test_recipient_email', '') or ''
-    employees = Employee.objects.filter(
+    employees = Employee.objects.active_for_operations().filter(
         position__department=department,
         position__isnull=False,
-        status='active',
         position__requires_siz=True,
     ).select_related('position', 'position__department').distinct()
 

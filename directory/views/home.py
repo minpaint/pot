@@ -4,7 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render, redirect
 from django.http import HttpResponseRedirect
 from django.contrib import messages
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Min, Prefetch, Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.utils import timezone
 from datetime import timedelta
@@ -32,6 +32,12 @@ class HomePageView(LoginRequiredMixin, TemplateView):
     отделов и сотрудников с возможностью выбора через чекбоксы.
     """
     template_name = 'directory/home.html'
+    KEY_DEADLINE_CATEGORIES = (
+        ('Повторный инструктаж', '📝'),
+        ('Периодическая проверка знаний', '📚'),
+        ('Пересмотр инструкций по охране труда', '📋'),
+    )
+    REPEATED_INSTRUCTION_CATEGORY = 'Повторный инструктаж'
 
     def get_context_data(self, **kwargs):
         """📊 Получение данных для шаблона"""
@@ -88,10 +94,21 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context['selected_org_id'] = selected_org_id
         context['show_tree'] = selected_org_id is not None
 
-        # 📊 Дашборд контроля сроков, статистика, последние приёмы
-        context['deadline_dashboard'] = self._get_deadline_dashboard(accessible_orgs)
+        # 📊 Дашборд контроля сроков, статистика, медосмотры
+        deadline_dashboard = self._get_deadline_dashboard(accessible_orgs)
+        context['deadline_dashboard'] = deadline_dashboard
         context['stats'] = self._get_stats(accessible_orgs)
-        context['recent_hirings'] = self._get_recent_hirings(accessible_orgs)
+        # Когда выбрана одна организация — фильтруем медосмотры по ней
+        medical_orgs = accessible_orgs.filter(id=selected_org_id) if selected_org_id else accessible_orgs
+        context['upcoming_medical'] = self._get_upcoming_medical(medical_orgs)
+        # Элемент per_org выбранной организации (для single-org layout)
+        if selected_org_id:
+            context['selected_org_item'] = next(
+                (item for item in deadline_dashboard['per_org'] if item['org'].id == selected_org_id),
+                None,
+            )
+        else:
+            context['selected_org_item'] = None
 
         # 🚫 Если организация не выбрана, не строим дерево
         if not context['show_tree']:
@@ -101,6 +118,9 @@ class HomePageView(LoginRequiredMixin, TemplateView):
             context['selected_status'] = ''
             context['show_fired'] = False
             context['is_paginated'] = False
+            show_archived = self.request.GET.get('tasks_archived') == '1'
+            context['task_orgs'] = self._get_task_lists(accessible_orgs, None, show_archived)
+            context['show_archived'] = show_archived
             return context
 
         # ✅ Фильтруем организации по выбранной
@@ -112,7 +132,7 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         show_fired = self.request.GET.get('show_fired') == 'true'
 
         # 👤 Получаем список кандидатов для отдельного блока (только из выбранной организации)
-        candidate_employees = Employee.objects.filter(
+        candidate_employees = Employee.objects.visible().filter(
             status='candidate',
             organization_id=selected_org_id
         ).select_related('position')
@@ -146,7 +166,7 @@ class HomePageView(LoginRequiredMixin, TemplateView):
             if selected_status:
                 status_filter &= Q(status=selected_status)
 
-            filtered_employees = Employee.objects.filter(status_filter & employee_filter).select_related(
+            filtered_employees = Employee.objects.visible().filter(status_filter & employee_filter).select_related(
                 'organization', 'subdivision', 'department', 'position'
             )
 
@@ -188,7 +208,7 @@ class HomePageView(LoginRequiredMixin, TemplateView):
             if selected_status:
                 org_employees_filter &= Q(status=selected_status)
 
-            org_employees = Employee.objects.filter(org_employees_filter).select_related('position')
+            org_employees = Employee.objects.visible().filter(org_employees_filter).select_related('position')
 
             # Если есть поисковый запрос, фильтруем сотрудников
             if search_query:
@@ -217,7 +237,7 @@ class HomePageView(LoginRequiredMixin, TemplateView):
                 if selected_status:
                     sub_employees_filter &= Q(status=selected_status)
 
-                sub_employees = Employee.objects.filter(sub_employees_filter).select_related('position')
+                sub_employees = Employee.objects.visible().filter(sub_employees_filter).select_related('position')
 
                 # Если есть поисковый запрос, фильтруем сотрудников
                 if search_query:
@@ -245,7 +265,7 @@ class HomePageView(LoginRequiredMixin, TemplateView):
                     if selected_status:
                         dept_employees_filter &= Q(status=selected_status)
 
-                    dept_employees = Employee.objects.filter(dept_employees_filter).select_related('position')
+                    dept_employees = Employee.objects.visible().filter(dept_employees_filter).select_related('position')
 
                     # Если есть поисковый запрос, фильтруем сотрудников
                     if search_query:
@@ -290,6 +310,11 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         context['paginator'] = paginator
         context['is_paginated'] = paginator.num_pages > 1
 
+        # ✅ Списки задач
+        show_archived = self.request.GET.get('tasks_archived') == '1'
+        context['task_orgs'] = self._get_task_lists(accessible_orgs, selected_org_id, show_archived)
+        context['show_archived'] = show_archived
+
         return context
 
     def _get_deadline_dashboard(self, accessible_orgs):
@@ -300,6 +325,25 @@ class HomePageView(LoginRequiredMixin, TemplateView):
         today = timezone.now().date()
         warning_date = today + timedelta(days=14)
         per_org = []
+        org_ids = list(accessible_orgs.values_list('id', flat=True))
+
+        # Предзагрузка ключевых категорий по всем организациям одним запросом
+        category_names = [name for name, _ in self.KEY_DEADLINE_CATEGORIES]
+        all_cat_stats = KeyDeadlineItem.objects.filter(
+            organization_id__in=org_ids,
+            is_active=True,
+            category__name__in=category_names,
+        ).values('organization_id', 'category__name', 'category__icon').annotate(
+            total=Count('id'),
+            overdue=Count('id', filter=Q(next_date__lt=today)),
+            upcoming=Count('id', filter=Q(next_date__gte=today, next_date__lte=warning_date)),
+            nearest_date=Min('next_date'),
+            nearest_overdue_date=Min('next_date', filter=Q(next_date__lt=today)),
+        )
+        # Индекс: {org_id: {category_name: stats}}
+        cat_by_org = {}
+        for row in all_cat_stats:
+            cat_by_org.setdefault(row['organization_id'], {})[row['category__name']] = row
 
         for org in accessible_orgs:
             # Оборудование
@@ -322,6 +366,24 @@ class HomePageView(LoginRequiredMixin, TemplateView):
             overdue_total = eq_overdue + dl_overdue + med_overdue
             upcoming_total = eq_upcoming + dl_upcoming + med_upcoming
 
+            # Три ключевые категории для этой организации
+            org_cats = cat_by_org.get(org.id, {})
+            key_cats = []
+            for name, default_icon in self.KEY_DEADLINE_CATEGORIES:
+                s = org_cats.get(name, {})
+                ov = s.get('overdue', 0)
+                up = s.get('upcoming', 0)
+                nd = s.get('nearest_overdue_date') if ov > 0 else s.get('nearest_date')
+                key_cats.append({
+                    'name': name,
+                    'icon': s.get('category__icon') or default_icon,
+                    'overdue': ov,
+                    'upcoming': up,
+                    'next_date': nd,
+                    'status': 'danger' if ov > 0 else ('warning' if up > 0 else 'ok'),
+                    'highlight_date': name == self.REPEATED_INSTRUCTION_CATEGORY,
+                })
+
             per_org.append({
                 'org': org,
                 'equipment': {'overdue': eq_overdue, 'upcoming': eq_upcoming},
@@ -329,34 +391,103 @@ class HomePageView(LoginRequiredMixin, TemplateView):
                 'medical': {'overdue': med_overdue, 'upcoming': med_upcoming},
                 'overdue_total': overdue_total,
                 'upcoming_total': upcoming_total,
+                'key_categories': key_cats,
             })
 
         total_overdue = sum(item['overdue_total'] for item in per_org)
         total_upcoming = sum(item['upcoming_total'] for item in per_org)
-        return {'per_org': per_org, 'total_overdue': total_overdue, 'total_upcoming': total_upcoming}
+
+        return {
+            'per_org': per_org,
+            'total_overdue': total_overdue,
+            'total_upcoming': total_upcoming,
+        }
 
     def _get_stats(self, accessible_orgs):
         """Возвращает сводную статистику по доступным организациям."""
         from deadline_control.models import Equipment
         org_ids = list(accessible_orgs.values_list('id', flat=True))
         return {
-            'employees_active': Employee.objects.filter(organization_id__in=org_ids, status='active').count(),
-            'employees_candidate': Employee.objects.filter(organization_id__in=org_ids, status='candidate').count(),
-            'employees_fired': Employee.objects.filter(organization_id__in=org_ids, status='fired').count(),
+            'employees_active': Employee.objects.active_for_operations().filter(organization_id__in=org_ids).count(),
+            'employees_candidate': Employee.objects.visible().filter(organization_id__in=org_ids, status='candidate').count(),
+            'employees_fired': Employee.objects.visible().filter(organization_id__in=org_ids, status='fired').count(),
             'orgs': len(org_ids),
             'subdivisions': StructuralSubdivision.objects.filter(organization_id__in=org_ids).count(),
             'positions': Position.objects.filter(organization_id__in=org_ids).count(),
             'equipment': Equipment.objects.filter(organization_id__in=org_ids).count(),
         }
 
-    def _get_recent_hirings(self, accessible_orgs):
-        """Возвращает последние 7 записей о приёме на работу."""
+    def _get_contracts_data(self, user):
+        """Данные договоров/актов/налогов — только для суперпользователя."""
+        if not user.is_superuser:
+            return None
+        from contracts.models import Client, Contract, Act
+        from taxes.models import TaxYear
+        from django.db.models import Sum, Count, Q, Prefetch
+
+        clients = list(
+            Client.objects.prefetch_related(
+                Prefetch('contracts', queryset=Contract.objects.order_by('-date').prefetch_related(
+                    Prefetch('acts', queryset=Act.objects.order_by('act_date'))
+                ))
+            ).order_by('org_name_short')
+        )
+
+        agg = Act.objects.aggregate(
+            unpaid_count=Count('id', filter=Q(is_paid=False)),
+            unpaid_sum=Sum('amount', filter=Q(is_paid=False)),
+            paid_sum=Sum('amount', filter=Q(is_paid=True)),
+        )
+
+        # Долг по каждому клиенту: список [(client_id, debt_sum), ...]
+        from django.db.models import DecimalField
+        client_debts_qs = (
+            Act.objects
+            .filter(is_paid=False)
+            .values('contract__client_id')
+            .annotate(debt=Sum('amount'))
+        )
+        client_debts = [(row['contract__client_id'], row['debt']) for row in client_debts_qs]
+
+        tax_years = list(TaxYear.objects.prefetch_related('quarters').order_by('-year')[:3])
+
+        return {
+            'clients': clients,
+            'client_debts': client_debts,
+            'unpaid_count': agg['unpaid_count'] or 0,
+            'unpaid_sum': agg['unpaid_sum'] or 0,
+            'paid_sum': agg['paid_sum'] or 0,
+            'tax_years': tax_years,
+        }
+
+    def _get_task_lists(self, accessible_orgs, selected_org_id, show_archived):
+        """Возвращает списки задач, сгруппированные по организациям."""
+        from tasks.models import TaskList
+        orgs = accessible_orgs.filter(id=selected_org_id) if selected_org_id else accessible_orgs
+        result = []
+        for org in orgs:
+            qs = TaskList.objects.filter(organization=org)
+            if not show_archived:
+                qs = qs.filter(is_archived=False)
+            qs = qs.prefetch_related('items').order_by('-created_at')
+            result.append({'org': org, 'lists': list(qs)})
+        return result
+
+    def _get_upcoming_medical(self, accessible_orgs):
+        """Возвращает до 10 ближайших/просроченных медосмотров по доступным организациям."""
+        from deadline_control.models.medical_norm import EmployeeMedicalExamination
         org_ids = list(accessible_orgs.values_list('id', flat=True))
+        today = timezone.now().date()
+        window = today + timedelta(days=60)
         return (
-            EmployeeHiring.objects
-            .filter(organization_id__in=org_ids)
-            .select_related('employee', 'organization', 'position')
-            .order_by('-hiring_date', '-created_at')[:7]
+            EmployeeMedicalExamination.objects
+            .filter(
+                employee__organization_id__in=org_ids,
+                next_date__isnull=False,
+                next_date__lte=window,
+            )
+            .select_related('employee', 'employee__organization', 'harmful_factor')
+            .order_by('next_date')[:10]
         )
 
 
@@ -375,7 +506,11 @@ class SetOrganizationView(LoginRequiredMixin, View):
         if parsed.netloc:
             next_url = '/'
 
-        if org_id_raw:
+        if org_id_raw == '':
+            # Явный сброс — «Все организации»
+            request.session.pop('selected_org_id', None)
+            logger.info(f"User {request.user.username} cleared org selection via header")
+        elif org_id_raw:
             try:
                 org_id = int(org_id_raw)
                 accessible_orgs = AccessControlHelper.get_accessible_organizations(request.user, request)

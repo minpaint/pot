@@ -1,0 +1,432 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   tasks.css — стили для TODO-виджета на главной странице
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Секция ─────────────────────────────────────────────────────────────── */
+.tasks-widget {
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tasks-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tasks-section-title { font-size: 0.85rem; color: #343a40; }
+
+.tasks-toggle-archived {
+    font-size: 0.72rem;
+    color: #6c757d;
+    text-decoration: none;
+    padding: 2px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    background: #fff;
+    transition: background 0.15s;
+}
+.tasks-toggle-archived:hover,
+.tasks-toggle-archived.active {
+    background: #e9ecef;
+    color: #343a40;
+    text-decoration: none;
+}
+
+/* ── Заголовок организации ──────────────────────────────────────────────── */
+.tasks-org-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border-radius: 8px 8px 0 0;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+.tasks-org-cnt {
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.tasks-org-block + .tasks-org-block { margin-top: 1.25rem; }
+
+/* ── Сетка карточек ─────────────────────────────────────────────────────── */
+.tasks-lists-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px 0 4px;
+}
+
+/* ── Карточка списка ────────────────────────────────────────────────────── */
+.tasks-card {
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.15s;
+}
+.tasks-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
+
+.tasks-card-archived { opacity: 0.6; }
+.tasks-card-archived .tasks-card-header { filter: grayscale(60%); }
+
+.tasks-card-header {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+}
+
+.tasks-card-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+}
+
+.tasks-card-title {
+    flex: 1;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fff;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.tasks-card-meta {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.tasks-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.tasks-card-btns {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.tasks-card:hover .tasks-card-btns { opacity: 1; }
+
+.tasks-btn-icon {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    padding: 2px 5px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.12s;
+}
+.tasks-btn-icon:hover { background: rgba(255,255,255,0.35); }
+.tasks-btn-danger:hover { background: rgba(220,53,69,0.5) !important; }
+
+/* ── Бейджи ─────────────────────────────────────────────────────────────── */
+.tasks-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.tasks-badge-light  { background: rgba(255,255,255,0.25); color: #fff; }
+.tasks-badge-danger { background: #fde8e8; color: #c0392b; }
+
+/* ── Список задач ───────────────────────────────────────────────────────── */
+.tasks-items {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+}
+
+.tasks-empty {
+    padding: 10px 12px;
+    color: #adb5bd;
+    font-size: 0.78rem;
+    font-style: italic;
+}
+
+/* ── Задача ─────────────────────────────────────────────────────────────── */
+.tasks-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 0.84rem;
+    transition: background 0.1s;
+}
+.tasks-item:last-child { border-bottom: none; }
+.tasks-item:hover { background: #f8f9fa; }
+.tasks-item:hover .tasks-item-del { opacity: 1; }
+
+.tasks-item-done .tasks-item-text {
+    text-decoration: line-through;
+    color: #adb5bd;
+}
+
+.tasks-item-overdue { background: #fff8f8 !important; }
+.tasks-item-overdue .tasks-item-text { color: #c0392b; }
+
+/* ── Чекбокс ────────────────────────────────────────────────────────────── */
+.tasks-checkbox {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border: 2px solid #ced4da;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: #fff;
+    padding: 0;
+    margin-top: 2px;
+    transition: background 0.12s, border-color 0.12s;
+    line-height: 1;
+}
+.tasks-checkbox:hover { border-color: #3498db; }
+.tasks-checkbox.checked {
+    background: #28a745;
+    border-color: #28a745;
+    color: #fff;
+}
+
+.tasks-item-text {
+    flex: 1;
+    min-width: 0;
+    color: #343a40;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.tasks-item-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    margin-top: 1px;
+}
+
+.tasks-priority { font-size: 0.7rem; }
+
+.tasks-due {
+    font-size: 0.68rem;
+    color: #6c757d;
+    white-space: nowrap;
+    background: #f0f0f0;
+    padding: 1px 5px;
+    border-radius: 6px;
+}
+.tasks-due-overdue {
+    background: #fde8e8;
+    color: #c0392b;
+    font-weight: 600;
+}
+
+.tasks-item-del {
+    background: none;
+    border: none;
+    color: #ced4da;
+    cursor: pointer;
+    font-size: 0.65rem;
+    padding: 0 2px;
+    opacity: 0;
+    transition: color 0.12s, opacity 0.12s;
+    line-height: 1;
+}
+.tasks-item-del:hover { color: #dc3545; }
+
+/* ── Форма добавления задачи ────────────────────────────────────────────── */
+.tasks-add-item-form {
+    padding: 8px 12px;
+    border-top: 1px solid #f0f0f0;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tasks-add-text-row {
+    display: flex;
+    width: 100%;
+}
+
+.tasks-add-text-row .tasks-add-input {
+    width: 100%;
+    flex: 1 1 auto;
+    box-sizing: border-box;
+}
+
+.tasks-add-controls-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tasks-add-input {
+    flex: 1;
+    width: 100%;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 0.84rem;
+    outline: none;
+    min-width: 0;
+    box-sizing: border-box;
+}
+.tasks-add-input:focus { border-color: #3498db; }
+
+.tasks-add-priority {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 4px 2px;
+    font-size: 0.78rem;
+    background: #fff;
+    cursor: pointer;
+    width: 42px;
+    flex-shrink: 0;
+}
+
+.tasks-add-date {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 0.78rem;
+    flex: 1;
+    min-width: 110px;
+}
+
+.tasks-add-submit {
+    background: #3498db;
+    border: none;
+    color: #fff;
+    border-radius: 5px;
+    padding: 5px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s;
+    white-space: nowrap;
+}
+.tasks-add-submit:hover { background: #2980b9; }
+
+/* ── Форма добавления списка ────────────────────────────────────────────── */
+.tasks-add-list-card {
+    width: 100%;
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    background: #fafafa;
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.tasks-add-list-form { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+
+.tasks-add-list-title-row {
+    display: flex;
+    width: 100%;
+}
+
+.tasks-add-list-controls-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.tasks-add-list-input {
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 0.84rem;
+}
+.tasks-add-list-input:focus { border-color: #3498db; outline: none; }
+
+.tasks-add-list-color {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tasks-add-list-btn {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.12s;
+}
+.tasks-add-list-btn:hover { opacity: 0.85; }
+
+/* ── Пустое состояние ───────────────────────────────────────────────────── */
+.tasks-no-orgs {
+    color: #adb5bd;
+    font-size: 0.82rem;
+    padding: 12px 0;
+}
+
+/* ══ Мобильная адаптация ════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+    .tasks-lists-grid { gap: 10px; }
+
+    .tasks-card-btns { opacity: 1; }
+
+    .tasks-add-controls-row { flex-wrap: wrap; }
+    .tasks-add-date { min-width: unset; flex: 1 1 100%; }
+    .tasks-add-submit { width: 100%; text-align: center; }
+
+    .tasks-add-list-controls-row { flex-wrap: wrap; }
+    .tasks-add-list-color { flex: 1; height: 38px; }
+    .tasks-add-list-btn { flex: 2; text-align: center; }
+
+    .tasks-item { padding: 6px 10px; }
+    .tasks-item-del { opacity: 1; }
+}

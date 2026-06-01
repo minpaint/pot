@@ -1,0 +1,29 @@
+.qs-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.qs-block {
+  display: block;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.field-calculation_preview label {
+  display: none;
+}
+
+.field-calculation_preview .flex-container {
+  display: block;
+}
+
+.field-calculation_preview .readonly {
+  margin-left: 0;
+  width: 100%;
+}
+
+.field-calculation_preview .readonly .tax-preview {
+  width: 100%;
+  max-width: 100%;
+}

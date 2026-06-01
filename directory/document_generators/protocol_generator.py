@@ -104,17 +104,18 @@ def generate_knowledge_protocol(
         # 4.6) binding_name_genitive — «протокол комиссии чего…»
         if commission:
             if commission.department:
-                binding = decline_phrase(commission.department.name, 'gent')
+                raw = decline_phrase(commission.department.name, 'gent')
+                binding = raw[0].lower() + raw[1:] if raw else raw
             elif commission.subdivision:
-                binding = decline_phrase(commission.subdivision.name, 'gent')
+                raw = decline_phrase(commission.subdivision.name, 'gent')
+                binding = raw[0].lower() + raw[1:] if raw else raw
             elif commission.organization:
-                # Название организации НЕ склоняется - это имя собственное в кавычках
-                # "Комиссия ООО "Безопасность Плюс"", а не "ооо безопасности Плюс"
+                # Название организации — сохраняем регистр как есть (имя собственное)
                 binding = commission.organization.short_name_ru
             else:
-                binding = ""
+                binding = employee.organization.short_name_ru if employee.organization else ""
         else:
-            binding = ""
+            binding = employee.organization.short_name_ru if employee.organization else ""
         context.setdefault('binding_name_genitive', binding)
 
         # 5) Подмешать custom_context, если есть
@@ -180,8 +181,8 @@ def generate_knowledge_protocol(
         doc.save(buffer)
         buffer.seek(0)
 
-        # 9) Очищаем пустые параграфы и строки
-        cleaned_content = clean_document(buffer.getvalue())
+        # 9) Очищаем пустые параграфы и строки (колонтитулы шаблона сохраняем)
+        cleaned_content = clean_document(buffer.getvalue(), keep_headers_footers=True)
 
         from directory.utils.declension import get_initials_from_name
         employee_initials = get_initials_from_name(context.get('fio_nominative', ''))
@@ -488,8 +489,8 @@ def generate_periodic_protocol(
         doc.save(buffer)
         buffer.seek(0)
 
-        # Очищаем пустые параграфы и строки
-        cleaned_content = clean_document(buffer.getvalue())
+        # Очищаем пустые параграфы и строки (колонтитулы шаблона сохраняем)
+        cleaned_content = clean_document(buffer.getvalue(), keep_headers_footers=True)
 
         # Формируем имя файла на основе grouping_name или организации
         if grouping_name:

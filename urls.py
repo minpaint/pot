@@ -82,11 +82,17 @@ urlpatterns = [
     # Ключевое исправление - указываем непосредственно модуль, а не строку
     path('directory/', include('directory.urls')),
 
+    # 💼 Договоры и акты (только для суперпользователя)
+    path('contracts/', include('contracts.urls')),
+
     # 🕐 URL приложения deadline_control (Контроль сроков)
     path('deadline-control/', include('deadline_control.urls')),
 
     # 🎓 Обучение на производстве
     path('production-training/', include('production_training.urls')),
+
+    # ✅ Задачи (AJAX-эндпоинты для TODO-виджета)
+    path('tasks/', include('tasks.urls')),
 
     # ✍️ CKEditor 5 URL
     path('ckeditor5/', include('django_ckeditor_5.urls')),

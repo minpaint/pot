@@ -174,4 +174,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'accessible_organizations': accessible_orgs,
         })
 
+        # ========== ДОГОВОРЫ И АКТЫ (только суперпользователь) ==========
+        if user.is_superuser:
+            from contracts.models import Act
+            from django.db.models import Sum
+            contracts_stats = Act.objects.aggregate(
+                unpaid_count=Count('id', filter=Q(is_paid=False)),
+                unpaid_sum=Sum('amount', filter=Q(is_paid=False)),
+            )
+            context['contracts_stats'] = contracts_stats
+
         return context

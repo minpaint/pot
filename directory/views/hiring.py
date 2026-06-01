@@ -452,6 +452,29 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         )
         context['employee'] = employee
 
+        # Руководитель стажировки: авто-подбор + список кандидатов
+        from directory.views.documents.utils import get_internship_leader
+        internship_leader, il_level, il_success = get_internship_leader(employee)
+        context['internship_leader'] = internship_leader
+        context['internship_leader_level'] = il_level
+        context['internship_leader_success'] = il_success
+
+        il_level_display = {
+            'department': 'В отделе',
+            'subdivision': 'В подразделении',
+            'organization': 'В организации',
+        }.get(il_level, '')
+        context['internship_leader_level_display'] = il_level_display
+
+        # Все кандидаты в руководители стажировки в организации
+        internship_leader_candidates = Employee.objects.filter(
+            organization=employee.organization,
+            position__can_be_internship_leader=True,
+        ).exclude(id=employee.id).select_related(
+            'position', 'subdivision', 'department'
+        ).order_by('full_name_nominative')
+        context['internship_leader_candidates'] = internship_leader_candidates
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -499,6 +522,17 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
 
         employee = self.object.employee
 
+        # Явно выбранный руководитель стажировки (из дропдауна на странице)
+        internship_leader_override = None
+        internship_leader_id = request.POST.get('internship_leader_id')
+        if internship_leader_id:
+            try:
+                internship_leader_override = Employee.objects.select_related(
+                    'position', 'subdivision', 'department'
+                ).get(id=int(internship_leader_id))
+            except (Employee.DoesNotExist, ValueError):
+                pass
+
         # Импортируем генераторы
         from directory.document_generators.order_generator import generate_all_orders
         from directory.document_generators.protocol_generator import generate_knowledge_protocol
@@ -527,6 +561,11 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
                 if generator_func:
                     if doc_type == 'doc_familiarization':
                         result = generator_func(employee=employee, user=request.user, document_list=None)
+                    elif doc_type == 'all_orders':
+                        result = generator_func(
+                            employee=employee, user=request.user,
+                            internship_leader_override=internship_leader_override
+                        )
                     else:
                         result = generator_func(employee=employee, user=request.user)
 
@@ -593,6 +632,17 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
             f"(hiring_id={self.object.pk}). Выбрано типов: {len(document_types)}"
         )
 
+        # Явно выбранный руководитель стажировки (из дропдауна на странице)
+        internship_leader_override = None
+        internship_leader_id = request.POST.get('internship_leader_id')
+        if internship_leader_id:
+            try:
+                internship_leader_override = Employee.objects.select_related(
+                    'position', 'subdivision', 'department'
+                ).get(id=int(internship_leader_id))
+            except (Employee.DoesNotExist, ValueError):
+                pass
+
         # ШАГ 2: Получить настройки email
         try:
             email_settings = EmailSettings.get_settings(organization)
@@ -646,6 +696,11 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
                 if generator_func:
                     if doc_type == 'doc_familiarization':
                         result = generator_func(employee=employee, user=request.user, document_list=None)
+                    elif doc_type == 'all_orders':
+                        result = generator_func(
+                            employee=employee, user=request.user,
+                            internship_leader_override=internship_leader_override
+                        )
                     else:
                         result = generator_func(employee=employee, user=request.user)
 

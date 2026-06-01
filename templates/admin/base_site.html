@@ -18,11 +18,23 @@
 {# 📚 Блок дополнительных стилей. Здесь задаются основные цвета и стили шапки админки. #}
 {% block extrastyle %}
     {{ block.super }}
+    <!-- Twemoji: корректное отображение эмодзи в старых браузерах -->
+    <style>
+        img.emoji {
+            height: 1em;
+            width: 1em;
+            margin: 0 .05em 0 .1em;
+            vertical-align: -0.1em;
+            display: inline-block;
+        }
+    </style>
     <style>
         /* 🎨 Основные цвета и стили */
         :root {
             --primary-color: #2c3e50;
             --accent-color: #3498db;
+            --font-family-primary: "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+            --font-family-monospace: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", monospace;
         }
         /* 👔 Стили шапки */
         #header {
@@ -125,6 +137,20 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     <meta name="googlebot" content="noindex, nofollow">
     <meta name="yandex" content="noindex, nofollow">
+
+    {# Twemoji: кроссбраузерное отображение эмодзи #}
+    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous" defer></script>
+    <script defer>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof twemoji !== 'undefined') {
+                twemoji.parse(document.body, {
+                    folder: 'svg',
+                    ext: '.svg',
+                    base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@v14.0.2/assets/'
+                });
+            }
+        });
+    </script>
 
     {# Дополнительные скрипты smart‑selects удалены, так как они больше не используются. #}
     <script>

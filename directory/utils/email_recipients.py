@@ -131,9 +131,8 @@ def collect_recipients_for_subdivision(
     if include_responsible_employees and subdivision:
         try:
             # Получаем активных ответственных за ОТ с email
-            responsible_employees_qs = Employee.objects.filter(
+            responsible_employees_qs = Employee.objects.active_for_operations().filter(
                 subdivision=subdivision,
-                status='active',  # Только активные сотрудники
                 position__is_responsible_for_safety=True,  # Флаг на должности
                 email__isnull=False
             ).exclude(
@@ -319,10 +318,9 @@ def get_recipients_detailed(
     # Источник 2: ответственные за ОТ без отдела
     if subdivision:
         try:
-            responsible_employees_qs = Employee.objects.filter(
+            responsible_employees_qs = Employee.objects.active_for_operations().filter(
                 subdivision=subdivision,
                 department__isnull=True,
-                status='active',
                 position__is_responsible_for_safety=True,
                 email__isnull=False
             ).exclude(email='')
@@ -420,20 +418,18 @@ def get_recipients_for_department(
         logger.warning("Не удалось получить email подразделения: %s", exc)
 
     # Источник 2: ответственные за ОТ
-    responsible_qs = Employee.objects.filter(
+    responsible_qs = Employee.objects.active_for_operations().filter(
         subdivision=subdivision,
         department=department,
-        status='active',
         position__is_responsible_for_safety=True,
         email__isnull=False
     ).exclude(email='')
 
     if not responsible_qs.exists():
         fallback_used = True
-        responsible_qs = Employee.objects.filter(
+        responsible_qs = Employee.objects.active_for_operations().filter(
             subdivision=subdivision,
             department__isnull=True,
-            status='active',
             position__is_responsible_for_safety=True,
             email__isnull=False
         ).exclude(email='')
@@ -538,9 +534,8 @@ def get_recipients_summary(
     if subdivision:
         try:
             responsible_emails = list(
-                Employee.objects.filter(
+                Employee.objects.active_for_operations().filter(
                     subdivision=subdivision,
-                    status='active',
                     position__is_responsible_for_safety=True,
                     email__isnull=False
                 ).exclude(email='').values_list('email', flat=True)

@@ -148,6 +148,36 @@ border-color: #5a32a3;
     width: 8px; height: 8px; border-radius: 50%;
     background: #28a745; margin-top: 4px; flex-shrink: 0;
 }
+.event-dot-danger  { background: #dc3545; }
+.event-dot-warning { background: #ffc107; }
+.med-date-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.med-date-badge--calendar-focus {
+    justify-content: center;
+    width: 100%;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #212529;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+.med-date-danger  { background: #fde8e8; color: #c0392b; }
+.med-date-warning { background: #fff3cd; color: #856404; }
+.med-date-ok      { background: #d1f5d3; color: #1e7e34; }
+.med-date-badge.med-date-badge--calendar-focus {
+    color: #212529;
+    background: transparent;
+}
 .event-date { color: #6c757d; white-space: nowrap; font-size: 0.72rem; }
 .event-name { font-weight: 600; color: #212529; }
 .event-sub { color: #6c757d; font-size: 0.72rem; }
@@ -204,6 +234,188 @@ border-color: #5a32a3;
     font-weight: 600;
 }
 
+.dc-key-cats {
+    margin-top: 7px;
+    border-top: 1px solid rgba(0,0,0,0.07);
+    padding-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.dc-key-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.dc-key-cat-danger { background: #fde8e8; }
+.dc-key-cat-warning { background: #fff3cd; }
+.dc-key-cat-ok { background: transparent; }
+
+.dc-key-cat-icon { flex-shrink: 0; }
+
+.dc-key-cat-name {
+    flex: 1;
+    color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-key-cat-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.dc-key-cat-row--calendar-focus .dc-key-cat-date {
+    margin-left: auto;
+    justify-content: flex-end;
+    width: auto;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #212529;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+.dc-key-cat-row--calendar-focus {
+    flex-wrap: nowrap;
+    align-items: center;
+}
+.dc-key-cat-row--calendar-focus .dc-key-cat-name {
+    min-width: 0;
+}
+.dc-key-cat-row--calendar-focus .dc-key-cat-date-icon {
+    font-size: 1em;
+}
+.dc-key-cat-date-icon {
+    line-height: 1;
+}
+.dc-key-cat-danger .dc-key-cat-date  { background: #fde8e8; color: #c0392b; }
+.dc-key-cat-warning .dc-key-cat-date { background: #fff3cd; color: #856404; }
+.dc-key-cat-ok .dc-key-cat-date      { background: #d1f5d3; color: #1e7e34; }
+.dc-key-cat-row--calendar-focus .dc-key-cat-date {
+    color: #212529;
+    background: transparent;
+}
+
+/* ── Single-org banner ── */
+.so-banner {
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 0;
+}
+.so-banner-danger  { background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); color: #fff; }
+.so-banner-warning { background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%); color: #fff; }
+.so-banner-ok      { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; }
+
+.so-banner-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.so-banner-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.so-pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.so-pill-danger  { background: rgba(0,0,0,0.25); color: #fff; }
+.so-pill-warning { background: rgba(0,0,0,0.2);  color: #fff; }
+.so-pill-ok      { background: rgba(255,255,255,0.2); color: #fff; }
+
+.so-banner-btn {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    padding: 6px 14px;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.so-banner-btn:hover { background: rgba(255,255,255,0.25); color: #fff; text-decoration: none; }
+
+/* ── Single-org category cards ── */
+.so-cat-card {
+    display: block;
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+    border-top: 4px solid #dee2e6;
+    background: #fff;
+    padding: 14px 16px;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+    transition: box-shadow 0.15s, transform 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.so-cat-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.1); transform: translateY(-2px); color: inherit; text-decoration: none; }
+.so-cat-danger  { border-top-color: #dc3545; background: #fff8f8; }
+.so-cat-warning { border-top-color: #ffc107; background: #fffef0; }
+.so-cat-ok      { border-top-color: #28a745; }
+
+.so-cat-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.so-cat-head--calendar-focus {
+    justify-content: space-between;
+}
+.so-cat-icon { font-size: 1.3rem; }
+.so-cat-name { font-size: 0.85rem; font-weight: 700; color: #2c3e50; }
+.so-cat-head-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    font-size: 1.18rem;
+    font-weight: 800;
+    color: #212529;
+    white-space: nowrap;
+}
+
+.so-cat-date-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.so-cat-counter {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+.so-cnt-danger  { background: #fde8e8; color: #c0392b; }
+.so-cnt-warning { background: #fff3cd; color: #856404; }
+.so-cnt-ok      { background: #d1f5d3; color: #1e7e34; }
+
 /* Dropdown для быстрых действий на мобильных */
 .quick-actions-dropdown {
 display: none;
@@ -220,6 +432,11 @@ display: none;
 .actions-bar .collapse-all {
     display: none !important;
 }
+
+/* Single-org на мобильных */
+.so-banner { flex-direction: column; align-items: flex-start; }
+.so-banner-btn { width: 100%; text-align: center; }
+.so-cat-card { margin-bottom: 0; }
 }
 </style>
 {% endblock %}
@@ -237,13 +454,126 @@ display: none;
 </div>
 {% endif %}
 
+{% if selected_org_item %}
+{# ═══════════════════════════════════════════════════════════════ #}
+{# SINGLE-ORG LAYOUT: выбрана одна организация                    #}
+{# ═══════════════════════════════════════════════════════════════ #}
+{% with org=selected_org_item %}
+
+<!-- Баннер организации -->
+<div class="so-banner {% if org.overdue_total > 0 %}so-banner-danger{% elif org.upcoming_total > 0 %}so-banner-warning{% else %}so-banner-ok{% endif %} mb-3">
+    <div class="so-banner-left">
+        <div class="so-banner-name">🏢 {{ org.org.short_name_ru }}</div>
+        <div class="so-banner-pills">
+            <span class="so-pill {% if org.equipment.overdue > 0 %}so-pill-danger{% elif org.equipment.upcoming > 0 %}so-pill-warning{% else %}so-pill-ok{% endif %}">
+                🔧 Оборудование
+                {% if org.equipment.overdue > 0 %}&nbsp;{{ org.equipment.overdue }} просрочено{% elif org.equipment.upcoming > 0 %}&nbsp;{{ org.equipment.upcoming }} скоро{% else %}&nbsp;✅{% endif %}
+            </span>
+            <span class="so-pill {% if org.deadlines.overdue > 0 %}so-pill-danger{% elif org.deadlines.upcoming > 0 %}so-pill-warning{% else %}so-pill-ok{% endif %}">
+                📅 Сроки
+                {% if org.deadlines.overdue > 0 %}&nbsp;{{ org.deadlines.overdue }} просрочено{% elif org.deadlines.upcoming > 0 %}&nbsp;{{ org.deadlines.upcoming }} скоро{% else %}&nbsp;✅{% endif %}
+            </span>
+            <span class="so-pill {% if org.medical.overdue > 0 %}so-pill-danger{% elif org.medical.upcoming > 0 %}so-pill-warning{% else %}so-pill-ok{% endif %}">
+                🏥 Медосмотры
+                {% if org.medical.overdue > 0 %}&nbsp;{{ org.medical.overdue }} просрочено{% elif org.medical.upcoming > 0 %}&nbsp;{{ org.medical.upcoming }} скоро{% else %}&nbsp;✅{% endif %}
+            </span>
+        </div>
+    </div>
+    <a href="{% url 'deadline_control:dashboard' %}?org={{ org.org.id }}" class="so-banner-btn">Детальный контроль →</a>
+</div>
+
+<!-- 3 ключевые категории -->
+{% if org.key_categories %}
+<div class="row g-2 mb-3">
+    {% for cat in org.key_categories %}
+    <div class="col-12 col-md-4">
+        <a href="{% url 'deadline_control:key_deadline:list' %}" class="so-cat-card so-cat-{{ cat.status }}">
+            <div class="so-cat-head{% if cat.highlight_date %} so-cat-head--calendar-focus{% endif %}">
+                <span class="so-cat-icon">{{ cat.icon }}</span>
+                <span class="so-cat-name">{{ cat.name }}</span>
+                {% if cat.highlight_date and cat.next_date %}
+                <span class="so-cat-head-date">
+                    <span class="dc-key-cat-date-icon" aria-hidden="true">📅</span>
+                    {{ cat.next_date|date:"d.m.Y" }}
+                </span>
+                {% endif %}
+            </div>
+            <div class="so-cat-date-row">
+                {% if cat.next_date and not cat.highlight_date %}
+                <span class="med-date-badge {% if cat.status == 'danger' %}med-date-danger{% elif cat.status == 'warning' %}med-date-warning{% else %}med-date-ok{% endif %}{% if cat.highlight_date %} med-date-badge--calendar-focus{% endif %}">
+                    {% if cat.highlight_date %}
+                    <span class="dc-key-cat-date-icon" aria-hidden="true">📅</span>
+                    {% elif cat.status == 'danger' %}
+                    <span class="dc-key-cat-date-icon" aria-hidden="true">⚠️</span>
+                    {% endif %}
+                    {{ cat.next_date|date:"d.m.Y" }}
+                </span>
+                {% endif %}
+                {% if cat.overdue > 0 %}
+                <span class="so-cat-counter so-cnt-danger">{{ cat.overdue }} просрочено</span>
+                {% endif %}
+                {% if cat.upcoming > 0 %}
+                <span class="so-cat-counter so-cnt-warning">{{ cat.upcoming }} скоро</span>
+                {% endif %}
+                {% if cat.overdue == 0 and cat.upcoming == 0 %}
+                <span class="so-cat-counter so-cnt-ok">Под контролем</span>
+                {% endif %}
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Быстрый доступ + Медосмотры -->
+<div class="row g-2 mb-3">
+    <div class="col-12 col-md-5 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-1 px-2" style="background:#f8f9fa;">
+                <span class="fw-bold" style="font-size:0.8rem;">⚡ Быстрый доступ</span>
+            </div>
+            <div class="card-body p-2">
+                <div class="row g-2">
+                    <div class="col-4"><a href="{% url 'directory:employees:employee_list' %}" class="quick-tile"><div class="qt-icon">👥</div><div class="qt-label">Сотрудники</div><div class="qt-count">{{ stats.employees_active }}</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:hiring:hiring_list' %}" class="quick-tile"><div class="qt-icon">📋</div><div class="qt-label">Приёмы</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:siz:siz_list' %}" class="quick-tile"><div class="qt-icon">🛡️</div><div class="qt-label">СИЗ</div></a></div>
+                    <div class="col-4"><a href="{% url 'deadline_control:medical:list' %}" class="quick-tile"><div class="qt-icon">🏥</div><div class="qt-label">Медосмотры</div></a></div>
+                    <div class="col-4"><a href="{% url 'deadline_control:equipment:list' %}" class="quick-tile"><div class="qt-icon">⚙️</div><div class="qt-label">Оборудование</div><div class="qt-count">{{ stats.equipment }}</div></a></div>
+                    <div class="col-4"><a href="{% url 'deadline_control:key_deadline:list' %}" class="quick-tile"><div class="qt-icon">📅</div><div class="qt-label">Сроки</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:quiz:quiz_list' %}" class="quick-tile"><div class="qt-icon">📝</div><div class="qt-label">Квизы</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:commissions:commission_list' %}" class="quick-tile"><div class="qt-icon">👔</div><div class="qt-label">Комиссии</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:documents:document_list' %}" class="quick-tile"><div class="qt-icon">📄</div><div class="qt-label">Документы</div></a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-7 col-lg-8">
+        <div class="card h-100">
+            <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center" style="background:#f8f9fa;">
+                <span class="fw-bold" style="font-size:0.8rem;">🏥 Предстоящие медосмотры</span>
+                <a href="{% url 'directory:medical:employee_exams' %}" class="text-muted" style="font-size:0.72rem;">все →</a>
+            </div>
+            <div class="card-body p-2">
+                {% include "directory/home/_medical_list.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endwith %}
+
+{% else %}
+{# ═══════════════════════════════════════════════════════════════ #}
+{# MULTI-ORG LAYOUT: все организации                              #}
+{# ═══════════════════════════════════════════════════════════════ #}
+
 <!-- ⏰ Дашборд контроля сроков -->
 <div class="deadline-dashboard">
     <div class="text-muted small mb-2">⏰ Контроль сроков</div>
     {% if deadline_dashboard.per_org %}
     <div class="row g-2">
         {% for item in deadline_dashboard.per_org %}
-        <div class="col-6 col-md-4 col-lg-3">
+        <div class="col-12 col-md-6 col-lg-4">
             <a href="{% url 'deadline_control:dashboard' %}?org={{ item.org.id }}" class="dc-card {% if item.overdue_total > 0 %}dc-danger{% elif item.upcoming_total > 0 %}dc-warning{% else %}dc-ok{% endif %}">
                 <div class="dc-card-name">{{ item.org.short_name_ru }}</div>
                 <div class="dc-card-stats">
@@ -255,6 +585,28 @@ display: none;
                     {% if item.medical.upcoming > 0 %}<span class="text-warning">🏥{{ item.medical.upcoming }}</span>{% endif %}
                     {% if item.overdue_total == 0 and item.upcoming_total == 0 %}<span class="text-success">✅</span>{% endif %}
                 </div>
+                {% if item.key_categories %}
+                <div class="dc-key-cats">
+                    {% for cat in item.key_categories %}
+                    <div class="dc-key-cat-row dc-key-cat-{{ cat.status }}{% if cat.highlight_date %} dc-key-cat-row--calendar-focus{% endif %}">
+                        <span class="dc-key-cat-icon">{{ cat.icon }}</span>
+                        <span class="dc-key-cat-name">{{ cat.name }}</span>
+                        <span class="dc-key-cat-date">
+                            {% if cat.next_date %}
+                                {% if cat.highlight_date %}
+                                <span class="dc-key-cat-date-icon" aria-hidden="true">📅</span>
+                                {% elif cat.status == 'danger' %}
+                                <span class="dc-key-cat-date-icon" aria-hidden="true">⚠️</span>
+                                {% endif %}
+                                {{ cat.next_date|date:"d.m.Y" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </a>
         </div>
         {% endfor %}
@@ -264,10 +616,8 @@ display: none;
     {% endif %}
 </div>
 
-<!-- 📊 Три зоны: быстрый доступ / статистика / лента событий -->
+<!-- Быстрый доступ + Медосмотры -->
 <div class="row g-2 mb-3">
-
-    <!-- ЗОНА A: Быстрый доступ -->
     <div class="col-12 col-md-5 col-lg-4">
         <div class="card h-100">
             <div class="card-header py-1 px-2" style="background:#f8f9fa;">
@@ -275,95 +625,41 @@ display: none;
             </div>
             <div class="card-body p-2">
                 <div class="row g-2">
-                    <div class="col-4">
-                        <a href="{% url 'directory:employees:employee_list' %}" class="quick-tile">
-                            <div class="qt-icon">👥</div>
-                            <div class="qt-label">Сотрудники</div>
-                            <div class="qt-count">{{ stats.employees_active }}</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'directory:hiring:hiring_list' %}" class="quick-tile">
-                            <div class="qt-icon">📋</div>
-                            <div class="qt-label">Приёмы</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'directory:siz:siz_list' %}" class="quick-tile">
-                            <div class="qt-icon">🛡️</div>
-                            <div class="qt-label">СИЗ</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'deadline_control:medical:list' %}" class="quick-tile">
-                            <div class="qt-icon">🏥</div>
-                            <div class="qt-label">Медосмотры</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'deadline_control:equipment:list' %}" class="quick-tile">
-                            <div class="qt-icon">⚙️</div>
-                            <div class="qt-label">Оборудование</div>
-                            <div class="qt-count">{{ stats.equipment }}</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'deadline_control:key_deadline:list' %}" class="quick-tile">
-                            <div class="qt-icon">📅</div>
-                            <div class="qt-label">Сроки</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'directory:quiz:quiz_list' %}" class="quick-tile">
-                            <div class="qt-icon">📝</div>
-                            <div class="qt-label">Квизы</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'directory:commissions:commission_list' %}" class="quick-tile">
-                            <div class="qt-icon">👔</div>
-                            <div class="qt-label">Комиссии</div>
-                        </a>
-                    </div>
-                    <div class="col-4">
-                        <a href="{% url 'directory:documents:document_list' %}" class="quick-tile">
-                            <div class="qt-icon">📄</div>
-                            <div class="qt-label">Документы</div>
-                        </a>
-                    </div>
+                    <div class="col-4"><a href="{% url 'directory:employees:employee_list' %}" class="quick-tile"><div class="qt-icon">👥</div><div class="qt-label">Сотрудники</div><div class="qt-count">{{ stats.employees_active }}</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:hiring:hiring_list' %}" class="quick-tile"><div class="qt-icon">📋</div><div class="qt-label">Приёмы</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:siz:siz_list' %}" class="quick-tile"><div class="qt-icon">🛡️</div><div class="qt-label">СИЗ</div></a></div>
+                    <div class="col-4"><a href="{% url 'deadline_control:medical:list' %}" class="quick-tile"><div class="qt-icon">🏥</div><div class="qt-label">Медосмотры</div></a></div>
+                    <div class="col-4"><a href="{% url 'deadline_control:equipment:list' %}" class="quick-tile"><div class="qt-icon">⚙️</div><div class="qt-label">Оборудование</div><div class="qt-count">{{ stats.equipment }}</div></a></div>
+                    <div class="col-4"><a href="{% url 'deadline_control:key_deadline:list' %}" class="quick-tile"><div class="qt-icon">📅</div><div class="qt-label">Сроки</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:quiz:quiz_list' %}" class="quick-tile"><div class="qt-icon">📝</div><div class="qt-label">Квизы</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:commissions:commission_list' %}" class="quick-tile"><div class="qt-icon">👔</div><div class="qt-label">Комиссии</div></a></div>
+                    <div class="col-4"><a href="{% url 'directory:documents:document_list' %}" class="quick-tile"><div class="qt-icon">📄</div><div class="qt-label">Документы</div></a></div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- ЗОНА C: Последние приёмы -->
     <div class="col-12 col-md-7 col-lg-8">
         <div class="card h-100">
             <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center" style="background:#f8f9fa;">
-                <span class="fw-bold" style="font-size:0.8rem;">🕐 Последние приёмы</span>
-                <a href="{% url 'directory:hiring:hiring_list' %}" class="text-muted" style="font-size:0.72rem;">все →</a>
+                <span class="fw-bold" style="font-size:0.8rem;">🏥 Предстоящие медосмотры</span>
+                <a href="{% url 'directory:medical:employee_exams' %}" class="text-muted" style="font-size:0.72rem;">все →</a>
             </div>
             <div class="card-body p-2">
-                {% if recent_hirings %}
-                {% for h in recent_hirings %}
-                <div class="event-item">
-                    <div class="event-dot"></div>
-                    <div class="flex-grow-1 overflow-hidden">
-                        <div class="event-name text-truncate">{{ h.employee.full_name_nominative }}</div>
-                        <div class="event-sub text-truncate">{{ h.position.position_name|default:"—" }} · {{ h.organization.short_name_ru|default:"" }}</div>
-                    </div>
-                    <div class="event-date">{{ h.hiring_date|date:"d.m" }}</div>
-                </div>
-                {% endfor %}
-                {% else %}
-                <div class="text-muted small p-2">Нет записей о приёме</div>
-                {% endif %}
+                {% include "directory/home/_medical_list.html" %}
             </div>
         </div>
     </div>
-
 </div>
 
+{% endif %}
+
+{# ─── ✅ Задачи по организациям ─── #}
+<link rel="stylesheet" href="{% static 'tasks/tasks.css' %}">
+{% if task_orgs %}
+{% include "tasks/_widget.html" %}
+{% endif %}
+
+</div>{# /container-fluid #}
 {% endblock %}
 
 {% block extra_js %}{% endblock %}

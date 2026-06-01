@@ -5,368 +5,272 @@
 
 {% block extra_css %}
 <style>
-/* ── Заголовок ── */
-.sl-page-header {
+.siz-dash {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 4px;
+}
+
+/* Заголовок */
+.siz-dash-header {
     background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
     color: #fff;
-    padding: 13px 20px;
-    border-radius: 10px;
-    margin-bottom: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    border-radius: 12px;
+    padding: 22px 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
-.sl-page-header .sl-title { font-weight: 600; font-size: 1rem; flex: 1; }
-.sl-page-header .sl-sub   { font-size: 0.82rem; opacity: 0.8; width: 100%; margin-top: -4px; }
-.sl-hdr-badge {
-    font-size: 0.72rem; font-weight: 700; padding: 2px 10px;
-    border-radius: 20px; white-space: nowrap;
-    background: rgba(255,255,255,0.22); color: #fff;
-}
-.sl-hdr-badge.overdue { background: rgba(192,57,43,0.7); }
-.sl-hdr-badge.soon    { background: rgba(133,100,4,0.6); }
+.siz-dash-header h1 { font-size: 1.25rem; font-weight: 700; margin: 0 0 4px; }
+.siz-dash-header p  { font-size: 0.84rem; opacity: 0.8; margin: 0; }
 
-/* ── Блок-карточка ── */
-.sl-block {
-    border: none;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-    margin-bottom: 18px;
+/* KPI плитки */
+.siz-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.siz-kpi-card {
     background: #fff;
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: box-shadow 0.2s, transform 0.15s;
+    border: 2px solid transparent;
 }
-.sl-block-header {
+.siz-kpi-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+.siz-kpi-card.danger  { border-color: #e74c3c; }
+.siz-kpi-card.warning { border-color: #f39c12; }
+.siz-kpi-card.info    { border-color: #3498db; }
+.siz-kpi-card.success { border-color: #27ae60; }
+.siz-kpi-num {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.siz-kpi-card.danger  .siz-kpi-num { color: #e74c3c; }
+.siz-kpi-card.warning .siz-kpi-num { color: #f39c12; }
+.siz-kpi-card.info    .siz-kpi-num { color: #3498db; }
+.siz-kpi-card.success .siz-kpi-num { color: #27ae60; }
+.siz-kpi-label {
+    font-size: 0.78rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.siz-kpi-hint {
+    font-size: 0.72rem;
+    color: #adb5bd;
+    margin-top: 2px;
+}
+
+/* Блок выдачи */
+.siz-issue-block {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 24px;
+}
+.siz-issue-header {
     background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
     color: #fff;
-    padding: 10px 18px;
+    padding: 14px 22px;
+    font-weight: 700;
+    font-size: 1rem;
     display: flex;
     align-items: center;
     gap: 10px;
-    cursor: pointer;
-    user-select: none;
 }
-.sl-block-header .sl-bh-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
-.sl-block-header .sl-bh-badge {
-    font-size: 0.72rem; font-weight: 700; padding: 2px 9px;
-    border-radius: 20px; background: rgba(255,255,255,0.22); color: #fff;
-    white-space: nowrap;
-}
-.sl-block-header .sl-bh-badge.red  { background: rgba(192,57,43,0.75); }
-.sl-block-header .sl-bh-badge.yellow { background: rgba(133,100,4,0.65); }
-.sl-block-header .toggle-icon { font-size: 0.7rem; transition: transform 0.25s; }
-.sl-block-header.collapsed .toggle-icon { transform: rotate(-90deg); }
-
-/* ── Сворачиваемая область ── */
-.sl-collapsible {
-    overflow: hidden;
-    transition: max-height 0.25s ease, opacity 0.2s ease;
-}
-.sl-collapsible.collapsed { max-height: 0 !important; opacity: 0; }
-
-/* ── Таблица ── */
-.sl-table {
-    width: 100%; border-collapse: collapse; font-size: 0.84rem;
-}
-.sl-table th {
-    padding: 9px 12px;
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px;
-    color: #9aa0ac; font-weight: 600;
-    border-bottom: 2px solid #f0f0f0; background: #fff;
-    white-space: nowrap;
-}
-.sl-table td {
-    padding: 9px 12px; vertical-align: middle;
-    border-bottom: 1px solid #f5f5f5;
-}
-.sl-table tbody tr:hover td { background: #f0f7ff; }
-
-/* Цвет строк дедлайна */
-.sl-table tr.row-overdue td { background: #fef0f0; }
-.sl-table tr.row-overdue:hover td { background: #fde3e3; }
-.sl-table tr.row-soon td { background: #fffbec; }
-.sl-table tr.row-soon:hover td { background: #fff3c4; }
-
-/* ── Бейджи ── */
-.sl-badge {
-    display: inline-block; font-size: 0.72rem; font-weight: 600;
-    padding: 2px 9px; border-radius: 20px; white-space: nowrap;
-}
-.sl-badge-active   { background: #d1f5d3; color: #1e7e34; }
-.sl-badge-returned { background: #f0f0f0; color: #999; }
-.sl-badge-overdue  { background: #fde8e8; color: #c0392b; }
-.sl-badge-soon     { background: #fff3cd; color: #856404; }
-.sl-badge-ok       { background: #d1f5d3; color: #1e7e34; }
-
-/* ── Пустое состояние ── */
-.sl-empty {
-    padding: 28px; text-align: center; color: #9aa0ac; font-size: 0.88rem;
-}
-.sl-empty-ok {
-    padding: 18px 20px; background: #d1f5d3; border-radius: 8px;
-    color: #1e7e34; font-weight: 600; font-size: 0.88rem;
-    display: flex; align-items: center; gap: 8px; margin: 14px 18px;
-}
-
-/* ── Блок-ссылка (карточки) ── */
-.sl-link-block {
-    display: flex; align-items: center; gap: 16px;
-    padding: 20px 22px; flex-wrap: wrap;
-}
-.sl-link-block .sl-lb-icon { font-size: 2rem; flex-shrink: 0; }
-.sl-link-block .sl-lb-info { flex: 1; min-width: 180px; }
-.sl-link-block .sl-lb-title { font-weight: 600; font-size: 0.95rem; color: #2c3e50; margin-bottom: 4px; }
-.sl-link-block .sl-lb-desc  { font-size: 0.84rem; color: #6c757d; }
-
-/* ── Строка поиска сотрудника ── */
-.sl-search-row {
-    display: flex; gap: 8px; align-items: center;
-    padding: 12px 18px; border-bottom: 1px solid #f0f0f0;
+.siz-issue-body {
+    padding: 20px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
     flex-wrap: wrap;
 }
-.sl-search-row select {
-    flex: 1; min-width: 200px;
-    border: 1px solid #ced4da; border-radius: 6px;
-    padding: 6px 10px; font-size: 0.88rem; color: #2c3e50;
+.siz-issue-body label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+}
+.siz-issue-body select {
+    flex: 1;
+    min-width: 260px;
+    border: 1px solid #ced4da;
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-size: 0.92rem;
+    color: #2c3e50;
 }
 
-/* ── Мобильная адаптация ── */
+/* Навигационные карточки */
+.siz-nav-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+.siz-nav-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 22px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    transition: box-shadow 0.2s, transform 0.15s;
+    border-top: 4px solid transparent;
+}
+.siz-nav-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+.siz-nav-card.c-deadlines { border-color: #e74c3c; }
+.siz-nav-card.c-journal   { border-color: #3498db; }
+.siz-nav-card.c-cards     { border-color: #27ae60; }
+.siz-nav-icon { font-size: 1.8rem; }
+.siz-nav-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+.siz-nav-desc {
+    font-size: 0.8rem;
+    color: #6c757d;
+    line-height: 1.4;
+}
+.siz-nav-arrow {
+    font-size: 0.78rem;
+    color: #adb5bd;
+    margin-top: auto;
+    padding-top: 8px;
+}
+
 @media (max-width: 767px) {
-    .sl-page-header { flex-direction: column; align-items: flex-start; }
-    .sl-table thead { display: none; }
-    .sl-table tbody tr { display: block; border-bottom: 2px solid #eee; padding: 6px 0; }
-    .sl-table td {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 4px 12px; border: none; font-size: 0.82rem;
-    }
-    .sl-table td::before {
-        content: attr(data-label);
-        font-size: 0.7rem; color: #999; font-weight: 600;
-        margin-right: 8px; flex-shrink: 0;
-    }
-    .sl-table td.td-acts { justify-content: flex-end; }
-    .sl-table td.td-acts::before { content: none; }
-    .sl-table tr.row-overdue, .sl-table tr.row-soon { display: block; }
-    .sl-link-block { flex-direction: column; align-items: flex-start; }
-    .sl-link-block .btn { width: 100%; text-align: center; }
-    .sl-search-row { flex-direction: column; align-items: stretch; }
-    .sl-search-row select { min-width: 100%; }
+    .siz-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .siz-nav-grid { grid-template-columns: 1fr; }
+    .siz-issue-body { flex-direction: column; align-items: stretch; }
+    .siz-issue-body select { min-width: 100%; }
+    .siz-issue-body .btn { width: 100%; }
+    .siz-dash-header { padding: 16px 18px; }
+    .siz-dash-header h1 { font-size: 1.05rem; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-3">
+<div class="siz-dash">
 
     <!-- Заголовок -->
-    <div class="sl-page-header">
-        <span>🛡️</span>
-        <span class="sl-title">Средства индивидуальной защиты</span>
-        {% if deadline_overdue_count %}
-        <span class="sl-hdr-badge overdue">🔴 {{ deadline_overdue_count }} просрочено</span>
-        {% endif %}
-        {% if deadline_soon_count %}
-        <span class="sl-hdr-badge soon">🔔 {{ deadline_soon_count }} скоро</span>
-        {% endif %}
-        <span class="sl-sub">Контроль сроков, выдача и распечатка карточек СИЗ</span>
+    <div class="siz-dash-header">
+        <h1>🛡️ Средства индивидуальной защиты</h1>
+        <p>Контроль сроков, выдача, журнал и распечатка карточек СИЗ</p>
     </div>
 
-    <!-- ── Блок 1: Контроль сроков ── -->
-    <div class="sl-block">
-        <div class="sl-block-header" onclick="toggleBlock(this, 'sl-block-deadlines')">
-            <span>⏰</span>
-            <span class="sl-bh-title">Контроль сроков СИЗ</span>
-            {% if deadline_overdue_count %}
-            <span class="sl-bh-badge red">🔴 {{ deadline_overdue_count }} просрочено</span>
-            {% endif %}
-            {% if deadline_soon_count %}
-            <span class="sl-bh-badge yellow">🔔 {{ deadline_soon_count }} скоро</span>
-            {% endif %}
-            <span class="toggle-icon">▼</span>
+    <!-- KPI плитки -->
+    <div class="siz-kpi-grid">
+        <a href="{% url 'directory:siz:siz_deadlines' %}?filter=overdue" class="siz-kpi-card danger">
+            <div class="siz-kpi-num">{{ kpi_overdue }}</div>
+            <div class="siz-kpi-label">Просрочено</div>
+            <div class="siz-kpi-hint">Требуют замены</div>
+        </a>
+        <a href="{% url 'directory:siz:siz_deadlines' %}?filter=soon" class="siz-kpi-card warning">
+            <div class="siz-kpi-num">{{ kpi_soon }}</div>
+            <div class="siz-kpi-label">Скоро истекает</div>
+            <div class="siz-kpi-hint">До 30 дней</div>
+        </a>
+        <a href="{% url 'directory:siz:siz_journal' %}" class="siz-kpi-card info">
+            <div class="siz-kpi-num">{{ kpi_issued_month }}</div>
+            <div class="siz-kpi-label">Выдано в этом месяце</div>
+            <div class="siz-kpi-hint">Записей в журнале</div>
+        </a>
+        <a href="{% url 'directory:siz:siz_journal' %}" class="siz-kpi-card success">
+            <div class="siz-kpi-num">{{ kpi_employees }}</div>
+            <div class="siz-kpi-label">Сотрудников с СИЗ</div>
+            <div class="siz-kpi-hint">Активные выдачи</div>
+        </a>
+    </div>
+
+    <!-- Выдать СИЗ -->
+    <div class="siz-issue-block">
+        <div class="siz-issue-header">
+            📤 Выдать СИЗ
         </div>
-        <div class="sl-collapsible" id="sl-block-deadlines" style="max-height:9999px;">
-            {% if deadline_items %}
-            <div style="overflow-x:auto;">
-                <table class="sl-table">
-                    <thead>
-                        <tr>
-                            <th>Сотрудник</th>
-                            <th>Подразделение</th>
-                            <th>СИЗ</th>
-                            <th>Дата выдачи</th>
-                            <th>Плановая замена</th>
-                            <th>Осталось дней</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for row in deadline_items %}
-                    {% with item=row.item %}
-                    <tr class="{% if row.is_overdue %}row-overdue{% elif row.is_soon %}row-soon{% endif %}">
-                        <td data-label="Сотрудник">
-                            <a href="{% url 'directory:siz:siz_personal_card' item.employee.id %}"
-                               style="color:#2c3e50;font-weight:600;text-decoration:none;">
-                                {{ item.employee.full_name_nominative }}
-                            </a>
-                        </td>
-                        <td data-label="Подразделение" style="font-size:0.82rem;color:#6c757d;">
-                            {{ item.employee.department.name|default:item.employee.subdivision.name|default:"—" }}
-                        </td>
-                        <td data-label="СИЗ">{{ item.siz.name }}</td>
-                        <td data-label="Дата выдачи">{{ item.issue_date|date:"d.m.Y" }}</td>
-                        <td data-label="Плановая замена">
-                            <span style="font-weight:600;{% if row.is_overdue %}color:#c0392b;{% elif row.is_soon %}color:#856404;{% else %}color:#1e7e34;{% endif %}">
-                                {{ row.planned_return|date:"d.m.Y" }}
-                            </span>
-                        </td>
-                        <td data-label="Осталось дней">
-                            {% if row.is_overdue %}
-                            <span class="sl-badge sl-badge-overdue">{{ row.days_left }} дн.</span>
-                            {% elif row.is_soon %}
-                            <span class="sl-badge sl-badge-soon">{{ row.days_left }} дн.</span>
-                            {% else %}
-                            <span class="sl-badge sl-badge-ok">{{ row.days_left }} дн.</span>
-                            {% endif %}
-                        </td>
-                        <td class="td-acts" style="white-space:nowrap;">
-                            <a href="{% url 'directory:siz:siz_personal_card' item.employee.id %}"
-                               class="btn btn-sm btn-outline-secondary" title="Личная карточка" style="font-size:0.75rem;padding:2px 7px;">🪪</a>
-                            <a href="{% url 'directory:siz:siz_return' item.id %}"
-                               class="btn btn-sm btn-outline-warning" title="Вернуть" style="font-size:0.75rem;padding:2px 7px;">↩</a>
-                        </td>
-                    </tr>
-                    {% endwith %}
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="sl-empty-ok">✅ Все СИЗ в срок — просроченных и заканчивающихся нет</div>
-            {% endif %}
+        <div class="siz-issue-body">
+            <label for="employeeSelect">🔍 Сотрудник:</label>
+            <select id="employeeSelect" style="flex:1;min-width:260px;">
+                <option value=""></option>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}">{{ emp.full_name_nominative }}{% if emp.position %} — {{ emp.position.position_name }}{% endif %}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary" id="goToCardBtn" style="white-space:nowrap;padding:10px 20px;font-size:0.92rem;">
+                Открыть карточку →
+            </button>
         </div>
     </div>
 
-    <!-- ── Блок 2: Выдача СИЗ ── -->
-    <div class="sl-block">
-        <div class="sl-block-header" onclick="toggleBlock(this, 'sl-block-issue')">
-            <span>📤</span>
-            <span class="sl-bh-title">Выдача СИЗ</span>
-            <span class="toggle-icon">▼</span>
-        </div>
-        <div class="sl-collapsible" id="sl-block-issue" style="max-height:9999px;">
-
-            <!-- Поиск сотрудника для перехода на личную карточку -->
-            <div class="sl-search-row">
-                <span style="font-size:0.84rem;font-weight:600;color:#6c757d;white-space:nowrap;">👤 Личная карточка:</span>
-                <select id="employeeSelect">
-                    <option value="">— Выберите сотрудника —</option>
-                    {% for emp in employees %}
-                    <option value="{{ emp.id }}">{{ emp.full_name_nominative }}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn btn-sm btn-primary" id="goToCardBtn">Открыть карточку →</button>
+    <!-- Навигация по разделам -->
+    <div class="siz-nav-grid">
+        <a href="{% url 'directory:siz:siz_deadlines' %}" class="siz-nav-card c-deadlines">
+            <div class="siz-nav-icon">⏰</div>
+            <div class="siz-nav-title">Контроль сроков</div>
+            <div class="siz-nav-desc">
+                Просроченные и заканчивающиеся СИЗ по сотрудникам.
+                Цветовая индикация, переход в личную карточку.
             </div>
-
-            <!-- Журнал последних выдач -->
-            <div style="overflow-x:auto;">
-                <table class="sl-table">
-                    <thead>
-                        <tr>
-                            <th>Дата выдачи</th>
-                            <th>Сотрудник</th>
-                            <th>Подразделение</th>
-                            <th>СИЗ</th>
-                            <th>Кол-во</th>
-                            <th>Статус</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for item in recent_issued %}
-                    <tr>
-                        <td data-label="Дата выдачи">{{ item.issue_date|date:"d.m.Y" }}</td>
-                        <td data-label="Сотрудник" style="font-weight:600;">{{ item.employee.full_name_nominative }}</td>
-                        <td data-label="Подразделение" style="font-size:0.82rem;color:#6c757d;">
-                            {{ item.employee.subdivision.name|default:"—" }}
-                        </td>
-                        <td data-label="СИЗ">{{ item.siz.name }}</td>
-                        <td data-label="Кол-во">{{ item.quantity }}</td>
-                        <td data-label="Статус">
-                            {% if item.is_returned %}
-                            <span class="sl-badge sl-badge-returned">⚪ Возвращено</span>
-                            {% else %}
-                            <span class="sl-badge sl-badge-active">🟢 Активно</span>
-                            {% endif %}
-                        </td>
-                        <td class="td-acts" style="white-space:nowrap;">
-                            <a href="{% url 'directory:siz:siz_personal_card' item.employee.id %}"
-                               class="btn btn-sm btn-outline-secondary" title="Личная карточка" style="font-size:0.75rem;padding:2px 7px;">🪪</a>
-                            {% if not item.is_returned %}
-                            <a href="{% url 'directory:siz:siz_return' item.id %}"
-                               class="btn btn-sm btn-outline-warning" title="Вернуть" style="font-size:0.75rem;padding:2px 7px;">↩</a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="sl-empty">Нет недавно выданных СИЗ</td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
+            <div class="siz-nav-arrow">Открыть →</div>
+        </a>
+        <a href="{% url 'directory:siz:siz_journal' %}" class="siz-nav-card c-journal">
+            <div class="siz-nav-icon">📤</div>
+            <div class="siz-nav-title">Журнал выдачи</div>
+            <div class="siz-nav-desc">
+                Все выдачи СИЗ с иерархией по организациям,
+                подразделениям и отделам. Пагинация.
             </div>
-        </div>
+            <div class="siz-nav-arrow">Открыть →</div>
+        </a>
+        <a href="{% url 'directory:siz:mass_generation' %}" class="siz-nav-card c-cards">
+            <div class="siz-nav-icon">📋</div>
+            <div class="siz-nav-title">Карточки СИЗ</div>
+            <div class="siz-nav-desc">
+                Генерация и отправка DOCX-карточек учёта
+                СИЗ по сотрудникам и подразделениям.
+            </div>
+            <div class="siz-nav-arrow">Открыть →</div>
+        </a>
     </div>
 
-    <!-- ── Блок 3: Распечатка карточек ── -->
-    <div class="sl-block">
-        <div class="sl-block-header" onclick="toggleBlock(this, 'sl-block-print')">
-            <span>📋</span>
-            <span class="sl-bh-title">Распечатка карточек СИЗ</span>
-            <span class="toggle-icon">▼</span>
-        </div>
-        <div class="sl-collapsible" id="sl-block-print" style="max-height:9999px;">
-            <div class="sl-link-block">
-                <div class="sl-lb-icon">🗂️</div>
-                <div class="sl-lb-info">
-                    <div class="sl-lb-title">Массовая генерация карточек СИЗ</div>
-                    <div class="sl-lb-desc">
-                        Генерация и отправка DOCX-карточек учёта СИЗ по сотрудникам и подразделениям.
-                        Поддерживает массовую отправку по email и скачивание архивом.
-                    </div>
-                </div>
-                <a href="{% url 'directory:siz:mass_generation' %}" class="btn btn-sm btn-primary">
-                    → Открыть
-                </a>
-            </div>
-        </div>
-    </div>
-
+</div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function toggleBlock(headerEl, contentId) {
-    const content = document.getElementById(contentId);
-    if (!content) return;
-    const isCollapsed = content.classList.contains('collapsed');
-    if (isCollapsed) {
-        content.style.maxHeight = '9999px';
-        content.classList.remove('collapsed');
-        headerEl.classList.remove('collapsed');
-    } else {
-        content.style.maxHeight = content.scrollHeight + 'px';
-        content.getBoundingClientRect();
-        content.style.maxHeight = '0';
-        content.classList.add('collapsed');
-        headerEl.classList.add('collapsed');
-    }
-}
+$(function () {
+    $('#employeeSelect').select2({
+        placeholder: 'Начните вводить имя сотрудника…',
+        allowClear: true,
+        width: '100%',
+        language: { noResults: function () { return 'Сотрудник не найден'; } }
+    });
+});
 
-document.getElementById('goToCardBtn').addEventListener('click', function() {
-    const empId = document.getElementById('employeeSelect').value;
+document.getElementById('goToCardBtn').addEventListener('click', function () {
+    const empId = $('#employeeSelect').val();
     if (empId) {
         window.location.href = "{% url 'directory:siz:siz_personal_card' 0 %}".replace('/0/', '/' + empId + '/');
     }

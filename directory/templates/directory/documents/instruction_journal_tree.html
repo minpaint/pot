@@ -6,19 +6,14 @@
 
 {% block extra_css %}
 <style>
-/* ── Панель параметров ── */
-.ij-topbar {
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 10px;
-    padding: 14px 20px;
-    margin-bottom: 16px;
+/* ── Параметры инструктажа ── */
+.ij-action-params {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     gap: 14px;
 }
-.ij-topbar label {
+.ij-action-params label {
     font-size: 0.78rem;
     font-weight: 600;
     color: #6c757d;
@@ -27,16 +22,16 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
-.ij-topbar input[type="date"],
-.ij-topbar select {
+.ij-action-params input[type="date"],
+.ij-action-params select {
     border: 1px solid #ced4da;
     border-radius: 6px;
     padding: 6px 10px;
     font-size: 0.88rem;
     background: #fff;
 }
-.ij-topbar input[type="date"]:focus,
-.ij-topbar select:focus {
+.ij-action-params input[type="date"]:focus,
+.ij-action-params select:focus {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
@@ -97,13 +92,22 @@
     padding: 10px 16px;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     gap: 10px;
 }
 .ij-selected-info {
     margin-left: auto;
     font-size: 0.85rem;
     color: #6c757d;
+    white-space: nowrap;
+}
+.ij-main-action {
+    min-height: 38px;
+    padding: 6px 12px;
+    font-size: 0.88rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ── Панель дерева ── */
@@ -188,14 +192,20 @@
 /* Ответственные за ОТ — корона */
 .safety-responsible-row:not([data-node-id]) td {
     background: #fffbf0 !important;
-    border-left: 3px solid #f39c12;
+    border-left: none;
+}
+.safety-responsible-row:not([data-node-id]) td:first-child {
+    box-shadow: inset 3px 0 0 #f39c12;
 }
 .safety-responsible-row:not([data-node-id]):hover td { background: #fff3cd !important; }
 
 /* Без инструкций — предупреждение */
 .no-instructions-row:not([data-node-id]) td {
     background: #fff8f0 !important;
-    border-left: 3px solid #e67e22;
+    border-left: none;
+}
+.no-instructions-row:not([data-node-id]) td:first-child {
+    box-shadow: inset 3px 0 0 #e67e22;
 }
 .no-instructions-row:not([data-node-id]):hover td { background: #fde8d0 !important; }
 
@@ -278,11 +288,11 @@
 /* ── Мобильная адаптация ── */
 @media (max-width: 767px) {
     /* Панели управления — вертикальный стек */
-    .ij-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
-    .ij-topbar input[type="date"],
-    .ij-topbar select { width: 100%; box-sizing: border-box; }
     .reason-bar { padding: 8px 12px; }
     .ij-actionbar { flex-direction: column; align-items: stretch; gap: 6px; }
+    .ij-action-params { flex-direction: column; align-items: stretch; gap: 10px; }
+    .ij-action-params input[type="date"],
+    .ij-action-params select { width: 100%; box-sizing: border-box; }
     .ij-actionbar .btn { width: 100%; text-align: center; }
     .ij-selected-info { margin-left: 0; text-align: center; }
     .ij-treebar { flex-direction: column; align-items: stretch; gap: 6px; }
@@ -331,39 +341,12 @@
 {% block content %}
 <div class="container-fluid mt-3">
 
-    <!-- Параметры инструктажа -->
-    <div class="ij-topbar">
-        <div>
-            <label>📅 Дата инструктажа</label>
-            <input type="date" id="date_povtorny_top" value="{{ default_date }}">
-        </div>
-        <div>
-            <label>📋 Вид инструктажа</label>
-            <select id="instruction_type" name="instruction_type_top">
-                <option value="Повторный" selected>Повторный</option>
-                <option value="Внеплановый">Внеплановый</option>
-                <option value="Целевой">Целевой</option>
-            </select>
-        </div>
-    </div>
-
     <!-- Причина (показывается только для Внепланового/Целевого) -->
     <div class="reason-bar" id="reasonField">
         <label>📝 Причина проведения инструктажа</label>
         <input type="text" id="instruction_reason" name="instruction_reason"
                placeholder="Укажите причину проведения инструктажа">
     </div>
-
-    {% if not show_tree %}
-    <div class="text-center py-5 text-muted">
-        <div style="font-size:2.5rem;">📋</div>
-        {% if org_options|length == 0 %}
-        <p class="mt-2">У вас нет доступных организаций. Обратитесь к администратору.</p>
-        {% else %}
-        <p class="mt-2">Выберите организацию в верхней панели страницы</p>
-        {% endif %}
-    </div>
-    {% else %}
 
     <form method="post" id="instructionJournalForm">
         {% csrf_token %}
@@ -381,10 +364,24 @@
 
         <!-- Кнопки действий -->
         <div class="ij-actionbar">
-            <button type="submit" name="action" value="download_single" class="btn btn-sm btn-primary">
+            <div class="ij-action-params">
+                <div>
+                    <label>📅 Дата инструктажа</label>
+                    <input type="date" id="date_povtorny_top" value="{{ default_date }}">
+                </div>
+                <div>
+                    <label>📋 Вид инструктажа</label>
+                    <select id="instruction_type" name="instruction_type_top">
+                        <option value="Повторный" selected>Повторный</option>
+                        <option value="Внеплановый">Внеплановый</option>
+                        <option value="Целевой">Целевой</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" name="action" value="download_single" class="btn btn-sm btn-primary ij-main-action">
                 📥 Скачать общий образец
             </button>
-            <button type="submit" name="action" value="download_by_subdivision" class="btn btn-sm btn-outline-primary">
+            <button type="submit" name="action" value="download_by_subdivision" class="btn btn-sm btn-outline-primary ij-main-action">
                 🗂️ По подразделениям (zip)
             </button>
             <div class="form-check mb-0">
@@ -573,7 +570,6 @@
         </div>{# /ij-card #}
     </form>
 
-    {% endif %}
 </div>
 {% endblock %}
 

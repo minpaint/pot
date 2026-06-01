@@ -4,23 +4,93 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.http import HttpResponse, HttpResponseRedirect
+from django.utils.html import format_html
 from tablib import Dataset
 
 from directory.models import Employee, Organization
 from directory.models.commission import CommissionMember
+from directory.models.siz_issued import SIZIssued
 from directory.forms.employee import EmployeeForm
 from directory.admin.mixins.tree_view import TreeViewMixin
 from directory.resources.employee import EmployeeResource
+import calendar
+from datetime import date as _date
+
+
+def _add_months(d, months):
+    if not months:
+        return None
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return _date(year, month, day)
+
+
+class SIZIssuedInline(admin.TabularInline):
+    model = SIZIssued
+    fk_name = 'employee'
+    verbose_name = "Выданное СИЗ"
+    verbose_name_plural = "🛡️ Выданные СИЗ"
+    extra = 0
+    can_delete = False
+    show_change_link = True
+    fields = ('siz_display', 'issue_date', 'quantity_display', 'condition', 'planned_return_display', 'status_display')
+    readonly_fields = ('siz_display', 'issue_date', 'quantity_display', 'condition', 'planned_return_display', 'status_display')
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def siz_display(self, obj):
+        name = obj.siz.name
+        if obj.siz.classification:
+            name += f' ({obj.siz.classification})'
+        return name
+    siz_display.short_description = 'СИЗ'
+
+    def quantity_display(self, obj):
+        return f'{obj.quantity} {obj.siz.unit}'
+    quantity_display.short_description = 'Кол-во'
+
+    def planned_return_display(self, obj):
+        from django.utils.html import format_html
+        if obj.is_returned:
+            return '—'
+        if not obj.siz.wear_period:
+            return 'До износа'
+        planned = _add_months(obj.issue_date, obj.siz.wear_period)
+        if not planned:
+            return '—'
+        today = _date.today()
+        delta = (planned - today).days
+        date_str = planned.strftime('%d.%m.%Y')
+        if delta < 0:
+            return format_html('<span style="color:#c0392b;font-weight:600;">⚠️ {} (просрочено {}д.)</span>', date_str, abs(delta))
+        elif delta <= 30:
+            return format_html('<span style="color:#856404;font-weight:600;">🔔 {} ({}д.)</span>', date_str, delta)
+        return date_str
+    planned_return_display.short_description = 'Плановая замена'
+
+    def status_display(self, obj):
+        from django.utils.html import format_html
+        if obj.is_returned:
+            return format_html('<span style="color:#999;">⚪ Возвращён</span>')
+        return format_html('<span style="color:#1e7e34;font-weight:600;">🟢 Активно</span>')
+    status_display.short_description = 'Статус'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('siz').order_by('is_returned', 'issue_date')
 
 
 @admin.register(Employee)
 class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
     """
     👤 Админ-класс для модели Employee с оптимизированным отображением.
-    Показывает только ключевые атрибуты: Ответственный по ОТ, Руководитель 
+    Показывает только ключевые атрибуты: Ответственный по ОТ, Руководитель
     стажировки, Роль в комиссии, Статус.
     """
     form = EmployeeForm
+    inlines = [SIZIssuedInline]
 
     change_list_template = "admin/directory/employee/change_list_tree.html"
 
@@ -53,6 +123,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         'position',
         'contract_type',
         'status',
+        'deletion_mark_display',
     ]
     # Фильтры отключены - используется компактный dropdown над деревом
     list_filter = []
@@ -75,6 +146,8 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 'position',
                 'contract_type',
                 'status',
+                'deletion_mark_display',
+                'marked_for_deletion_at',
                 'work_schedule',
                 'hire_date',
                 'start_date',
@@ -92,6 +165,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    readonly_fields = ('deletion_mark_display', 'marked_for_deletion_at')
 
     def changelist_view(self, request, extra_context=None):
         """
@@ -189,6 +263,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'status': obj.status,
             'status_display': obj.get_status_display(),
             'status_emoji': self._get_status_emoji(obj.status),
+            'marked_for_deletion': obj.marked_for_deletion,
         }
 
         # Атрибуты из позиции (должности)
@@ -226,6 +301,17 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'fired': '🚫',
         }
         return status_emojis.get(status, '❓')
+
+    @admin.display(description='Пометка удаления')
+    def deletion_mark_display(self, obj):
+        if obj.marked_for_deletion:
+            if obj.marked_for_deletion_at:
+                return format_html(
+                    '<span style="color:#7a4b00;font-weight:600;">🗂 На удаление<br><small>{}</small></span>',
+                    obj.marked_for_deletion_at.strftime('%d.%m.%Y %H:%M')
+                )
+            return format_html('<span style="color:#7a4b00;font-weight:600;">🗂 На удаление</span>')
+        return '—'
 
     def _get_commission_role_emoji(self, role):
         """Возвращает эмодзи для роли в комиссии"""
@@ -858,6 +944,15 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             qs = qs.filter(Q(department_id=dept_id) | Q(department__isnull=True))
         return JsonResponse([{'id': p.id, 'name': p.position_name} for p in qs], safe=False)
 
+    def restore_view(self, request, pk):
+        """↩️ Восстановить сотрудника — снять пометку на удаление."""
+        employee = Employee.objects.get(pk=pk)
+        if employee.restore():
+            messages.success(request, f'↩️ Сотрудник {employee.full_name_nominative} восстановлен.')
+        else:
+            messages.info(request, f'Сотрудник {employee.full_name_nominative} не был помеч��н на удаление.')
+        return redirect('admin:directory_employee_changelist')
+
     def get_urls(self):
         """🔗 Добавляем кастомные URL для импорта/экспорта и назначения обучения"""
         urls = super().get_urls()
@@ -870,5 +965,6 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             path('bulk-add/ajax/subdivisions/', self.admin_site.admin_view(self.bulk_add_ajax_subdivisions), name='directory_employee_bulk_add_subdivisions'),
             path('bulk-add/ajax/departments/', self.admin_site.admin_view(self.bulk_add_ajax_departments), name='directory_employee_bulk_add_departments'),
             path('bulk-add/ajax/positions/', self.admin_site.admin_view(self.bulk_add_ajax_positions), name='directory_employee_bulk_add_positions'),
+            path('<int:pk>/restore/', self.admin_site.admin_view(self.restore_view), name='directory_employee_restore'),
         ]
         return custom_urls + urls

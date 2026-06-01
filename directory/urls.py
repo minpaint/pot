@@ -10,9 +10,11 @@ from .views import (
     EmployeeProfileView,
     EmployeeHiringView,
     PositionListView,
+    PositionInstructionListView,
     PositionCreateView,
     PositionUpdateView,
     PositionDeleteView,
+    update_position_instructions,
     UserRegistrationView,
     hiring,
     employees,
@@ -110,10 +112,12 @@ employee_patterns = [
 
 # 👔 Должности
 position_patterns = [
-    path('', PositionListView.as_view(), name='position_list'),
+    path('', PositionInstructionListView.as_view(), name='position_list'),
+    path('table/', PositionListView.as_view(), name='position_table'),
     path('create/', PositionCreateView.as_view(), name='position_create'),
     path('<int:pk>/update/', PositionUpdateView.as_view(), name='position_update'),
     path('<int:pk>/delete/', PositionDeleteView.as_view(), name='position_delete'),
+    path('<int:pk>/update-instructions/', update_position_instructions, name='update_position_instructions'),
 ]
 
 # 📄 Документы
@@ -144,6 +148,8 @@ commission_patterns = [
 # 🛡️ СИЗ
 siz_patterns = [
     path('', siz.SIZListView.as_view(), name='siz_list'),
+    path('deadlines/', siz.SIZDeadlinesView.as_view(), name='siz_deadlines'),
+    path('journal/', siz.SIZJournalView.as_view(), name='siz_journal'),
     path('norms/create/', siz.SIZNormCreateView.as_view(), name='siznorm_create'),
     path('norms/api/', siz.siz_by_position_api, name='siz_api'),
     path('issue-selected/<int:employee_id>/', siz_issued.issue_selected_siz, name='issue_selected_siz'),
@@ -151,6 +157,7 @@ siz_patterns = [
     path('issue/employee/<int:employee_id>/', siz_issued.SIZIssueFormView.as_view(), name='siz_issue_for_employee'),
     path('issue/employee/<int:employee_id>/group/', siz_issued.issue_group_siz, name='issue_group_siz'),
     path('personal-card/<int:employee_id>/', siz_issued.SIZPersonalCardView.as_view(), name='siz_personal_card'),
+    path('personal-card/<int:employee_id>/update-sizes/', siz_issued.update_employee_sizes, name='update_employee_sizes'),
     path('return/<int:siz_issued_id>/', siz_issued.SIZIssueReturnView.as_view(), name='siz_return'),
     path('siz-card/<int:employee_id>/', generate_siz_card_docx_view, name='siz_card'),
     # Карточки СИЗ (массовая генерация)
@@ -284,9 +291,19 @@ auth_patterns = [
 ]
 
 # 🌐 Основные маршруты
+from directory.views.generation_jobs import (
+    GenerationJobListView, GenerationJobDetailView,
+    GenerationJobStatusView, GenerationJobDownloadView,
+)
+
 urlpatterns = [
     path('', HomePageView.as_view(), name='employee_home'),
     path('set-organization/', SetOrganizationView.as_view(), name='set_organization'),
+    # Асинхронная генерация документов
+    path('generation-jobs/', GenerationJobListView.as_view(), name='generation_job_list'),
+    path('generation-jobs/<int:pk>/', GenerationJobDetailView.as_view(), name='generation_job_detail'),
+    path('generation-jobs/<int:pk>/status/', GenerationJobStatusView.as_view(), name='generation_job_status'),
+    path('generation-jobs/<int:pk>/download/', GenerationJobDownloadView.as_view(), name='generation_job_download'),
     path('introductory-briefing/', IntroductoryBriefingView.as_view(), name='introductory_briefing'),
     path('debug-permissions/', debug_permissions_view, name='debug_permissions'),  # Отладка
     path('auth/', include((auth_patterns, 'auth'))),

@@ -20,6 +20,34 @@
     <!-- Основной стиль приложения 🎨 -->
     <link href="{% static 'directory/css/style.css' %}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
+
+    <!-- Twemoji: корректное отображение эмодзи в старых браузерах -->
+    <style>
+        img.emoji {
+            height: 1em;
+            width: 1em;
+            margin: 0 .05em 0 .1em;
+            vertical-align: -0.1em;
+            display: inline-block;
+        }
+    </style>
+
+    <style>
+        :root {
+            --ot-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+        }
+
+        body {
+            font-family: var(--ot-font-sans);
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font-family: inherit;
+        }
+    </style>
 </head>
 <body>
     <!-- Основной контент без навигации и футера 📄 -->
@@ -36,5 +64,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     {% block extra_js %}{% endblock %}
+
+    <!-- Twemoji: кроссбраузерное отображение эмодзи -->
+    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
+    <script>
+        twemoji.parse(document.body, {
+            folder: 'svg',
+            ext: '.svg',
+            base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@v14.0.2/assets/'
+        });
+    </script>
 </body>
 </html>

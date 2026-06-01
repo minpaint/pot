@@ -15,12 +15,13 @@ from directory.utils.declension import decline_phrase, decline_full_name, get_in
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
-def prepare_internship_context(employee, context):
+def prepare_internship_context(employee, context, internship_leader_override=None):
     """
     Подготавливает контекст для руководителя стажировки.
     Args:
         employee: Объект модели Employee
         context: Существующий контекст
+        internship_leader_override: Явно выбранный руководитель стажировки (Employee, опционально)
     Returns:
         Dict[str, Any]: Обновленный контекст
     """
@@ -30,11 +31,31 @@ def prepare_internship_context(employee, context):
         get_internship_leader_position, get_internship_leader_initials
     )
 
-    leader_position, position_success = get_internship_leader_position(employee)
-    leader_name, name_success = get_internship_leader_name(employee)
-    leader_initials, initials_success = get_internship_leader_initials(employee)
+    if internship_leader_override is not None:
+        # Используем явно выбранного руководителя стажировки
+        internship_leader = internship_leader_override
+        success = True
+        level = 'override'
 
-    internship_leader, level, success = get_internship_leader(employee)
+        position_name = internship_leader.position.position_name if internship_leader.position else None
+        if position_name:
+            position_name = position_name[0].lower() + position_name[1:]
+        leader_position = position_name
+        position_success = bool(leader_position)
+
+        leader_name = internship_leader.full_name_nominative
+        name_success = bool(leader_name)
+
+        leader_initials = get_initials_from_name(leader_name) if leader_name else None
+        initials_success = bool(leader_initials)
+
+        logger.info(f"Используется явно выбранный руководитель стажировки: {leader_name}")
+    else:
+        leader_position, position_success = get_internship_leader_position(employee)
+        leader_name, name_success = get_internship_leader_name(employee)
+        leader_initials, initials_success = get_internship_leader_initials(employee)
+
+        internship_leader, level, success = get_internship_leader(employee)
 
     logger.info(f"Получена информация о руководителе стажировки: success={success}, level={level}, position={leader_position}, name={leader_name}")
     logger.debug(f"Объект руководителя стажировки: {internship_leader}") # Лог объекта
@@ -104,7 +125,7 @@ def prepare_internship_context(employee, context):
 
     return context
 
-def generate_all_orders(employee, user=None, custom_context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+def generate_all_orders(employee, user=None, custom_context: Optional[Dict[str, Any]] = None, internship_leader_override=None) -> Optional[Dict[str, Any]]:
     """
     Генерирует распоряжение о приеме/стажировке.
 
@@ -125,7 +146,7 @@ def generate_all_orders(employee, user=None, custom_context: Optional[Dict[str, 
         context = prepare_employee_context(employee)
         logger.info(f"Базовый контекст подготовлен: {list(context.keys())}")
 
-        context = prepare_internship_context(employee, context)
+        context = prepare_internship_context(employee, context, internship_leader_override=internship_leader_override)
         logger.info("Контекст дополнен информацией о руководителе стажировки")
 
         now = datetime.datetime.now()

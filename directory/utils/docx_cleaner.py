@@ -193,20 +193,22 @@ def remove_empty_table_rows(doc_bytes: bytes) -> bytes:
         return doc_bytes
 
 
-def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True) -> bytes:
+def clean_document(doc_bytes: bytes, remove_empty_rows: bool = True, keep_headers_footers: bool = False) -> bytes:
     """
     Полная очистка документа: удаление пустых параграфов и строк таблиц.
 
     Args:
         doc_bytes: DOCX документ в виде байтов
         remove_empty_rows: Удалять ли пустые строки таблиц (по умолчанию True)
+        keep_headers_footers: Сохранять колонтитулы шаблона (по умолчанию False)
 
     Returns:
         Очищенный DOCX документ в виде байтов
     """
     try:
         # Удаляем колонтитулы на уровне ZIP (до python-docx, чтобы он их не создал заново)
-        doc_bytes = remove_headers_footers(doc_bytes)
+        if not keep_headers_footers:
+            doc_bytes = remove_headers_footers(doc_bytes)
 
         # Удаляем пустые параграфы из body
         doc_bytes = remove_empty_paragraphs(doc_bytes)

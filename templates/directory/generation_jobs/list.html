@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}⚙️ Задачи генерации{% endblock %}
+
+{% block extra_css %}
+<style>
+.jobs-card { border: none; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px; }
+.jobs-card-header { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff; padding: 14px 20px; }
+.jobs-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.jobs-table th { padding: 9px 14px; font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.35px; color: #9aa0ac; font-weight: 600;
+    border-bottom: 2px solid #f0f0f0; background: #fff; white-space: nowrap; text-align: left; }
+.jobs-table td { padding: 10px 14px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
+.jobs-table tbody tr:hover td { background: #f0f7ff; }
+.status-badge { display: inline-block; padding: 3px 10px; border-radius: 10px;
+    font-size: 0.72rem; font-weight: 600; }
+.status-pending { background: #f0f0f0; color: #6c757d; }
+.status-running { background: #cfe8ff; color: #1a5276; }
+.status-done    { background: #d1f5d3; color: #1e7e34; }
+.status-failed  { background: #fde8e8; color: #c0392b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="jobs-card">
+        <div class="jobs-card-header">
+            <h5 style="margin:0; font-size: 1.05rem;">⚙️ Задачи генерации документов</h5>
+        </div>
+        <table class="jobs-table">
+            <thead>
+                <tr>
+                    <th>#</th><th>Задача</th><th>Статус</th>
+                    <th>Прогресс</th><th>Создана</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr>
+                    <td>{{ job.id }}</td>
+                    <td>{{ job.title|default:job.get_job_type_display }}</td>
+                    <td><span class="status-badge status-{{ job.status }}">{{ job.get_status_display }}</span></td>
+                    <td>{{ job.progress_current }} / {{ job.progress_total }}</td>
+                    <td>{{ job.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'directory:generation_job_detail' job.id %}">Открыть</a>
+                        {% if job.status == 'done' and job.result_file %}
+                         · <a href="{% url 'directory:generation_job_download' job.id %}">📥</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align:center; padding:30px; color:#999;">
+                    Задач нет
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

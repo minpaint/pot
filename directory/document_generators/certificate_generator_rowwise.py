@@ -99,15 +99,17 @@ def _build_employee_context(employee, commission_cache: Optional[Dict[int, Dict[
     # Определяем binding (привязку к подразделению/отделу)
     if commission:
         if commission.department:
-            binding = decline_phrase(commission.department.name, 'gent')
+            raw = decline_phrase(commission.department.name, 'gent')
+            binding = raw[0].lower() + raw[1:] if raw else raw
         elif commission.subdivision:
-            binding = decline_phrase(commission.subdivision.name, 'gent')
+            raw = decline_phrase(commission.subdivision.name, 'gent')
+            binding = raw[0].lower() + raw[1:] if raw else raw
         elif commission.organization:
             binding = commission.organization.short_name_ru
         else:
-            binding = ""
+            binding = employee.organization.short_name_ru if employee.organization else ""
     else:
-        binding = ""
+        binding = employee.organization.short_name_ru if employee.organization else ""
 
     # Формируем переменные для шаблона
     # Шаблон использует binding_name_genitive и organization_name_genitive

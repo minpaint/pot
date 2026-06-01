@@ -216,8 +216,13 @@ def issue_selected_siz(request, employee_id):
     except ValueError:
         issue_date = timezone.now().date()
 
-    from directory.models.siz import SIZNorm
-    norms = SIZNorm.objects.filter(id__in=selected_norm_ids).select_related('siz')
+    from directory.models.siz import SIZNorm, ProfessionSIZNorm
+    norms_from_reference = request.POST.get('norms_from_reference') == '1'
+
+    if norms_from_reference:
+        norms = ProfessionSIZNorm.objects.filter(id__in=selected_norm_ids).select_related('siz')
+    else:
+        norms = SIZNorm.objects.filter(id__in=selected_norm_ids).select_related('siz')
 
     issued_count = 0
     skipped_count = 0
@@ -365,7 +370,9 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
             return _date(year, month, day)
 
         today = timezone.now().date()
-        issued_with_dates = []
+        from collections import OrderedDict as _OD
+        cond_map = _OD()
+        cond_map[''] = []
         for item in issued_items:
             planned = None
             is_overdue = is_soon = False
@@ -374,14 +381,16 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
                 delta = (planned - today).days
                 is_overdue = delta < 0
                 is_soon = 0 <= delta <= 30
-            issued_with_dates.append({
-                'item': item,
-                'planned_return': planned,
-                'is_overdue': is_overdue,
-                'is_soon': is_soon,
-            })
+            row = {'item': item, 'planned_return': planned, 'is_overdue': is_overdue, 'is_soon': is_soon}
+            key = item.condition or ''
+            if key not in cond_map:
+                cond_map[key] = []
+            cond_map[key].append(row)
 
-        context['issued_with_dates'] = issued_with_dates
+        context['issued_groups'] = [
+            {'condition': k, 'rows': v}
+            for k, v in cond_map.items() if v
+        ]
         context['today'] = today.strftime('%Y-%m-%d')
 
         # Получаем нормы СИЗ для должности сотрудника
@@ -435,8 +444,13 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
             context['condition_groups'] = condition_groups
             logger.info(f"Групп норм с условиями: {len(condition_groups)}")
 
-        # Определяем пол по отчеству и добавляем в контекст
-        gender = determine_gender_from_patronymic(self.object.full_name_nominative)
+        # Определяем пол: сначала сохранённое поле, иначе — по отчеству
+        if self.object.gender == 'Ж':
+            gender = "Женский"
+        elif self.object.gender == 'М':
+            gender = "Мужской"
+        else:
+            gender = determine_gender_from_patronymic(self.object.full_name_nominative)
         context['gender'] = gender
 
         # Генерируем случайные размеры СИЗ и добавляем в контекст
@@ -540,4 +554,32 @@ def employee_siz_issued_list(request, employee_id):
         result['issued_items'].append(item_data)
 
     return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def update_employee_sizes(request, employee_id):
+    """AJAX: сохраняет пол, рост, размер одежды и обуви сотрудника."""
+    from directory.models.employee import Employee
+    employee = get_object_or_404(Employee, id=employee_id)
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
+
+    valid_gender = dict(Employee.GENDER_CHOICES)
+    valid_height = dict(Employee.HEIGHT_CHOICES)
+    valid_clothing = dict(Employee.CLOTHING_SIZE_CHOICES)
+    valid_shoe = dict(Employee.SHOE_SIZE_CHOICES)
+
+    gender = request.POST.get('gender', '').strip()
+    height = request.POST.get('height', '').strip()
+    clothing_size = request.POST.get('clothing_size', '').strip()
+    shoe_size = request.POST.get('shoe_size', '').strip()
+
+    employee.gender = gender if gender in valid_gender else ''
+    employee.height = height if height in valid_height else ''
+    employee.clothing_size = clothing_size if clothing_size in valid_clothing else ''
+    employee.shoe_size = shoe_size if shoe_size in valid_shoe else ''
+    employee.save(update_fields=['gender', 'height', 'clothing_size', 'shoe_size'])
+
+    return JsonResponse({'ok': True})
 

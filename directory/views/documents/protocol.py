@@ -368,6 +368,9 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
+        from directory.models import GenerationJob
+        from directory.generation_tasks import run_periodic_protocol_job
+
         employees_qs = self.get_base_queryset()
         action = request.POST.get('action')
         scope_type = request.POST.get('scope_type')
@@ -402,6 +405,10 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                 messages.error(request, "Нет выбранных сотрудников для протокола")
             return redirect(request.path)
 
+        employee_ids = [e.id for e in employees]
+
+        # Определяем тип задачи и grouping_name
+        grouping_name = None
         if action in {'scope_protocol', 'scope_certificates'}:
             if scope_type == 'org':
                 grouping_name = employees[0].organization.short_name_ru if employees[0].organization else "Организация"
@@ -409,118 +416,38 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                 grouping_name = employees[0].subdivision.name if employees[0].subdivision else "Подразделение"
             elif scope_type == 'dept':
                 grouping_name = employees[0].department.name if employees[0].department else "Отдел"
-            else:
-                grouping_name = None
+            job_type = 'periodic_protocol' if action == 'scope_protocol' else 'periodic_certificates'
+        elif action == 'certificates_org':
+            job_type = 'periodic_certificates'
+        elif action == 'certificates_by_subdivision':
+            job_type = 'periodic_certificates_by_sub'
+        elif action == 'download_by_subdivision':
+            job_type = 'periodic_protocol_by_sub'
+        else:
+            job_type = 'periodic_protocol'
 
-            if action == 'scope_protocol':
-                doc = generate_periodic_protocol(employees, user=request.user, grouping_name=grouping_name)
-            else:
-                doc = generate_safety_certificates(employees, grouping_name=grouping_name)
+        title_map = dict(GenerationJob.JOB_TYPE_CHOICES)
+        org = employees[0].organization
+        org_name = org.short_name_ru if org else ''
+        title = f'{title_map.get(job_type, job_type)} — {org_name} ({len(employees)} чел.)'
 
-            if not doc:
-                messages.error(request, "Не удалось сформировать документ")
-                return redirect(request.path)
-
-            response = HttpResponse(
-                doc['content'],
-                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            )
-            from urllib.parse import quote
-            filename_encoded = quote(doc["filename"])
-            response['Content-Disposition'] = f'attachment; filename="document.docx"; filename*=UTF-8\'\'{filename_encoded}'
-            return response
-
-        if action in {'certificates_org', 'certificates_by_subdivision'}:
-            group_by_subdivision = action == 'certificates_by_subdivision'
-
-            if group_by_subdivision:
-                buffer = BytesIO()
-                with ZipFile(buffer, 'w') as zip_buffer:
-                    grouped = {}
-                    for emp in employees:
-                        key = emp.subdivision.name if emp.subdivision else "Без подразделения"
-                        grouped.setdefault(key, []).append(emp)
-
-                    for key, emps in grouped.items():
-                        doc = generate_safety_certificates(emps, grouping_name=key)
-                        if not doc:
-                            continue
-                        zip_buffer.writestr(doc['filename'], doc['content'])
-
-                buffer.seek(0)
-                response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-
-                org_name = employees[0].organization.short_name_ru if employees[0].organization else "Организация"
-                clean_org_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
-                zip_filename = f"Удостоверения по ОТ {clean_org_name}.zip"
-
-                from urllib.parse import quote
-                zip_filename_encoded = quote(zip_filename)
-                response['Content-Disposition'] = (
-                    f'attachment; filename="certificates.zip"; filename*=UTF-8\'\'{zip_filename_encoded}'
-                )
-                return response
-
-            doc = generate_safety_certificates(employees)
-            if not doc:
-                messages.error(request, "Не удалось сформировать удостоверения")
-                return redirect(request.path)
-
-            response = HttpResponse(
-                doc['content'],
-                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            )
-            from urllib.parse import quote
-            filename_encoded = quote(doc["filename"])
-            response['Content-Disposition'] = f'attachment; filename="certificates.docx"; filename*=UTF-8\'\'{filename_encoded}'
-            return response
-
-        group_by_subdivision = action == 'download_by_subdivision'
-
-        if group_by_subdivision:
-            buffer = BytesIO()
-            with ZipFile(buffer, 'w') as zip_buffer:
-                grouped = {}
-                for emp in employees:
-                    key = emp.subdivision.name if emp.subdivision else None
-                    grouped.setdefault(key, []).append(emp)
-
-                for key, emps in grouped.items():
-                    doc = generate_periodic_protocol(emps, user=request.user, grouping_name=key)
-                    if not doc:
-                        continue
-                    # Используем имя файла, сформированное генератором
-                    zip_buffer.writestr(doc['filename'], doc['content'])
-
-            buffer.seek(0)
-            response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-
-            # Формируем название архива с названием организации
-            if employees:
-                org_name = employees[0].organization.short_name_ru if employees[0].organization else "Организация"
-                # Убираем кавычки из названия файла
-                clean_org_name = org_name.replace('"', '').replace("'", '').replace('«', '').replace('»', '')
-                zip_filename = f"Протоколы проверки знаний по ОТ {clean_org_name}.zip"
-            else:
-                zip_filename = "Протоколы проверки знаний по ОТ.zip"
-
-            from urllib.parse import quote
-            zip_filename_encoded = quote(zip_filename)
-            response['Content-Disposition'] = f'attachment; filename="protocols.zip"; filename*=UTF-8\'\'{zip_filename_encoded}'
-            return response
-
-        doc = generate_periodic_protocol(employees, user=request.user)
-        if not doc:
-            messages.error(request, "Не удалось сформировать протокол")
-            return redirect(request.path)
-
-        response = HttpResponse(
-            doc['content'],
-            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        job = GenerationJob.objects.create(
+            user=request.user,
+            job_type=job_type,
+            status='pending',
+            title=title,
+            params={
+                'employee_ids': employee_ids,
+                'grouping_name': grouping_name,
+            },
+            progress_total=len(employees),
         )
-        # Кодируем имя файла для корректного отображения в разных браузерах
-        from urllib.parse import quote
-        filename_encoded = quote(doc["filename"])
-        # Используем ASCII-безопасное имя в filename и UTF-8 в filename*
-        response['Content-Disposition'] = f'attachment; filename="protocol.docx"; filename*=UTF-8\'\'{filename_encoded}'
-        return response
+
+        run_periodic_protocol_job.enqueue(job.id)
+
+        messages.success(
+            request,
+            f'Задача генерации поставлена в очередь ({len(employees)} сотр.). '
+            f'Страница с прогрессом откроется автоматически.'
+        )
+        return redirect('directory:generation_job_detail', pk=job.id)

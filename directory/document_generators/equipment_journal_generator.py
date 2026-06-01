@@ -539,7 +539,11 @@ def _build_equipment_records(equipment_list, inspection_date=None, use_two_level
             else:
                 location = ''
 
-        eq_type = eq.equipment_type.name if eq.equipment_type else eq.equipment_name
+        eq_type_name = (eq.equipment_type.name if eq.equipment_type else '').strip().lower()
+        if eq_type_name in {'грузовая тележка', 'грузовые тележки'} and eq.equipment_name:
+            eq_type = eq.equipment_name
+        else:
+            eq_type = eq.equipment_type.name if eq.equipment_type else eq.equipment_name
 
         if resolved_date:
             inspection_date_str = resolved_date.strftime('%d.%m.%Y')

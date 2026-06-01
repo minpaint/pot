@@ -319,7 +319,13 @@
                             <td>
                                 <a href="{% url 'directory:employees:employee_update' emp.id %}"
                                    class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;"
-                                   title="Редактировать сотрудника">✏️</a>
+                                   title="Редактировать сотрудника">✏️ Редактировать</a>
+                                <form method="post" action="{% url 'directory:employees:employee_delete' emp.id %}" class="d-inline fire-form">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:0.72rem;padding:2px 8px;"
+                                            onclick="return confirm('Уволить сотрудника «{{ emp.full_name_nominative }}»?\n\nСотрудник будет скрыт из рабочих разделов.')"
+                                            title="Сотрудник уволен">🚫 Уволен</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}
@@ -353,7 +359,13 @@
                             <td>
                                 <a href="{% url 'directory:employees:employee_update' emp.id %}"
                                    class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;"
-                                   title="Редактировать сотрудника">✏️</a>
+                                   title="Редактировать сотрудника">✏️ Редактировать</a>
+                                <form method="post" action="{% url 'directory:employees:employee_delete' emp.id %}" class="d-inline fire-form">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:0.72rem;padding:2px 8px;"
+                                            onclick="return confirm('Уволить сотрудника «{{ emp.full_name_nominative }}»?\n\nСотрудник будет скрыт из рабочих разделов.')"
+                                            title="Сотрудник уволен">🚫 Уволен</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}
@@ -387,7 +399,13 @@
                             <td>
                                 <a href="{% url 'directory:employees:employee_update' emp.id %}"
                                    class="btn btn-sm btn-outline-primary" style="font-size:0.72rem;padding:2px 8px;"
-                                   title="Редактировать сотрудника">✏️</a>
+                                   title="Редактировать сотрудника">✏️ Редактировать</a>
+                                <form method="post" action="{% url 'directory:employees:employee_delete' emp.id %}" class="d-inline fire-form">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:0.72rem;padding:2px 8px;"
+                                            onclick="return confirm('Уволить сотрудника «{{ emp.full_name_nominative }}»?\n\nСотрудник будет скрыт из рабочих разделов.')"
+                                            title="Сотрудник уволен">🚫 Уволен</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}
@@ -636,6 +654,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     updateButtonsState();
+
+    // Сохраняем позицию прокрутки перед увольнением
+    document.querySelectorAll('.fire-form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            localStorage.setItem('emp_scroll_restore', window.scrollY);
+        });
+    });
+
+    // Восстанавливаем позицию после редиректа
+    const savedScroll = localStorage.getItem('emp_scroll_restore');
+    if (savedScroll !== null) {
+        localStorage.removeItem('emp_scroll_restore');
+        window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'smooth' });
+    }
 });
 </script>
 {% endblock %}

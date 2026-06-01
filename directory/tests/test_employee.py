@@ -95,6 +95,75 @@ class EmployeeTests(TestCase):
         )
 
 
+class EmployeeDeleteViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='delete-user',
+            password='testpass123'
+        )
+        self.organization = Organization.objects.create(
+            full_name_ru="Тестовая организация",
+            short_name_ru="ТестОрг",
+            full_name_by="Тэставая арганізацыя",
+            short_name_by="ТэстАрг"
+        )
+        self.position = Position.objects.create(
+            position_name="Тестовая должность",
+            organization=self.organization
+        )
+        self.employee = Employee.objects.create(
+            full_name_nominative="Иванов Иван Иванович",
+            organization=self.organization,
+            position=self.position
+        )
+
+        self.user.profile.organizations.add(self.organization)
+        self.client.login(username='delete-user', password='testpass123')
+
+    def test_employee_delete_page_renders(self):
+        response = self.client.get(
+            reverse(
+                'directory:employees:employee_delete',
+                kwargs={'pk': self.employee.pk}
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse('directory:employees:employee_list')
+        )
+
+    def test_employee_delete_post_marks_employee_for_deletion(self):
+        response = self.client.post(
+            reverse(
+                'directory:employees:employee_delete',
+                kwargs={'pk': self.employee.pk}
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('directory:employees:employee_list')
+        )
+
+        self.employee.refresh_from_db()
+        self.assertTrue(Employee.objects.filter(pk=self.employee.pk).exists())
+        self.assertTrue(self.employee.marked_for_deletion)
+        self.assertIsNotNone(self.employee.marked_for_deletion_at)
+
+        list_response = self.client.get(reverse('directory:employees:employee_list'))
+        self.assertNotContains(list_response, self.employee.full_name_nominative)
+
+        profile_response = self.client.get(
+            reverse(
+                'directory:employees:employee_profile',
+                kwargs={'pk': self.employee.pk}
+            )
+        )
+        self.assertEqual(profile_response.status_code, 404)
+
+
 class FamiliarizationGeneratorTests(TestCase):
     def setUp(self):
         self.organization = Organization.objects.create(

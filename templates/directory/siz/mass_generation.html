@@ -128,8 +128,9 @@
 /* ── Строка сотрудника ── */
 .emp-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
     padding: 7px 18px 7px 60px;
     border-top: 1px solid #f5f5f5;
     font-size: 0.88rem;
@@ -137,6 +138,52 @@
 .emp-row:hover { background: #f0f7ff; }
 .emp-name { font-weight: 600; color: #2c3e50; }
 .emp-position { color: #6c757d; font-size: 0.82rem; }
+
+/* ── Колонки размеров ── */
+.emp-info { flex: 1; min-width: 160px; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.emp-sizes {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.emp-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.emp-select {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 3px 4px;
+    font-size: 0.78rem;
+    color: #2c3e50;
+    background: #fff;
+    cursor: pointer;
+    height: 26px;
+}
+.emp-select:focus { outline: none; border-color: #3498db; }
+.emp-select.unsaved { border-color: #f39c12; background: #fffbf0; }
+.emp-select-height   { width: 80px; }
+.emp-select-clothing { width: 96px; }
+.emp-select-shoe     { width: 88px; }
+.emp-save-btn {
+    padding: 1px 6px;
+    font-size: 0.76rem;
+    height: 26px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+.emp-save-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.emp-save-btn.saved {
+    color: #1e7e34;
+    border-color: #1e7e34;
+}
 
 /* ── Анимация сворачивания ── */
 .collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
@@ -197,6 +244,17 @@
 
 /* ── Кнопки действий ── */
 .btn-act { font-size: 0.78rem; padding: 3px 10px; border-radius: 6px; }
+.emp-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    min-width: 34px;
+    height: 28px;
+    padding: 0;
+    line-height: 1;
+    flex: 0 0 34px;
+}
 
 /* ── Мобильная адаптация ── */
 @media (max-width: 767px) {
@@ -218,24 +276,32 @@
     .siz-tab-btn { flex: 1; text-align: center; }
 
     /* Дерево сотрудников (вкладка 1) */
-    .org-header { padding: 10px 14px; }
-    .sub-header { padding: 8px 14px 8px 18px; }
-    .dept-header { padding: 6px 14px 6px 24px; }
-    .emp-row { padding: 5px 10px 5px 14px; flex-wrap: nowrap; align-items: center; gap: 0; }
+    .org-header { padding: 8px 12px; }
+    .sub-header { padding: 6px 12px 6px 16px; }
+    .dept-header { padding: 5px 12px 5px 22px; }
+    .emp-row { padding: 4px 8px 4px 10px; gap: 2px; align-items: flex-start; }
 
-    /* ФИО + должность — в две строки */
-    .emp-row > span:first-child {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        min-width: 0;
+    /* Строка 1: ФИО (растягивается) + кнопки 📥🦺 (справа, компактные) */
+    .emp-info { flex: 1; min-width: 0; flex-direction: column; align-items: flex-start; gap: 0; order: 1; }
+    .emp-row .emp-name { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .emp-row .emp-position { margin-left: 0 !important; font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .emp-actions { order: 2; margin-left: auto; gap: 3px; align-self: flex-start; }
+    .emp-action-btn {
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
+        padding: 0 !important;
+        font-size: 0.82rem !important;
+        flex-basis: 28px;
     }
-    .emp-row .emp-name { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .emp-row .emp-position { margin-left: 0 !important; font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Кнопки справа — компактные, не сжимаются */
-    .emp-row .btn-act { flex-shrink: 0; font-size: 0.75rem; padding: 3px 8px; margin-left: 0 !important; }
+    /* Строка 2: дропдауны */
+    .emp-sizes { order: 3; flex: 0 0 100%; flex-wrap: wrap; gap: 3px; margin-top: 1px; }
+    .emp-select { font-size: 0.72rem; height: 24px; padding: 2px 3px; }
+    .emp-select-height   { width: 76px; }
+    .emp-select-clothing { width: 90px; }
+    .emp-select-shoe     { width: 82px; }
+    .emp-save-btn { font-size: 0.7rem; height: 24px; padding: 1px 5px; }
 
     /* Таблица массовой генерации (вкладка 2) */
     .mass-table thead { display: none; }
@@ -297,7 +363,7 @@
     <div class="org-card">
         <div class="org-header" onclick="toggleSizBlock(this, 'single-org-{{ org_group.grouper.id }}')">
             <span>🏢</span>
-            <span class="org-title">{{ org_group.grouper.full_name_ru }}</span>
+            <span class="org-title">{{ org_group.grouper.short_name_ru|default:org_group.grouper.full_name_ru }}</span>
             <span class="cnt-badge">
                 {% for sub in org_group.list %}{{ sub.employees_count|add:0 }}{% if not forloop.last %}+{% endif %}{% endfor %}
             </span>
@@ -316,18 +382,35 @@
 
                     {% for emp in subdivision.main_employees %}
                     <div class="emp-row">
-                        <span>
+                        <span class="emp-info">
                             <span class="emp-name">{{ emp.full_name_nominative }}</span>
-                            <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
+                            <span class="emp-position">— {{ emp.position.position_name }}</span>
                         </span>
-                        <span style="display:inline-flex;gap:4px;flex-shrink:0;margin-left:8px;">
+                        <span class="emp-sizes">
+                            <select class="emp-select emp-select-height" data-field="height" data-emp="{{ emp.id }}">
+                                <option value="">— рост —</option>
+                                {% for v, l in height_choices %}<option value="{{ v }}"{% if emp.height == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                            </select>
+                            <select class="emp-select emp-select-clothing" data-field="clothing_size" data-emp="{{ emp.id }}">
+                                <option value="">— одежда —</option>
+                                {% for v, l in clothing_size_choices %}<option value="{{ v }}"{% if emp.clothing_size == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                            </select>
+                            <select class="emp-select emp-select-shoe" data-field="shoe_size" data-emp="{{ emp.id }}">
+                                <option value="">— обувь —</option>
+                                {% for v, l in shoe_size_choices %}<option value="{{ v }}"{% if emp.shoe_size == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-act emp-save-btn"
+                                data-emp="{{ emp.id }}"
+                                data-url="{% url 'directory:siz:update_employee_sizes' emp.id %}">💾</button>
+                        </span>
+                        <span class="emp-actions">
                             <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                               class="btn btn-sm btn-outline-success btn-act js-single-card"
+                               class="btn btn-sm btn-outline-success btn-act emp-action-btn js-single-card"
                                data-employee-id="{{ emp.id }}"
                                data-bs-toggle="tooltip" data-bs-placement="top"
                                title="Скачать карточку СИЗ (DOCX)">📥</a>
                             <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
-                               class="btn btn-sm btn-outline-primary btn-act"
+                               class="btn btn-sm btn-outline-primary btn-act emp-action-btn"
                                data-bs-toggle="tooltip" data-bs-placement="top"
                                title="Открыть личную карточку СИЗ">🦺</a>
                         </span>
@@ -344,18 +427,35 @@
                     <div class="collapsible" id="single-dept-{{ dept.id }}" style="max-height:9999px;">
                         {% for emp in dept.employees %}
                         <div class="emp-row" style="padding-left:76px;">
-                            <span>
+                            <span class="emp-info">
                                 <span class="emp-name">{{ emp.full_name_nominative }}</span>
-                                <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
+                                <span class="emp-position">— {{ emp.position.position_name }}</span>
                             </span>
-                            <span style="display:inline-flex;gap:4px;flex-shrink:0;margin-left:8px;">
+                            <span class="emp-sizes">
+                                    <select class="emp-select emp-select-height" data-field="height" data-emp="{{ emp.id }}">
+                                    <option value="">— рост —</option>
+                                    {% for v, l in height_choices %}<option value="{{ v }}"{% if emp.height == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                                </select>
+                                <select class="emp-select emp-select-clothing" data-field="clothing_size" data-emp="{{ emp.id }}">
+                                    <option value="">— одежда —</option>
+                                    {% for v, l in clothing_size_choices %}<option value="{{ v }}"{% if emp.clothing_size == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                                </select>
+                                <select class="emp-select emp-select-shoe" data-field="shoe_size" data-emp="{{ emp.id }}">
+                                    <option value="">— обувь —</option>
+                                    {% for v, l in shoe_size_choices %}<option value="{{ v }}"{% if emp.shoe_size == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-act emp-save-btn"
+                                    data-emp="{{ emp.id }}"
+                                    data-url="{% url 'directory:siz:update_employee_sizes' emp.id %}">💾</button>
+                            </span>
+                            <span class="emp-actions">
                                 <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                                   class="btn btn-sm btn-outline-success btn-act js-single-card"
+                                   class="btn btn-sm btn-outline-success btn-act emp-action-btn js-single-card"
                                    data-employee-id="{{ emp.id }}"
                                    data-bs-toggle="tooltip" data-bs-placement="top"
                                    title="Скачать карточку СИЗ (DOCX)">📥</a>
                                 <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
-                                   class="btn btn-sm btn-outline-primary btn-act"
+                                   class="btn btn-sm btn-outline-primary btn-act emp-action-btn"
                                    data-bs-toggle="tooltip" data-bs-placement="top"
                                    title="Открыть личную карточку СИЗ">🦺</a>
                             </span>
@@ -375,25 +475,42 @@
     <div class="org-card">
         <div class="org-header" onclick="toggleSizBlock(this, 'single-org-direct-{{ item.org.id }}')">
             <span>🏢</span>
-            <span class="org-title">{{ item.org.full_name_ru }}</span>
+            <span class="org-title">{{ item.org.short_name_ru|default:item.org.full_name_ru }}</span>
             <span class="cnt-badge">{{ item.employees_count }}</span>
             <span class="toggle-icon">▼</span>
         </div>
         <div class="collapsible" id="single-org-direct-{{ item.org.id }}" style="max-height:9999px;">
             {% for emp in item.employees %}
             <div class="emp-row">
-                <span>
+                <span class="emp-info">
                     <span class="emp-name">{{ emp.full_name_nominative }}</span>
-                    <span class="emp-position ms-2">— {{ emp.position.position_name }}</span>
+                    <span class="emp-position">— {{ emp.position.position_name }}</span>
                 </span>
-                <span style="display:inline-flex;gap:4px;flex-shrink:0;margin-left:8px;">
+                <span class="emp-sizes">
+                    <select class="emp-select emp-select-height" data-field="height" data-emp="{{ emp.id }}">
+                        <option value="">— рост —</option>
+                        {% for v, l in height_choices %}<option value="{{ v }}"{% if emp.height == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                    </select>
+                    <select class="emp-select emp-select-clothing" data-field="clothing_size" data-emp="{{ emp.id }}">
+                        <option value="">— одежда —</option>
+                        {% for v, l in clothing_size_choices %}<option value="{{ v }}"{% if emp.clothing_size == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                    </select>
+                    <select class="emp-select emp-select-shoe" data-field="shoe_size" data-emp="{{ emp.id }}">
+                        <option value="">— обувь —</option>
+                        {% for v, l in shoe_size_choices %}<option value="{{ v }}"{% if emp.shoe_size == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-secondary btn-act emp-save-btn"
+                        data-emp="{{ emp.id }}"
+                        data-url="{% url 'directory:siz:update_employee_sizes' emp.id %}">💾</button>
+                </span>
+                <span class="emp-actions">
                     <a href="{% url 'directory:siz:siz_card' emp.id %}"
-                       class="btn btn-sm btn-outline-success btn-act js-single-card"
+                       class="btn btn-sm btn-outline-success btn-act emp-action-btn js-single-card"
                        data-employee-id="{{ emp.id }}"
                        data-bs-toggle="tooltip" data-bs-placement="top"
                        title="Скачать карточку СИЗ (DOCX)">📥</a>
                     <a href="{% url 'directory:siz:siz_personal_card' emp.id %}"
-                       class="btn btn-sm btn-outline-primary btn-act"
+                       class="btn btn-sm btn-outline-primary btn-act emp-action-btn"
                        data-bs-toggle="tooltip" data-bs-placement="top"
                        title="Открыть личную карточку СИЗ">🦺</a>
                 </span>
@@ -442,7 +559,7 @@
                             {% for group in org_groups %}
                             <tr class="row-org">
                                 <td></td>
-                                <td data-label="Организация"><strong>🏢 {{ group.grouper.full_name_ru }}</strong></td>
+                                <td data-label="Организация"><strong>🏢 {{ group.grouper.short_name_ru|default:group.grouper.full_name_ru }}</strong></td>
                                 <td data-label="Сотрудников" class="text-center">—</td>
                                 <td data-label="Рассылка">
                                     <button type="button"
@@ -522,7 +639,7 @@
                             {% for item in orgs_with_direct_employees %}
                             <tr class="row-org">
                                 <td></td>
-                                <td data-label="Организация"><strong>🏢 {{ item.org.full_name_ru }}</strong></td>
+                                <td data-label="Организация"><strong>🏢 {{ item.org.short_name_ru|default:item.org.full_name_ru }}</strong></td>
                                 <td data-label="Сотрудников" class="text-center">—</td>
                                 <td data-label="Рассылка">
                                     <button type="button"
@@ -605,6 +722,69 @@ document.addEventListener('DOMContentLoaded', function() {
         new bootstrap.Tooltip(el);
     });
 });
+
+// ── Сохранение размеров сотрудника ──
+(function() {
+    function getCsrf() {
+        const v = `; ${document.cookie}`;
+        const p = v.split('; csrftoken=');
+        if (p.length === 2) return p.pop().split(';').shift();
+        return '';
+    }
+
+    // Показываем кнопку сохранения при изменении любого select
+    document.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('emp-select')) return;
+        const empId = e.target.dataset.emp;
+        const btn = document.querySelector(`.emp-save-btn[data-emp="${empId}"]`);
+        if (btn) {
+            btn.classList.add('visible');
+            btn.classList.remove('saved');
+            btn.textContent = '💾';
+        }
+        e.target.classList.add('unsaved');
+    });
+
+    // Сохранение по кнопке
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.emp-save-btn');
+        if (!btn) return;
+        const empId = btn.dataset.emp;
+        const url = btn.dataset.url;
+        const selects = document.querySelectorAll(`.emp-select[data-emp="${empId}"]`);
+        const payload = { csrfmiddlewaretoken: getCsrf() };
+        selects.forEach(s => { payload[s.dataset.field] = s.value; });
+
+        btn.disabled = true;
+        btn.textContent = '⏳';
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: new URLSearchParams(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                btn.textContent = '✅';
+                btn.classList.add('saved');
+                selects.forEach(s => s.classList.remove('unsaved'));
+                setTimeout(() => {
+                    btn.classList.remove('visible', 'saved');
+                    btn.textContent = '💾';
+                }, 1800);
+            } else {
+                btn.textContent = '❌';
+                setTimeout(() => { btn.textContent = '💾'; }, 2000);
+            }
+        })
+        .catch(() => {
+            btn.textContent = '❌';
+            setTimeout(() => { btn.textContent = '💾'; }, 2000);
+        })
+        .finally(() => { btn.disabled = false; });
+    });
+})();
 
 // Переключение вкладок
 document.querySelectorAll('.siz-tab-btn').forEach(function(btn) {

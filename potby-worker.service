@@ -1,0 +1,21 @@
+[Unit]
+Description=django-tasks worker for potby (async document generation)
+After=network.target postgresql.service
+
+[Service]
+User=django
+Group=django
+WorkingDirectory=/home/django/webapps/potby
+Environment="DJANGO_SETTINGS_MODULE=settings_prod"
+ExecStart=/home/django/webapps/potby/venv/bin/python manage.py db_worker \
+    --queue-name default \
+    --interval 1 \
+    --no-reload
+StandardOutput=append:/home/django/webapps/potby/logs/worker.log
+StandardError=append:/home/django/webapps/potby/logs/worker.error.log
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

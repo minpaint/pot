@@ -89,16 +89,13 @@ class InstructionJournalView(LoginRequiredMixin, TemplateView):
 
     def get_base_queryset(self):
         """Возвращает базовый queryset всех активных сотрудников с должностью"""
-        qs = Employee.objects.select_related(
+        qs = Employee.objects.active_for_operations().select_related(
             'organization', 'subdivision', 'department', 'position'
         )
         # Фильтруем по правам доступа
         qs = AccessControlHelper.filter_queryset(qs, self.request.user, self.request)
         # Только сотрудники с должностью
-        qs = qs.filter(
-            position__isnull=False,
-            status='active'  # Только активные сотрудники
-        )
+        qs = qs.filter(position__isnull=False)
         return qs.order_by(
             'organization__short_name_ru',
             'subdivision__name',
@@ -216,57 +213,23 @@ class InstructionJournalView(LoginRequiredMixin, TemplateView):
         if org_id_param:
             try:
                 org_id = int(org_id_param)
-                # Проверка доступа к организации
                 if accessible_orgs.filter(id=org_id).exists():
                     selected_org_id = org_id
-                    logger.info(f"User {user.username} viewing org_id={selected_org_id} in instruction journal")
             except (ValueError, TypeError):
-                pass  # Игнорируем невалидный параметр
+                pass
 
         # 🎯 Автоподстановка при единственной доступной организации
         if selected_org_id is None and accessible_orgs.count() == 1:
             selected_org_id = accessible_orgs.first().id
-            logger.info(f"User {user.username} auto-selected org_id={selected_org_id} in instruction journal")
+            self.request.session['selected_org_id'] = selected_org_id
 
-        # 💾 Сохранить выбор в сессии для UX
-        try:
-            if selected_org_id:
-                self.request.session['selected_org_id'] = selected_org_id
-            elif hasattr(self.request, 'session') and 'selected_org_id' in self.request.session:
-                # Попытка восстановить последний выбор
-                last_org_id = self.request.session.get('selected_org_id')
-                if accessible_orgs.filter(id=last_org_id).exists():
-                    selected_org_id = last_org_id
-                    logger.info(f"User {user.username} restored org_id={selected_org_id} from session")
-        except Exception as e:
-            # Если сессия недоступна, просто продолжаем без восстановления
-            logger.warning(f"Session not available: {e}")
-
-        # 📊 Добавляем данные о выборе организации в контекст
-        if selected_org_id and accessible_orgs.count() == 1:
-            context['org_options'] = accessible_orgs.filter(id=selected_org_id)
-        else:
-            context['org_options'] = accessible_orgs
         context['selected_org_id'] = selected_org_id
-        context['show_tree'] = selected_org_id is not None
 
-        # 🚫 Если организация не выбрана, не строим дерево
-        if not context['show_tree']:
-            context['tree'] = {}
-            context['tree_settings'] = {
-                'icons': {
-                    'organization': '🏢',
-                    'subdivision': '🏭',
-                    'department': '📂',
-                    'employee': '👤'
-                }
-            }
-            context['default_date'] = date.today().strftime('%Y-%m-%d')
-            context['title'] = 'Образец заполнения журнала повторных инструктажей'
-            return context
-
-        # ✅ Фильтруем сотрудников по выбранной организации
-        employees = list(self.get_base_queryset().filter(organization_id=selected_org_id))
+        # ✅ Фильтруем сотрудников: по выбранной орг или все доступные
+        qs = self.get_base_queryset()
+        if selected_org_id:
+            qs = qs.filter(organization_id=selected_org_id)
+        employees = list(qs)
 
         context['title'] = 'Образец заполнения журнала повторных инструктажей'
         context['tree'] = self.build_tree_structure(employees)
@@ -320,112 +283,42 @@ class InstructionJournalView(LoginRequiredMixin, TemplateView):
         }
 
         if group_by_subdivision:
-            # Генерация отдельных файлов по подразделениям
-            return self._generate_by_subdivision(employees, date_povtorny, request, custom_context)
+            return self._enqueue_journal_job(request, employees, date_povtorny, custom_context,
+                                             'instruction_journal_by_sub')
         else:
-            # Генерация единого файла
-            return self._generate_unified(employees, date_povtorny, request, custom_context)
+            return self._enqueue_journal_job(request, employees, date_povtorny, custom_context,
+                                             'instruction_journal_unified')
 
-    def _generate_unified(self, employees, date_povtorny, request, custom_context=None):
-        """Генерация единого образца журнала для всех сотрудников"""
-        from directory.document_generators.instruction_journal_generator import generate_instruction_journal
+    def _enqueue_journal_job(self, request, employees, date_povtorny, custom_context, job_type):
+        """Ставит задачу генерации журнала в очередь и редиректит на страницу прогресса."""
+        from directory.models import GenerationJob
+        from directory.generation_tasks import run_instruction_journal_job
+        from django.urls import reverse
 
-        try:
-            doc = generate_instruction_journal(
-                employees,
-                date_povtorny=date_povtorny,
-                user=request.user,
-                custom_context=custom_context
-            )
+        first = employees[0]
+        org_name = first.organization.short_name_ru if first.organization else ''
+        label = 'один файл' if job_type == 'instruction_journal_unified' else 'по подразделениям'
 
-            if not doc:
-                messages.error(request, "Ошибка при генерации образца журнала")
-                return redirect(request.path)
-        except ValueError as e:
-            messages.error(request, str(e))
-            return redirect(request.path)
-        except Exception as e:
-            logger.error(f"Ошибка при генерации образца журнала: {str(e)}", exc_info=True)
-            messages.error(request, f"Ошибка при генерации образца журнала: {str(e)}")
-            return redirect(request.path)
-
-        response = HttpResponse(
-            doc['content'],
-            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        job = GenerationJob.objects.create(
+            user=request.user,
+            job_type=job_type,
+            status='pending',
+            title=f'Журнал инструктажей ({label}) — {org_name} ({len(employees)} чел.)',
+            params={
+                'employee_ids': [e.id for e in employees],
+                'date_povtorny': date_povtorny,
+                'instruction_type': custom_context.get('instruction_type', 'Повторный'),
+                'instruction_reason': custom_context.get('instruction_reason', ''),
+            },
+            progress_total=len(employees),
         )
-        from urllib.parse import quote
-        filename_encoded = quote(doc['filename'])
-        response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"; filename*=UTF-8\'\'{filename_encoded}'
+        run_instruction_journal_job.enqueue(job.id)
 
-        messages.success(request, 'Образец журнала инструктажей успешно сгенерирован')
-        return response
-
-    def _generate_by_subdivision(self, employees, date_povtorny, request, custom_context=None):
-        """Генерация отдельных файлов по подразделениям в ZIP архиве"""
-        from directory.document_generators.instruction_journal_generator import generate_instruction_journal
-
-        buffer = BytesIO()
-        files_generated = 0
-
-        try:
-            with ZipFile(buffer, 'w') as zip_buffer:
-                # Группируем сотрудников по иерархии: подразделение → организация
-                grouped = {}
-                for emp in employees:
-                    # Используем иерархическую логику: подразделение → организация
-                    if emp.subdivision:
-                        key = emp.subdivision.name
-                    elif emp.organization:
-                        key = emp.organization.short_name_ru
-                    else:
-                        key = 'Без подразделения'
-                    grouped.setdefault(key, []).append(emp)
-
-                logger.info(f"Сгруппировано по подразделениям/организациям: {list(grouped.keys())}")
-
-                # Генерируем документ для каждого подразделения
-                for subdivision_name, emps in grouped.items():
-                    logger.info(f"Генерация для подразделения '{subdivision_name}': {len(emps)} сотрудников")
-
-                    try:
-                        doc = generate_instruction_journal(
-                            emps,
-                            date_povtorny=date_povtorny,
-                            grouping_name=subdivision_name,
-                            user=request.user,
-                            custom_context=custom_context
-                        )
-                        if not doc:
-                            logger.warning(f"Документ для подразделения '{subdivision_name}' не сгенерирован")
-                            continue
-
-                        # Формируем имя файла для подразделения
-                        # Очищаем название от недопустимых символов
-                        safe_name = subdivision_name.replace('"', '').replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('<', '_').replace('>', '_').replace('|', '_')
-                        filename = f"Образец_журнала_{safe_name}.docx"
-                        zip_buffer.writestr(filename, doc['content'])
-                        files_generated += 1
-                        logger.info(f"Добавлен файл в архив: {filename}")
-                    except Exception as e:
-                        logger.error(f"Ошибка генерации для '{subdivision_name}': {str(e)}", exc_info=True)
-                        messages.warning(request, f"Не удалось сгенерировать для подразделения '{subdivision_name}': {str(e)}")
-                        continue
-        except Exception as e:
-            logger.error(f"Ошибка при создании ZIP архива: {str(e)}", exc_info=True)
-            messages.error(request, f"Ошибка при создании архива: {str(e)}")
-            return redirect(request.path)
-
-        if files_generated == 0:
-            messages.error(request, "Не удалось сгенерировать ни одного документа")
-            return redirect(request.path)
-
-        buffer.seek(0)
-
-        response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = 'attachment; filename="Образцы_журнала_по_подразделениям.zip"'
-
-        messages.success(request, f'Сгенерировано файлов: {files_generated}')
-        return response
+        messages.success(
+            request,
+            f'Задача генерации журнала поставлена в очередь ({len(employees)} сотр.).'
+        )
+        return redirect(reverse('directory:generation_job_detail', args=[job.id]))
 
 
 def send_instruction_sample(request, subdivision_id):
@@ -461,9 +354,8 @@ def send_instruction_sample(request, subdivision_id):
     logger.info(f"Начало отправки образца журнала для подразделения '{subdivision.name}'")
 
     # Получаем всех сотрудников подразделения
-    all_employees = Employee.objects.filter(
+    all_employees = Employee.objects.active_for_operations().filter(
         subdivision=subdivision,
-        status='active',
         position__isnull=False
     ).select_related('organization', 'subdivision', 'department', 'position')
 
@@ -947,9 +839,8 @@ def send_instruction_samples_for_organization(request, organization_id):
         for subdivision in subdivisions:
             logger.info(f"Обработка подразделения: {subdivision.name}")
 
-            employees = Employee.objects.filter(
+            employees = Employee.objects.active_for_operations().filter(
                 subdivision=subdivision,
-                status='active',
                 position__isnull=False
             ).select_related('organization', 'subdivision', 'department', 'position')
 
@@ -1324,10 +1215,9 @@ def preview_mass_send_instruction_samples(request, organization_id):
 
     for subdivision in subdivisions:
         # Получаем сотрудников с инструкциями
-        employees = Employee.objects.filter(
+        employees = Employee.objects.active_for_operations().filter(
             organization=organization,
             subdivision=subdivision,
-            status='active',
             position__isnull=False
         ).select_related('position', 'department')
 

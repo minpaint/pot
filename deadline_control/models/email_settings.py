@@ -126,6 +126,19 @@ class EmailSettings(models.Model):
         help_text="Включить отправку email для этой организации"
     )
 
+    test_mode = models.BooleanField(
+        default=False,
+        verbose_name="Тестовый режим",
+        help_text="Все письма будут отправляться только на тестовый адрес, а не реальным получателям"
+    )
+
+    test_email = models.EmailField(
+        verbose_name="Email для тестовых рассылок",
+        help_text="Адрес, на который уходят все письма в тестовом режиме",
+        blank=True,
+        default=''
+    )
+
     recipient_emails = models.TextField(
         verbose_name="Email получателей (общие)",
         help_text="Email адреса для общих уведомлений (медосмотры и т.д.). По одному на строку.",
@@ -206,6 +219,12 @@ class EmailSettings(models.Model):
             raise ValidationError({
                 'email_use_tls': 'TLS и SSL не могут быть включены одновременно',
                 'email_use_ssl': 'TLS и SSL не могут быть включены одновременно',
+            })
+
+        # Тестовый режим: требуем тестовый email
+        if self.test_mode and not self.test_email:
+            raise ValidationError({
+                'test_email': 'Укажите email для тестовых рассылок'
             })
 
         # Если указан хост, требуем заполнить пользователя
@@ -341,8 +360,11 @@ class EmailSettings(models.Model):
     def get_recipient_list(self):
         """
         Возвращает список email адресов получателей (общие уведомления).
-        Парсит текстовое поле recipient_emails.
+        В тестовом режиме возвращает только тестовый адрес.
         """
+        if self.test_mode and self.test_email:
+            return [self.test_email]
+
         if not self.recipient_emails:
             return []
 
@@ -369,6 +391,9 @@ class EmailSettings(models.Model):
         Это предотвращает массовую отправку общим получателям (HR, директор)
         при рассылке образцов для множества подразделений.
         """
+        if self.test_mode and self.test_email:
+            return [self.test_email]
+
         # Если поле заполнено - используем его
         if self.instruction_journal_recipients and self.instruction_journal_recipients.strip():
             emails = [
@@ -474,8 +499,10 @@ class EmailSettings(models.Model):
         try:
             from_email = self.default_from_email or self.email_host_user
 
+            effective_subject = f'[ТЕСТ] {subject}' if self.test_mode else subject
+
             send_mail(
-                subject=subject,
+                subject=effective_subject,
                 message=message,
                 from_email=from_email,
                 recipient_list=recipient_list,

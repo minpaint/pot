@@ -82,6 +82,16 @@ class EmailSettingsAdmin(admin.ModelAdmin):
                           '<strong>📊 Производительность:</strong> С этими настройками отправка 100 писем займёт ~1.7 мин '
                           'вместо 4 мин (ускорение в 2.45×) + защита от бана провайдера.'
         }),
+        ('🧪 Тестовый режим', {
+            'fields': (
+                'test_mode',
+                'test_email',
+            ),
+            'description': '<strong>⚠️ Тестовый режим:</strong> все письма будут уходить <strong>только</strong> '
+                          'на указанный тестовый адрес. Реальные получатели не получат ничего. '
+                          'Тема каждого письма будет начинаться с <code>[ТЕСТ]</code>.<br>'
+                          'Отключите тестовый режим перед переводом в production.',
+        }),
         ('⚙️ Дополнительные настройки', {
             'fields': (
                 'is_active',
@@ -93,12 +103,17 @@ class EmailSettingsAdmin(admin.ModelAdmin):
 
     def status_badge(self, obj):
         """Бейдж статуса активности"""
-        if obj.is_active:
+        if not obj.is_active:
             return format_html(
-                '<span style="background:#4caf50;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">✓ Активно</span>'
+                '<span style="background:#9e9e9e;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">✗ Отключено</span>'
+            )
+        if obj.test_mode:
+            return format_html(
+                '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">🧪 Тест → {}</span>',
+                obj.test_email or '?'
             )
         return format_html(
-            '<span style="background:#9e9e9e;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">✗ Отключено</span>'
+            '<span style="background:#4caf50;color:white;padding:4px 12px;border-radius:6px;font-weight:600;">✓ Активно</span>'
         )
 
     status_badge.short_description = "Статус"

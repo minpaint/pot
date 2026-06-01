@@ -1,0 +1,354 @@
+{% load static %}
+{# ─── TODO-виджет: списки задач по организациям ─── #}
+
+<div id="tasks-widget" class="tasks-widget">
+
+  {# ─── Заголовок секции ─── #}
+  <div class="tasks-section-header">
+    <span class="tasks-section-title">✅ Задачи</span>
+    <div class="tasks-section-actions">
+      {% if show_archived %}
+        <a href="?{% if selected_org_id %}org={{ selected_org_id }}&{% endif %}tasks_archived=0" class="tasks-toggle-archived active">📦 Скрыть архив</a>
+      {% else %}
+        <a href="?{% if selected_org_id %}org={{ selected_org_id }}&{% endif %}tasks_archived=1" class="tasks-toggle-archived">📦 Архив</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ─── Группировка по организации ─── #}
+  {% for org_data in task_orgs %}
+  <div class="tasks-org-block" data-org-id="{{ org_data.org.id }}">
+
+    {# Заголовок организации (градиент) #}
+    {% if task_orgs|length > 1 %}
+    <div class="tasks-org-header">
+      <span>🏢 {{ org_data.org.short_name_ru }}</span>
+      <span class="tasks-org-cnt">
+        {{ org_data.lists|length }} спис{{ org_data.lists|length|pluralize:"ок,ка,ков" }}
+      </span>
+    </div>
+    {% endif %}
+
+    {# ─── Карточки списков ─── #}
+    <div class="tasks-lists-grid" id="tasks-grid-{{ org_data.org.id }}">
+      {% for tl in org_data.lists %}
+      <div class="tasks-card {% if tl.is_archived %}tasks-card-archived{% endif %}"
+           id="tasklist-{{ tl.id }}"
+           data-list-id="{{ tl.id }}">
+
+        {# Заголовок карточки (цвет из модели) #}
+        <div class="tasks-card-header" style="background:{{ tl.color }};">
+          <span class="tasks-card-title">{{ tl.title }}</span>
+          <div class="tasks-card-meta">
+            {% if tl.overdue_count > 0 %}
+              <span class="tasks-badge tasks-badge-danger">⚠️ {{ tl.overdue_count }}</span>
+            {% endif %}
+            <span class="tasks-badge tasks-badge-light">{{ tl.done_count }}/{{ tl.total_count }}</span>
+          </div>
+          <div class="tasks-card-actions">
+            <div class="tasks-card-btns">
+              {% if not tl.is_archived %}
+              <button class="tasks-btn-icon" title="Архивировать"
+                      onclick="taskArchive({{ tl.id }}, this)">📦</button>
+              {% else %}
+              <button class="tasks-btn-icon" title="Разархивировать"
+                      onclick="taskArchive({{ tl.id }}, this)">↩️</button>
+              {% endif %}
+              <button class="tasks-btn-icon tasks-btn-danger" title="Удалить список"
+                      onclick="taskDeleteList({{ tl.id }}, this)">🗑️</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tasks-card-body" id="task-panel-{{ tl.id }}">
+          {# Список задач #}
+          <ul class="tasks-items" id="items-{{ tl.id }}">
+            {% for item in tl.items.all %}
+            <li class="tasks-item {% if item.is_done %}tasks-item-done{% endif %}{% if item.is_overdue %} tasks-item-overdue{% endif %}"
+                id="item-{{ item.id }}">
+              <button class="tasks-checkbox {% if item.is_done %}checked{% endif %}"
+                      onclick="taskToggle({{ item.id }}, this)"
+                      title="{% if item.is_done %}Снять отметку{% else %}Отметить выполненным{% endif %}">
+                {% if item.is_done %}✓{% endif %}
+              </button>
+              <span class="tasks-item-text">{{ item.text }}</span>
+              <div class="tasks-item-right">
+                {% if item.priority == 'high' %}<span class="tasks-priority tasks-priority-high" title="Высокий приоритет">🔴</span>{% endif %}
+                {% if item.priority == 'low'  %}<span class="tasks-priority tasks-priority-low"  title="Низкий приоритет">🟢</span>{% endif %}
+                {% if item.due_date %}
+                  <span class="tasks-due {% if item.is_overdue %}tasks-due-overdue{% endif %}"
+                        title="Срок: {{ item.due_date|date:'d.m.Y' }}">
+                    📅 {{ item.due_date|date:"d.m" }}
+                  </span>
+                {% endif %}
+                <button class="tasks-item-del" onclick="taskDeleteItem({{ item.id }}, this)" title="Удалить">✕</button>
+              </div>
+            </li>
+            {% empty %}
+            <li class="tasks-empty" id="empty-{{ tl.id }}">Нет задач</li>
+            {% endfor %}
+          </ul>
+
+          {# Форма добавления задачи #}
+          {% if not tl.is_archived %}
+          <form class="tasks-add-item-form" data-list-id="{{ tl.id }}"
+                onsubmit="taskAddItem(event, {{ tl.id }})">
+            {% csrf_token %}
+            <div class="tasks-add-text-row">
+              <input type="text" class="tasks-add-input" name="text"
+                     placeholder="+ Добавить задачу..." maxlength="500" autocomplete="off">
+            </div>
+            <div class="tasks-add-controls-row">
+              <select name="priority" class="tasks-add-priority">
+                <option value="normal">🟡</option>
+                <option value="high">🔴</option>
+                <option value="low">🟢</option>
+              </select>
+              <input type="date" name="due_date" class="tasks-add-date" title="Срок (необязательно)">
+              <button type="submit" class="tasks-add-submit">➕ Добавить</button>
+            </div>
+          </form>
+          {% endif %}
+        </div>
+
+      </div>{# /tasks-card #}
+      {% endfor %}
+
+      {# Карточка "Добавить список" #}
+      <div class="tasks-add-list-card" id="add-list-card-{{ org_data.org.id }}">
+        <form class="tasks-add-list-form" onsubmit="taskAddList(event, {{ org_data.org.id }})">
+          {% csrf_token %}
+          <input type="hidden" name="org_id" value="{{ org_data.org.id }}">
+          <div class="tasks-add-list-title-row">
+            <input type="text" name="title" class="tasks-add-list-input"
+                   placeholder="Название нового списка..." maxlength="200" autocomplete="off">
+          </div>
+          <div class="tasks-add-list-controls-row">
+            <input type="color" name="color" value="#3498db" class="tasks-add-list-color" title="Цвет">
+            <button type="submit" class="tasks-add-list-btn">➕ Список</button>
+          </div>
+        </form>
+      </div>
+
+    </div>{# /tasks-lists-grid #}
+  </div>{# /tasks-org-block #}
+  {% empty %}
+  <div class="tasks-no-orgs">Нет доступных организаций</div>
+  {% endfor %}
+
+</div>{# /tasks-widget #}
+
+<script>
+const TASK_URLS = {
+  toggle:      (pk)      => `/tasks/item/${pk}/toggle/`,
+  deleteItem:  (pk)      => `/tasks/item/${pk}/delete/`,
+  addItem:     (listPk)  => `/tasks/list/${listPk}/add/`,
+  addList:                  `/tasks/list/add/`,
+  deleteList:  (pk)      => `/tasks/list/${pk}/delete/`,
+  archiveList: (pk)      => `/tasks/list/${pk}/archive/`,
+};
+
+function taskCsrf() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+function taskPost(url, data, cb) {
+  const fd = new FormData();
+  fd.append('csrfmiddlewaretoken', taskCsrf());
+  for (const [k, v] of Object.entries(data)) fd.append(k, v);
+  fetch(url, { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(cb)
+    .catch(() => alert('Ошибка соединения'));
+}
+
+// ── Toggle ──────────────────────────────────────────────────────────────────
+function taskToggle(pk, btn) {
+  taskPost(TASK_URLS.toggle(pk), {}, data => {
+    const li = document.getElementById('item-' + pk);
+    if (data.is_done) {
+      li.classList.add('tasks-item-done');
+      li.classList.remove('tasks-item-overdue');
+      btn.classList.add('checked');
+      btn.textContent = '✓';
+    } else {
+      li.classList.remove('tasks-item-done');
+      btn.classList.remove('checked');
+      btn.textContent = '';
+    }
+  });
+}
+
+// ── Удалить задачу ──────────────────────────────────────────────────────────
+function taskDeleteItem(pk, btn) {
+  if (!confirm('Удалить задачу?')) return;
+  taskPost(TASK_URLS.deleteItem(pk), {}, data => {
+    if (data.success) {
+      const li = document.getElementById('item-' + pk);
+      const ul = li.parentNode;
+      li.remove();
+      // Показать "Нет задач" если список пуст
+      const listId = ul.id.replace('items-', '');
+      if (ul.querySelectorAll('li.tasks-item').length === 0) {
+        let empty = document.getElementById('empty-' + listId);
+        if (!empty) {
+          empty = document.createElement('li');
+          empty.className = 'tasks-empty';
+          empty.id = 'empty-' + listId;
+          empty.textContent = 'Нет задач';
+          ul.appendChild(empty);
+        }
+      }
+      _updateProgress(ul.id.replace('items-', ''));
+    }
+  });
+}
+
+// ── Добавить задачу ─────────────────────────────────────────────────────────
+function taskAddItem(e, listPk) {
+  e.preventDefault();
+  const form = e.target;
+  const text = form.querySelector('[name=text]').value.trim();
+  if (!text) return;
+  const priority = form.querySelector('[name=priority]').value;
+  const dueDate = form.querySelector('[name=due_date]').value;
+
+  taskPost(TASK_URLS.addItem(listPk), { text, priority, due_date: dueDate }, data => {
+    if (data.error) { alert('Ошибка: ' + data.error); return; }
+
+    // Убрать "Нет задач"
+    const empty = document.getElementById('empty-' + listPk);
+    if (empty) empty.remove();
+
+    const ul = document.getElementById('items-' + listPk);
+    const li = document.createElement('li');
+    li.className = 'tasks-item' + (data.is_overdue ? ' tasks-item-overdue' : '');
+    li.id = 'item-' + data.id;
+
+    let priorityHtml = '';
+    if (data.priority === 'high') priorityHtml = '<span class="tasks-priority tasks-priority-high" title="Высокий приоритет">🔴</span>';
+    if (data.priority === 'low')  priorityHtml = '<span class="tasks-priority tasks-priority-low" title="Низкий приоритет">🟢</span>';
+
+    let dueHtml = '';
+    if (data.due_date) {
+      dueHtml = `<span class="tasks-due${data.is_overdue ? ' tasks-due-overdue' : ''}" title="Срок: ${data.due_date}">📅 ${data.due_date.substring(0,5)}</span>`;
+    }
+
+    li.innerHTML = `
+      <button class="tasks-checkbox" onclick="taskToggle(${data.id}, this)" title="Отметить выполненным"></button>
+      <span class="tasks-item-text">${_escHtml(data.text)}</span>
+      <div class="tasks-item-right">
+        ${priorityHtml}
+        ${dueHtml}
+        <button class="tasks-item-del" onclick="taskDeleteItem(${data.id}, this)" title="Удалить">✕</button>
+      </div>`;
+    ul.appendChild(li);
+
+    form.querySelector('[name=text]').value = '';
+    form.querySelector('[name=due_date]').value = '';
+    _updateProgress(listPk);
+  });
+}
+
+// ── Добавить список ─────────────────────────────────────────────────────────
+function taskAddList(e, orgId) {
+  e.preventDefault();
+  const form = e.target;
+  const title = form.querySelector('[name=title]').value.trim();
+  if (!title) return;
+  const color = form.querySelector('[name=color]').value;
+
+  taskPost(TASK_URLS.addList, { org_id: orgId, title, color }, data => {
+    if (data.error) { alert('Ошибка: ' + data.error); return; }
+
+    const grid = document.getElementById('tasks-grid-' + orgId);
+    const addCard = document.getElementById('add-list-card-' + orgId);
+
+    const card = document.createElement('div');
+    card.className = 'tasks-card';
+    card.id = 'tasklist-' + data.id;
+    card.dataset.listId = data.id;
+    card.innerHTML = `
+      <div class="tasks-card-header" style="background:${data.color};">
+        <span class="tasks-card-title">${_escHtml(data.title)}</span>
+        <div class="tasks-card-meta">
+          <span class="tasks-badge tasks-badge-light">0/0</span>
+        </div>
+        <div class="tasks-card-actions">
+          <div class="tasks-card-btns">
+            <button class="tasks-btn-icon" title="Архивировать" onclick="taskArchive(${data.id}, this)">📦</button>
+            <button class="tasks-btn-icon tasks-btn-danger" title="Удалить список" onclick="taskDeleteList(${data.id}, this)">🗑️</button>
+          </div>
+        </div>
+      </div>
+      <div class="tasks-card-body" id="task-panel-${data.id}">
+        <ul class="tasks-items" id="items-${data.id}">
+          <li class="tasks-empty" id="empty-${data.id}">Нет задач</li>
+        </ul>
+        <form class="tasks-add-item-form" data-list-id="${data.id}" onsubmit="taskAddItem(event, ${data.id})">
+          <input type="hidden" name="csrfmiddlewaretoken" value="${taskCsrf()}">
+          <div class="tasks-add-text-row">
+            <input type="text" class="tasks-add-input" name="text" placeholder="+ Добавить задачу..." maxlength="500" autocomplete="off">
+          </div>
+          <div class="tasks-add-controls-row">
+            <select name="priority" class="tasks-add-priority">
+              <option value="normal">🟡</option>
+              <option value="high">🔴</option>
+              <option value="low">🟢</option>
+            </select>
+            <input type="date" name="due_date" class="tasks-add-date" title="Срок (необязательно)">
+            <button type="submit" class="tasks-add-submit">➕ Добавить</button>
+          </div>
+        </form>
+      </div>`;
+    grid.insertBefore(card, addCard);
+    form.querySelector('[name=title]').value = '';
+  });
+}
+
+// ── Удалить список ───────────────────────────────────────────────────────────
+function taskDeleteList(pk, btn) {
+  if (!confirm('Удалить список со всеми задачами?')) return;
+  taskPost(TASK_URLS.deleteList(pk), {}, data => {
+    if (data.success) document.getElementById('tasklist-' + pk).remove();
+  });
+}
+
+// ── Архивировать список ──────────────────────────────────────────────────────
+function taskArchive(pk, btn) {
+  const action = btn.title === 'Архивировать' ? 'Архивировать этот список?' : 'Разархивировать список?';
+  if (!confirm(action)) return;
+  taskPost(TASK_URLS.archiveList(pk), {}, data => {
+    const card = document.getElementById('tasklist-' + pk);
+    if (data.is_archived) {
+      card.classList.add('tasks-card-archived');
+      btn.title = 'Разархивировать';
+      btn.textContent = '↩️';
+      // Скрыть форму добавления
+      const addForm = card.querySelector('.tasks-add-item-form');
+      if (addForm) addForm.style.display = 'none';
+    } else {
+      card.classList.remove('tasks-card-archived');
+      btn.title = 'Архивировать';
+      btn.textContent = '📦';
+      const addForm = card.querySelector('.tasks-add-item-form');
+      if (addForm) addForm.style.display = '';
+    }
+  });
+}
+
+// ── Вспомогательные ─────────────────────────────────────────────────────────
+function _escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _updateProgress(listPk) {
+  const ul = document.getElementById('items-' + listPk);
+  if (!ul) return;
+  const items = ul.querySelectorAll('li.tasks-item');
+  const done  = ul.querySelectorAll('li.tasks-item.tasks-item-done');
+  const badge = document.querySelector('#tasklist-' + listPk + ' .tasks-badge-light');
+  if (badge) badge.textContent = `${done.length}/${items.length}`;
+}
+
+</script>

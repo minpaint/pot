@@ -478,6 +478,23 @@
     </div>
     {% endif %}
 
+    <!-- ── Договоры и акты (только суперпользователь) ── -->
+    {% if user.is_superuser and contracts_stats %}
+    <div class="row mt-4" style="margin-bottom: 16px;">
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark fw-bold">💼 Договоры и акты</div>
+                <div class="card-body">
+                    <p class="mb-1">Неоплаченных актов: <strong>{{ contracts_stats.unpaid_count|default:0 }}</strong></p>
+                    <p class="mb-2">Долг: <strong>{{ contracts_stats.unpaid_sum|default:"0.00" }} руб.</strong></p>
+                    <a href="/admin/contracts/act/" class="btn btn-sm btn-warning">Открыть акты →</a>
+                    <a href="/admin/contracts/client/" class="btn btn-sm btn-outline-secondary ms-1">Клиенты</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ── Быстрые действия ── -->
     <div class="db-actions">
         <span class="db-actions-label">Перейти</span>

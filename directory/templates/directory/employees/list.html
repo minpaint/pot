@@ -89,20 +89,17 @@
                             <td>{{ employee.department.name|default:"-" }}</td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-primary" title="Редактировать">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-info" title="Документы">
-                                        <i class="fas fa-file-alt"></i>
-                                    </a>
+                                    <a href="{% url 'directory:employees:employee_update' employee.id %}" class="btn btn-primary" title="Редактировать">✏️</a>
+                                    <a href="{% url 'directory:documents:document_selection' employee.id %}" class="btn btn-info" title="Документы">📋</a>
                                     {% if employee.position.department %}
-                                    <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-warning" title="Карточка СИЗ">
-                                        <i class="fas fa-shield-alt"></i>
-                                    </a>
+                                    <a href="{% url 'directory:siz:siz_personal_card' employee.id %}" class="btn btn-warning" title="Карточка СИЗ">🛡️</a>
                                     {% endif %}
-                                    <a href="{% url 'directory:employees:employee_delete' employee.id %}" class="btn btn-danger" title="Удалить">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
+                                    <form method="post" action="{% url 'directory:employees:employee_delete' employee.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Уволить сотрудника «{{ employee.full_name_nominative }}»?\n\nСотрудник будет скрыт из рабочих разделов.')"
+                                                title="Сотрудник уволен">🚫 Уволен</button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

@@ -7,7 +7,7 @@ from directory.models.siz import SIZ, SIZNorm, ProfessionSIZNorm
 from directory.models.position import Position
 from directory.forms.siz import SIZForm, SIZNormForm
 from import_export import resources, fields, widgets
-from import_export.admin import ImportExportModelAdmin
+from import_export.admin import ExportMixin, ImportExportModelAdmin
 from django.db.models import Count, Case, When, Value, IntegerField, Q
 from django.utils.translation import ngettext
 from django.contrib import messages
@@ -146,8 +146,12 @@ class SIZNormInlineForPosition(admin.TabularInline):
 
 
 @admin.register(SIZNorm)
-class SIZNormAdmin(ImportExportModelAdmin):
-    """📊 Административный интерфейс для норм выдачи СИЗ"""
+class SIZNormAdmin(ExportMixin, admin.ModelAdmin):
+    """📊 Административный интерфейс для норм выдачи СИЗ
+
+    Импорт отключён: нормы из файлов должны попадать в эталонный справочник
+    (ProfessionSIZNormAdmin), а не в переопределённые нормы должностей.
+    """
     resource_class = SIZNormResource
     form = SIZNormForm
     change_form_template = "admin/directory/siznorm/change_form.html"

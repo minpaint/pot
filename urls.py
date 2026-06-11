@@ -9,6 +9,7 @@ from directory.error_handlers import error_400, error_403, error_404, error_500
 from directory.views.home import HomePageView
 # Импортируем AJAX view для древовидных представлений
 from directory.views.admin_tree_ajax import load_tree_children
+from urllib.parse import quote
 import os
 
 # ВАЖНО: Регистрируем кастомные admin URLs ДО определения urlpatterns
@@ -22,18 +23,39 @@ register_registry_import(admin.site)
 register_system_tools(admin.site)
 
 
-def debug_headers(request):
-    """Временный endpoint для диагностики CSRF проблем"""
-    headers_info = []
-    headers_info.append(f"REQUEST METHOD: {request.method}")
-    headers_info.append(f"is_secure(): {request.is_secure()}")
-    headers_info.append(f"scheme: {request.scheme}")
-    headers_info.append("")
-    headers_info.append("=== META headers ===")
-    for key, value in sorted(request.META.items()):
-        if key.startswith('HTTP_') or key in ('REMOTE_ADDR', 'SERVER_NAME', 'SERVER_PORT'):
-            headers_info.append(f"{key}: {value}")
-    return HttpResponse("\n".join(headers_info), content_type="text/plain")
+def protected_media(request, path):
+    """
+    Отдаёт media-файлы только авторизованным пользователям.
+
+    Без этой защиты весь MEDIA_ROOT (медосмотры, протоколы, удостоверения,
+    шаблоны) был доступен анонимно по угадываемым путям — утечка ПДн.
+
+    Правила доступа (см. directory.utils.media_access.can_access_media):
+      - quiz/* — по логину ИЛИ токен-режиму экзамена (exam.* поддомен);
+      - файлы с ПДн (medical_referrals/medical_certificates/generated_documents) —
+        только если организация связанного сотрудника доступна пользователю
+        (горизонтальная изоляция между организациями);
+      - generation_jobs/* — только владельцу задачи;
+      - document_templates/* и прочее — любому аутентифицированному.
+
+    Запрет отдаём как 404 (а не 403), чтобы не подтверждать существование файла.
+    """
+    from directory.utils.media_access import can_access_media
+
+    if not can_access_media(request, path):
+        raise Http404()
+
+    # В production файл отдаёт сам nginx по внутреннему редиректу (X-Accel-Redirect),
+    # чтобы не гонять байты через gunicorn-воркеры. В dev (без nginx) — serve напрямую.
+    if getattr(settings, 'MEDIA_X_ACCEL_REDIRECT', False):
+        prefix = getattr(settings, 'MEDIA_X_ACCEL_PREFIX', '/protected_media/')
+        response = HttpResponse()
+        # Пусть nginx сам определит Content-Type/Content-Length из internal-location.
+        response['Content-Type'] = ''
+        response['X-Accel-Redirect'] = prefix + quote(path)
+        return response
+
+    return serve(request, path, document_root=settings.MEDIA_ROOT)
 
 
 def serve_verification_file(request, filename):
@@ -61,9 +83,6 @@ def serve_verification_file(request, filename):
 
 
 urlpatterns = [
-    # Диагностика заголовков (ВРЕМЕННО для отладки CSRF)
-    path('debug-headers/', debug_headers, name='debug_headers'),
-
     # Главная страница - дашборд + быстрый доступ + статистика + сотрудники
     path('', HomePageView.as_view(), name='home'),
 
@@ -103,14 +122,13 @@ urlpatterns = [
     path('robots.txt', serve_verification_file, {'filename': 'robots.txt'}, name='robots'),
 ]
 
-# Обслуживание media файлов для ВСЕХ доменов (включая exam.localhost)
-# Используем django.views.static.serve, так как проект работает без внешнего веб-сервера для media.
+# Обслуживание media файлов для ВСЕХ доменов (включая exam.localhost).
+# ВАЖНО: только через protected_media (проверка авторизации), НЕ напрямую serve,
+# иначе весь MEDIA_ROOT (ПДн, медосмотры, документы) доступен анонимно.
 media_prefix = settings.MEDIA_URL.lstrip('/').rstrip('/')
 if media_prefix:
     urlpatterns += [
-        re_path(rf'^{media_prefix}/(?P<path>.*)$', serve, {
-            'document_root': settings.MEDIA_ROOT,
-        }),
+        re_path(rf'^{media_prefix}/(?P<path>.*)$', protected_media),
     ]
 
 # Настройки для режима разработки

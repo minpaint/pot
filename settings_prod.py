@@ -42,6 +42,12 @@ STATICFILES_DIRS = [
 STATIC_ROOT = Path(os.getenv('STATIC_ROOT', '/home/django/webapps/potby/staticfiles'))
 MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', '/home/django/webapps/potby/media'))
 
+# Защищённая раздача media: Django проверяет авторизацию в protected_media (urls.py),
+# а сам файл отдаёт nginx по внутреннему редиректу X-Accel-Redirect (без нагрузки на
+# gunicorn-воркеры). Требует internal-location /protected_media/ в конфиге nginx.
+MEDIA_X_ACCEL_REDIRECT = True
+MEDIA_X_ACCEL_PREFIX = '/protected_media/'
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',

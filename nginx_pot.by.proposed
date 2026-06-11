@@ -1,0 +1,78 @@
+ # Основной домен
+  server {
+      listen 80;
+      server_name pot.by www.pot.by 192.168.37.10;
+
+      client_max_body_size 50M;
+
+      location /static/ {
+          alias /home/django/webapps/potby/staticfiles/;
+          expires 30d;
+          add_header Cache-Control "public, immutable";
+      }
+
+      # /media/ теперь идёт через Django (protected_media) для проверки авторизации.
+      # Django проверяет права и возвращает X-Accel-Redirect; файл отдаёт nginx ниже.
+      location /media/ {
+          proxy_pass http://192.168.37.10:8020;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }
+
+      # Внутренняя локация: nginx отдаёт файл только по X-Accel-Redirect от Django.
+      # Снаружи напрямую недоступна (internal).
+      location /protected_media/ {
+          internal;
+          alias /home/django/webapps/potby/media/;
+          expires 7d;
+      }
+
+      location / {
+      proxy_pass http://192.168.37.10:8020;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  }
+
+  # Exam поддомен
+  server {
+      listen 80;
+      server_name exam.pot.by;
+
+      client_max_body_size 50M;
+
+      location /static/ {
+          alias /home/django/webapps/potby/staticfiles/;
+          expires 30d;
+      }
+
+      # /media/ через Django (картинки квизов доступны в токен-режиме экзамена).
+      location /media/ {
+          proxy_pass http://192.168.37.10:8020;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }
+
+      location /protected_media/ {
+          internal;
+          alias /home/django/webapps/potby/media/;
+          expires 7d;
+      }
+
+      location / {
+          proxy_pass http://192.168.37.10:8020;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }
+
+      add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+  }

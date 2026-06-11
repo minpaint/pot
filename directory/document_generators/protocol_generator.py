@@ -286,7 +286,138 @@ def _remove_empty_paragraphs_after_table(doc, table):
         body.remove(element)
 
 
-def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type: str = 'периодическая'):
+def _inject_numbering_into_bytes(doc_bytes: bytes) -> tuple:
+    """
+    Добавляет numbering.xml в DOCX (ZIP-уровень).
+    Возвращает (новые байты документа, numId).
+    """
+    import zipfile, re
+    from io import BytesIO
+
+    W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    REL_NUMBERING = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering'
+    CT_NUMBERING = 'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'
+
+    numbering_xml = (
+        '<?xml version=\'1.0\' encoding=\'UTF-8\' standalone=\'yes\'?>'
+        f'<w:numbering xmlns:w="{W}">'
+        f'<w:abstractNum w:abstractNumId="0">'
+        f'<w:multiLevelType w:val="singleLevel"/>'
+        f'<w:lvl w:ilvl="0">'
+        f'<w:start w:val="1"/>'
+        f'<w:numFmt w:val="decimal"/>'
+        f'<w:lvlText w:val="%1"/>'
+        f'<w:lvlJc w:val="center"/>'
+        f'<w:pPr><w:ind w:left="0" w:hanging="0"/></w:pPr>'
+        f'<w:rPr>'
+        f'<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+        f'<w:sz w:val="24"/><w:szCs w:val="24"/>'
+        f'</w:rPr>'
+        f'</w:lvl>'
+        f'</w:abstractNum>'
+        f'<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
+        f'</w:numbering>'
+    )
+
+    in_buf = BytesIO(doc_bytes)
+    out_buf = BytesIO()
+    num_id = 1
+
+    with zipfile.ZipFile(in_buf, 'r') as zin, \
+         zipfile.ZipFile(out_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+
+        has_numbering = 'word/numbering.xml' in zin.namelist()
+
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+
+            if item.filename == 'word/numbering.xml':
+                # Уже есть — добавляем новый abstractNum/num
+                text = data.decode('utf-8')
+                existing_ids = [int(x) for x in re.findall(r'w:numId="(\d+)"', text)]
+                num_id = max(existing_ids, default=0) + 1
+                abstract_ids = [int(x) for x in re.findall(r'w:abstractNumId="(\d+)"', text)]
+                abstract_id = max(abstract_ids, default=-1) + 1
+
+                new_block = (
+                    f'<w:abstractNum xmlns:w="{W}" w:abstractNumId="{abstract_id}">'
+                    f'<w:multiLevelType w:val="singleLevel"/>'
+                    f'<w:lvl w:ilvl="0">'
+                    f'<w:start w:val="1"/><w:numFmt w:val="decimal"/>'
+                    f'<w:lvlText w:val="%1"/><w:lvlJc w:val="center"/>'
+                    f'<w:pPr><w:ind w:left="0" w:hanging="0"/></w:pPr>'
+                    f'<w:rPr>'
+                    f'<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+                    f'<w:sz w:val="24"/><w:szCs w:val="24"/>'
+                    f'</w:rPr></w:lvl></w:abstractNum>'
+                    f'<w:num w:numId="{num_id}"><w:abstractNumId w:val="{abstract_id}"/></w:num>'
+                )
+                # Вставляем перед закрывающим тегом
+                text = text.replace('</w:numbering>', new_block + '</w:numbering>')
+                data = text.encode('utf-8')
+
+            elif item.filename == 'word/_rels/document.xml.rels' and not has_numbering:
+                text = data.decode('utf-8')
+                new_rel = (
+                    f'<Relationship Id="rIdNum1" '
+                    f'Type="{REL_NUMBERING}" '
+                    f'Target="numbering.xml"/>'
+                )
+                text = text.replace('</Relationships>', new_rel + '</Relationships>')
+                data = text.encode('utf-8')
+
+            elif item.filename == '[Content_Types].xml' and not has_numbering:
+                text = data.decode('utf-8')
+                new_ct = (
+                    f'<Override PartName="/word/numbering.xml" '
+                    f'ContentType="{CT_NUMBERING}"/>'
+                )
+                text = text.replace('</Types>', new_ct + '</Types>')
+                data = text.encode('utf-8')
+
+            zout.writestr(item, data)
+
+        if not has_numbering:
+            zout.writestr('word/numbering.xml', numbering_xml.encode('utf-8'))
+
+    out_buf.seek(0)
+    return out_buf.getvalue(), num_id
+
+
+def _apply_list_numbering(cell, num_id: int) -> None:
+    """Применяет нумерацию абзаца (w:numPr) к первому параграфу ячейки."""
+    from docx.oxml import parse_xml, OxmlElement
+    W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
+    p = cell.paragraphs[0]._p
+
+    pPr = p.find(f'{{{W}}}pPr')
+    if pPr is None:
+        pPr = OxmlElement('w:pPr')
+        p.insert(0, pPr)
+
+    existing = pPr.find(f'{{{W}}}numPr')
+    if existing is not None:
+        pPr.remove(existing)
+
+    numPr = parse_xml(
+        f'<w:numPr xmlns:w="{W}">'
+        f'<w:ilvl w:val="0"/>'
+        f'<w:numId w:val="{num_id}"/>'
+        f'</w:numPr>'
+    )
+    pPr.insert(0, numPr)
+
+    jc = pPr.find(f'{{{W}}}jc')
+    if jc is None:
+        jc = parse_xml(f'<w:jc xmlns:w="{W}" w:val="center"/>')
+        pPr.append(jc)
+
+    for r in p.findall(f'{{{W}}}r'):
+        p.remove(r)
+
+
+def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type: str = 'периодическая', num_id: int = None):
     """
     Append rows with employee data to the protocol table.
 
@@ -294,6 +425,7 @@ def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type:
         table: Таблица документа Word
         employees_data: Данные сотрудников для заполнения
         check_type: Тип проверки знаний ('первичная' или 'периодическая')
+        num_id: numId нумерации Word для первой колонки (None = текстовая нумерация)
     """
     from docx.shared import Pt
     from docx.oxml import parse_xml
@@ -304,9 +436,10 @@ def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type:
         cells = row.cells
         cols = len(cells)
 
-        # Заполняем ячейки данными
-        # Используем сквозную нумерацию (стандартная практика для протоколов)
-        cells[0].text = str(idx)
+        if num_id is not None:
+            _apply_list_numbering(cells[0], num_id)
+        else:
+            cells[0].text = str(idx)
         if cols > 1:
             cells[1].text = emp.get('fio_nominative', '')
         if cols > 2:
@@ -401,22 +534,10 @@ def generate_periodic_protocol(
         context.setdefault('secretary_position', secretary.get('position', '').lower() if secretary.get('position') else '')
         context.setdefault('secretary_name_initials', secretary.get('name_initials', ''))
 
-        members = cdata.get('members_formatted', [])
-        context.setdefault('members_formatted', members)
-
-        # Форматирование членов комиссии для шаблона
-        members_paragraphs = [
-            f"{m['name']} - {m['position'].lower()}"
-            for m in members
-        ]
-        context['members_paragraphs'] = members_paragraphs
-        logger.info(f"[periodic_protocol] Сформировано {len(members_paragraphs)} членов комиссии: {members_paragraphs}")
-
-        # Параграфы с инициалами для членов комиссии
-        members_initials_paragraphs = [
-            m['name_initials'] for m in members
-        ]
-        context['members_initials_paragraphs'] = members_initials_paragraphs
+        # Члены комиссии в периодическом протоколе не выводятся
+        context['members_formatted'] = []
+        context['members_paragraphs'] = []
+        context['members_initials_paragraphs'] = []
 
         # Определяем binding по уровню найденной комиссии, а не по grouping_name
         # grouping_name используется только для группировки файлов, но не влияет на состав комиссии
@@ -436,6 +557,13 @@ def generate_periodic_protocol(
         if custom_context:
             context.update(custom_context)
 
+        # ID сотрудников, которые сами являются членами комиссии — их не проверяем
+        commission_member_ids = set()
+        if commission:
+            commission_member_ids = set(
+                commission.members.filter(is_active=True).values_list('employee_id', flat=True)
+            )
+
         # Импортируем утилиты для управления автомобилем
         from directory.utils.vehicle_utils import (
             needs_vehicle_training,
@@ -443,7 +571,10 @@ def generate_periodic_protocol(
         )
 
         employees_data = []
-        for idx, emp in enumerate(employees, start=1):
+        for emp in employees:
+            if emp.id in commission_member_ids:
+                logger.info(f"[periodic_protocol] Пропущен член комиссии: {emp.full_name_nominative}")
+                continue
             emp_ctx = prepare_employee_context(emp)
 
             # Проверка знаний по профессии - всегда добавляем основную должность
@@ -479,18 +610,31 @@ def generate_periodic_protocol(
         table = _find_periodic_table(doc.docx)
         if table:
             _reset_periodic_table(table)
-            # Заполняем таблицу с типом проверки "периодическая"
-            _fill_periodic_rows(table, employees_data, check_type='периодическая')
-
-            # Удаляем лишние пустые параграфы после таблицы
+            # Заполняем таблицу — номер пока текстом, заменим после сохранения
+            _fill_periodic_rows(table, employees_data, check_type='периодическая', num_id=None)
             _remove_empty_paragraphs_after_table(doc.docx, table)
 
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)
 
+        # Встраиваем numbering.xml в ZIP и получаем numId
+        raw_bytes, num_id = _inject_numbering_into_bytes(buffer.getvalue())
+
+        # Перечитываем документ, заменяем текстовую нумерацию на Word-нумерацию
+        from docx import Document as DocxDocument
+        doc2 = DocxDocument(BytesIO(raw_bytes))
+        tbl2 = _find_periodic_table(doc2)
+        if tbl2:
+            for row_idx, row in enumerate(tbl2.rows[1:], start=1):
+                _apply_list_numbering(row.cells[0], num_id)
+
+        buf2 = BytesIO()
+        doc2.save(buf2)
+        buf2.seek(0)
+
         # Очищаем пустые параграфы и строки (колонтитулы шаблона сохраняем)
-        cleaned_content = clean_document(buffer.getvalue(), keep_headers_footers=True)
+        cleaned_content = clean_document(buf2.getvalue(), keep_headers_footers=True)
 
         # Формируем имя файла на основе grouping_name или организации
         if grouping_name:

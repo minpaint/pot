@@ -156,6 +156,29 @@
     .exam-feedback.show {
         display: block;
     }
+    .exam-error-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        background: #fde8e8;
+        color: #c0392b;
+        border: 1px solid #f5c2c2;
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 0.92rem;
+        font-weight: 600;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+        z-index: 2000;
+        max-width: 92%;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+    }
+    .exam-error-toast.show {
+        opacity: 1;
+    }
     .exam-image-box {
         background: transparent;
         border-radius: 0;
@@ -869,6 +892,30 @@
             }
         }
 
+        function unlockAnswers() {
+            answers.forEach((item) => item.classList.remove('disabled'));
+            if (skipBtn && allowSkip) {
+                skipBtn.disabled = false;
+            }
+        }
+
+        let errorToastTimer = null;
+        function showErrorToast(message) {
+            let toast = document.getElementById('exam-error-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'exam-error-toast';
+                toast.className = 'exam-error-toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.add('show');
+            if (errorToastTimer) {
+                clearTimeout(errorToastTimer);
+            }
+            errorToastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
         let currentExplanation = '';
         let currentNextUrl = '';
         let selectedAnswerId = null;
@@ -956,10 +1003,20 @@
                 },
                 body: new URLSearchParams(payload)
             })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
                 .then(handleResponse)
-                .catch(() => {
-                    window.location.href = resultUrl;
+                .catch((err) => {
+                    // Мягкая обработка: НЕ завершаем тренировку из-за сбоя сети/сервера.
+                    // Разблокируем ответы и даём повторить попытку.
+                    console.error('Ошибка отправки ответа:', err);
+                    unlockAnswers();
+                    selectedAnswerId = null;
+                    showErrorToast('Не удалось сохранить ответ. Проверьте соединение и попробуйте ещё раз.');
                 });
         }
 

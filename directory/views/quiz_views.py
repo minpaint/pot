@@ -42,6 +42,23 @@ def _find_first_skipped_question(attempt: QuizAttempt) -> Optional[int]:
     return None
 
 
+def _get_ordered_question_ids(attempt: QuizAttempt, request=None) -> list:
+    """Список id вопросов попытки в правильном порядке.
+
+    Приоритет — QuizQuestionOrder (БД); сессия используется только как fallback.
+    Раньше quiz_answer брал порядок ТОЛЬКО из сессии, а она может быть потеряна
+    (попытка создана на pot.by, ответ идёт с exam.pot.by — разные cookie-сессии;
+    либо сессия истекла/пересоздалась). Тогда `[].index(question_id)` падал с 500,
+    фронтенд по .catch() уходил на экран результатов — «после 1 вопроса выбросило».
+    """
+    question_orders = QuizQuestionOrder.objects.filter(attempt=attempt).order_by('order')
+    if question_orders.exists():
+        return [qo.question_id for qo in question_orders]
+    if request is not None:
+        return request.session.get(f'quiz_questions_{attempt.id}', []) or []
+    return []
+
+
 def _finalize_attempt(attempt: QuizAttempt, request, failure_reason: str = QuizAttempt.FAILURE_NONE):
     """Фиксируем завершение попытки и очищаем сессию."""
     if attempt.status != QuizAttempt.STATUS_COMPLETED:
@@ -413,7 +430,7 @@ def quiz_answer(request, attempt_id, question_id):
 
     if existing_answer:
         # Уже отвечали на этот вопрос
-        question_ids = request.session.get(f'quiz_questions_{attempt.id}', [])
+        question_ids = _get_ordered_question_ids(attempt, request)
         current_index = question_ids.index(question_id)
         next_question = current_index + 2  # +1 для индекса, +1 для следующего
 
@@ -456,7 +473,7 @@ def quiz_answer(request, attempt_id, question_id):
                 'redirect': result_url
             })
 
-        question_ids = request.session.get(f'quiz_questions_{attempt.id}', [])
+        question_ids = _get_ordered_question_ids(attempt, request)
         current_index = question_ids.index(question_id)
         next_question = current_index + 2
         if next_question <= len(question_ids):
@@ -511,7 +528,7 @@ def quiz_answer(request, attempt_id, question_id):
     correct_answer = question.get_correct_answer()
 
     # Определяем, есть ли еще вопросы
-    question_ids = request.session.get(f'quiz_questions_{attempt.id}', [])
+    question_ids = _get_ordered_question_ids(attempt, request)
     current_index = question_ids.index(question_id)
     has_next = current_index < len(question_ids) - 1
 

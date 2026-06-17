@@ -338,7 +338,7 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'logs/django.log', # Путь к файлу логов
             'formatter': 'verbose',
-            'level': 'DEBUG', # Уровень для файла (более детальный)
+            'level': 'INFO', # INFO в проде: DEBUG раздувал лог трейсбеками django.template
             'encoding': 'utf-8', # Явно указываем кодировку UTF-8
         },
         'django.server': { # Обработчик для логов сервера разработки
@@ -370,6 +370,11 @@ LOGGING = {
         'django.db.backends': { # Логгер для SQL-запросов (если нужно)
             'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO', # Показывать SQL только в DEBUG
+            'propagate': False,
+        },
+        'django.template': { # Резолв переменных в шаблонах шумит DEBUG-трейсбеками
+            'handlers': ['console'],
+            'level': 'INFO', # не ниже INFO, иначе VariableDoesNotExist засоряет лог
             'propagate': False,
         },
         'directory': { # Логгер для вашего приложения 'directory'

@@ -124,17 +124,30 @@ class OTAdminSite(AdminSite):
         for app in app_list:
             all_models.extend(app['models'])
 
-        # Распределение по группам
+        # Распределение по группам.
+        # app_url/app_label обязательны: admin/nav_sidebar.html обращается к
+        # app.app_url, и без них каждый рендер админки писал в лог трейсбек
+        # VariableDoesNotExist. Группы синтетические, поэтому app_url = '#'.
         grouped_apps = OrderedDict()
-        for section, models in self.MENU_ORDER.items():
-            grouped_apps[section] = {'name': section, 'models': []}
+        for idx, (section, models) in enumerate(self.MENU_ORDER.items()):
+            grouped_apps[section] = {
+                'name': section,
+                'app_label': f'group_{idx}',
+                'app_url': '#',
+                'models': [],
+            }
             for model in models:
                 for m in all_models:
                     if m['object_name'] == model:
                         grouped_apps[section]['models'].append(m)
 
         # Экзамены
-        grouped_apps["💻 Проверка знаний"] = {'name': "💻 Проверка знаний", 'models': []}
+        grouped_apps["💻 Проверка знаний"] = {
+            'name': "💻 Проверка знаний",
+            'app_label': 'group_quiz',
+            'app_url': '#',
+            'models': [],
+        }
         for m in all_models:
             if not any(m['object_name'] in models for models in self.MENU_ORDER.values()):
                 grouped_apps["💻 Проверка знаний"]['models'].append(m)

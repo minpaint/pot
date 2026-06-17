@@ -42,10 +42,13 @@ STATICFILES_DIRS = [
 STATIC_ROOT = Path(os.getenv('STATIC_ROOT', '/home/django/webapps/potby/staticfiles'))
 MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', '/home/django/webapps/potby/media'))
 
-# Защищённая раздача media: Django проверяет авторизацию в protected_media (urls.py),
-# а сам файл отдаёт nginx по внутреннему редиректу X-Accel-Redirect (без нагрузки на
-# gunicorn-воркеры). Требует internal-location /protected_media/ в конфиге nginx.
-MEDIA_X_ACCEL_REDIRECT = True
+# Защищённая раздача media: Django проверяет авторизацию в protected_media (urls.py).
+# X-Accel-Redirect ОТКЛЮЧЕН: фронтальный nginx CWP проксирует напрямую в gunicorn
+# (минуя локальный nginx .10) и не имеет internal-локации /protected_media/, поэтому
+# X-Accel давал 404 на всех media-файлах. С False Django сам отдаёт байты файла
+# (после проверки прав) — совместимо со схемой CWP->gunicorn. Если фронт когда-нибудь
+# начнёт обрабатывать /protected_media/ (internal + alias), можно вернуть True.
+MEDIA_X_ACCEL_REDIRECT = False
 MEDIA_X_ACCEL_PREFIX = '/protected_media/'
 
 STORAGES = {

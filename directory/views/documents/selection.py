@@ -15,6 +15,7 @@ from directory.models import Employee
 from directory.models.document_template import DocumentTemplate, DocumentGenerationLog
 from directory.forms.document_forms import DocumentSelectionForm
 from directory.utils.declension import get_initials_from_name
+from directory.utils import is_employee_commission_member
 # --- Обновленные импорты ---
 from directory.document_generators.base import get_document_template  # Базовая функция для получения шаблона
 from directory.utils.docx_generator import analyze_template  # Для проверки шаблона
@@ -41,7 +42,7 @@ def get_auto_selected_document_types(employee):
     2. Если срок стажировки > 0 и есть договор подряда: только Протокол проверки знаний
     3. Если у должности есть связанные документы: Лист ознакомления
     4. Если у должности есть нормы СИЗ: Карточка учета СИЗ
-    5. Для всех подрядчиков добавляем Личную карточку по ОТ
+    5. Для всех сотрудников (штатных и подрядчиков) добавляем Личную карточку по ОТ
     6. Если управляет служебным автомобилем: ВСЕГДА Распоряжения + Протокол проверки знаний
     7. Если у должности есть виды ответственности: ВСЕГДА Протокол проверки знаний
     8. Для ВСЕХ сотрудников: ВСЕГДА Образец заполнения журнала
@@ -83,14 +84,20 @@ def get_auto_selected_document_types(employee):
             document_types.append('all_orders')
 
     # Протокол проверки знаний - если есть стажировка ИЛИ ответственный за ОТ ИЛИ типы ответственности
-    if internship_period > 0 or is_responsible_for_safety or has_responsibility_types:
+    if (
+        (internship_period > 0 or is_responsible_for_safety or has_responsibility_types)
+        and not is_employee_commission_member(employee)
+    ):
         document_types.append('knowledge_protocol')
 
     # ВОДИТЕЛЬ СЛУЖЕБНОГО АВТОМОБИЛЯ: всегда нужны распоряжения и протокол
     if drives_company_vehicle:
         if 'all_orders' not in document_types:
             document_types.append('all_orders')
-        if 'knowledge_protocol' not in document_types:
+        if (
+            'knowledge_protocol' not in document_types
+            and not is_employee_commission_member(employee)
+        ):
             document_types.append('knowledge_protocol')
 
     # Проверяем связанные документы для должности
@@ -118,8 +125,8 @@ def get_auto_selected_document_types(employee):
     if has_siz_norms:
         document_types.append('siz_card')
 
-    # Если есть договор подряда, добавляем Личную карточку по ОТ
-    if is_contractor:
+    # Личная карточка по ОТ — для всех сотрудников (штатных и подрядчиков)
+    if 'personal_ot_card' not in document_types:
         document_types.append('personal_ot_card')
 
     # ОБРАЗЕЦ ЗАПОЛНЕНИЯ ЖУРНАЛА - для ВСЕХ сотрудников

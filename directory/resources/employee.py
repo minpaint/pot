@@ -1,10 +1,60 @@
 """
 👥 Resource для импорта/экспорта сотрудников
 """
+import re
 from import_export import resources, fields, widgets
 from directory.models import Employee, Organization, StructuralSubdivision, Department, Position
 from django.core.exceptions import ValidationError
 from datetime import datetime
+
+
+# Символы кавычек, которые приводим к единому виду при сравнении названий организаций
+_QUOTE_CHARS = '«»„“”"\'`'
+_QUOTE_RE = re.compile('[' + re.escape(_QUOTE_CHARS) + ']')
+
+
+def _normalize_org_name(name: str) -> str:
+    """
+    Нормализует название организации для сравнения без учёта кавычек и регистра.
+
+    Убирает любые виды кавычек (« » „ “ ” " ' `), сводит пробелы к одному
+    и приводит к нижнему регистру. Используется, чтобы импорт не плодил дубли
+    организаций из-за разного стиля кавычек (напр. «Новотент» vs "Новотент").
+    """
+    if not name:
+        return ''
+    cleaned = _QUOTE_RE.sub('', str(name))
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    return cleaned.strip().lower()
+
+
+def find_organization_by_name(org_short_name: str):
+    """
+    Ищет организацию по короткому названию без учёта кавычек и регистра.
+
+    Сначала пробует точное совпадение, затем iexact, затем нормализованное
+    сравнение по всем организациям. Возвращает Organization или None.
+    """
+    if not org_short_name:
+        return None
+
+    # 1. Быстрый путь — точное совпадение
+    org = Organization.objects.filter(short_name_ru=org_short_name).first()
+    if org:
+        return org
+
+    # 2. Совпадение без учёта регистра
+    org = Organization.objects.filter(short_name_ru__iexact=org_short_name).first()
+    if org:
+        return org
+
+    # 3. Нормализованное сравнение (без кавычек и регистра)
+    target = _normalize_org_name(org_short_name)
+    for candidate in Organization.objects.all():
+        if _normalize_org_name(candidate.short_name_ru) == target:
+            return candidate
+
+    return None
 
 
 class RussianDateWidget(widgets.DateWidget):
@@ -148,16 +198,17 @@ class EmployeeResource(resources.ModelResource):
         if department_name and not subdivision_name:
             raise ValidationError('Нельзя указать отдел без структурного подразделения')
 
-        # 3. Создаем или находим организацию
-        organization, _ = Organization.objects.get_or_create(
-            short_name_ru=org_short_name,
-            defaults={
-                'full_name_ru': org_short_name,
-                'short_name_by': org_short_name,
-                'full_name_by': org_short_name,
-                'location': 'г. Минск'
-            }
-        )
+        # 3. Находим организацию без учёта кавычек и регистра, чтобы не плодить дубли
+        #    (напр. «Новотент Групп» и "Новотент Групп" — это одна организация)
+        organization = find_organization_by_name(org_short_name)
+        if organization is None:
+            organization = Organization.objects.create(
+                short_name_ru=org_short_name,
+                full_name_ru=org_short_name,
+                short_name_by=org_short_name,
+                full_name_by=org_short_name,
+                location='г. Минск',
+            )
 
         # 4. Создаем или находим подразделение (если указано)
         subdivision = None

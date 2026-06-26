@@ -4,6 +4,7 @@ Organization → StructuralSubdivision → Department → Position
 """
 from import_export import resources, fields, widgets
 from directory.models import Organization, StructuralSubdivision, Department, Position
+from directory.resources.employee import find_organization_by_name
 from django.core.exceptions import ValidationError
 
 
@@ -133,16 +134,17 @@ class OrganizationStructureResource(resources.ModelResource):
         if department_name and not subdivision_name:
             raise ValidationError('Нельзя указать отдел без структурного подразделения')
 
-        # 3. Создаем или находим организацию
-        organization, _ = Organization.objects.get_or_create(
-            short_name_ru=org_short_name,
-            defaults={
-                'full_name_ru': org_short_name,
-                'short_name_by': org_short_name,
-                'full_name_by': org_short_name,
-                'location': 'г. Минск'
-            }
-        )
+        # 3. Находим организацию без учёта кавычек и регистра, чтобы не плодить дубли
+        #    (напр. «Новотент Групп» и "Новотент Групп" — это одна организация)
+        organization = find_organization_by_name(org_short_name)
+        if organization is None:
+            organization = Organization.objects.create(
+                short_name_ru=org_short_name,
+                full_name_ru=org_short_name,
+                short_name_by=org_short_name,
+                full_name_by=org_short_name,
+                location='г. Минск',
+            )
 
         # 4. Создаем или находим подразделение (если указано)
         subdivision = None

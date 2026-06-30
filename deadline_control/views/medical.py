@@ -47,9 +47,7 @@ class MedicalExaminationListView(LoginRequiredMixin, ListView):
         # Находим сотрудников, чья должность требует медосмотров:
         # - Либо у должности есть PositionMedicalFactor
         # - Либо название должности есть в MedicalExaminationNorm
-        qs = Employee.objects.exclude(
-            status__in=['candidate', 'fired']
-        ).filter(
+        qs = Employee.objects.active_for_operations().filter(
             Q(position__medical_factors__isnull=False) |  # Есть переопределения
             Q(position__position_name__in=position_names_with_norms)  # Есть в эталонах
         ).distinct()
@@ -116,7 +114,12 @@ class MedicalExaminationListView(LoginRequiredMixin, ListView):
 @require_POST
 def update_medical_date(request, pk):
     """Обновление даты следующего медосмотра (ручное редактирование)"""
-    exam = get_object_or_404(EmployeeMedicalExamination, pk=pk)
+    exam = get_object_or_404(
+        EmployeeMedicalExamination,
+        employee__marked_for_deletion=False,
+        employee__status='active',
+        pk=pk,
+    )
 
     # Проверка прав доступа
     if not request.user.is_superuser and hasattr(request.user, 'profile'):
@@ -159,7 +162,7 @@ def update_employee_medical_examinations(request, employee_id):
     """
     from directory.models import Employee
 
-    employee = get_object_or_404(Employee, pk=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
     # Проверка прав доступа
     if not request.user.is_superuser and hasattr(request.user, 'profile'):
@@ -244,7 +247,12 @@ def perform_medical_examination(request, pk):
     Проведение медицинского осмотра - аналог perform_maintenance для оборудования.
     Автоматически рассчитывает следующую дату на основе периодичности вредного фактора.
     """
-    exam = get_object_or_404(EmployeeMedicalExamination, pk=pk)
+    exam = get_object_or_404(
+        EmployeeMedicalExamination,
+        employee__marked_for_deletion=False,
+        employee__status='active',
+        pk=pk,
+    )
 
     # Проверка прав доступа
     if not request.user.is_superuser and hasattr(request.user, 'profile'):
@@ -302,7 +310,7 @@ def update_multiple_medical_examinations(request):
         return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
 
     # Получаем queryset сотрудников для обновления
-    qs = Employee.objects.filter(id__in=employee_ids)
+    qs = Employee.objects.active_for_operations().filter(id__in=employee_ids)
 
     # Проверка прав доступа: все выбранные сотрудники должны быть в доступных организациях
     if not request.user.is_superuser and hasattr(request.user, 'profile'):
@@ -369,7 +377,7 @@ class EmployeeMedicalDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'employee'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().active_for_operations()
 
         # Фильтрация по организациям
         if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):

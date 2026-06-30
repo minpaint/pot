@@ -153,6 +153,10 @@ class EmployeeMedicalExaminationForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["employee"].queryset = Employee.objects.active_for_operations()
+
     def clean(self):
         cd = super().clean()
         d1, d2 = cd.get("date_completed"), cd.get("next_date")

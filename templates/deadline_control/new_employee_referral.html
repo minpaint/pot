@@ -141,9 +141,11 @@
                 <label for="position_name" class="required">Профессия (должность)</label>
                 <select name="position_name" id="position_name" class="form-control" required>
                     <option value="">-- Выберите профессию --</option>
-                    {% for name in position_names %}
-                    <option value="{{ name }}" {% if form_data.position_name == name %}selected{% endif %}>
-                        {{ name }}
+                    {% for position in position_options %}
+                    <option value="{{ position.position_name }}"
+                            data-organization-id="{{ position.organization_id }}"
+                            {% if form_data.position_name == position.position_name and form_data.organization_id == position.organization_id|stringformat:"s" %}selected{% endif %}>
+                        {{ position.position_name }}
                     </option>
                     {% endfor %}
                 </select>
@@ -156,4 +158,37 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const organizationSelect = document.getElementById('organization_id');
+    const positionSelect = document.getElementById('position_name');
+    if (!organizationSelect || !positionSelect) {
+        return;
+    }
+
+    const allOptions = Array.from(positionSelect.querySelectorAll('option[data-organization-id]'));
+
+    function filterPositions() {
+        const selectedOrgId = organizationSelect.value;
+        const selectedPositionStillVisible = positionSelect.selectedOptions.length &&
+            positionSelect.selectedOptions[0].dataset.organizationId === selectedOrgId;
+
+        allOptions.forEach(function(option) {
+            const matchesOrg = selectedOrgId && option.dataset.organizationId === selectedOrgId;
+            option.hidden = !matchesOrg;
+            option.disabled = !matchesOrg;
+        });
+
+        if (!selectedPositionStillVisible) {
+            positionSelect.value = '';
+        }
+    }
+
+    organizationSelect.addEventListener('change', filterPositions);
+    filterPositions();
+});
+</script>
 {% endblock %}

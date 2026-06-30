@@ -155,7 +155,7 @@ class Command(BaseCommand):
                 continue
 
             # Получаем ВСЕХ сотрудников организации (включая тех, у кого вообще нет медосмотров)
-            employees_qs = Employee.objects.filter(
+            employees_qs = Employee.objects.active_for_operations().filter(
                 organization=organization
             ).select_related(
                 'organization',

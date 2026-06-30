@@ -112,6 +112,7 @@ class ExamSubdomainMiddleware:
             "img-src 'self' data: https:; "
             "font-src 'self' https://cdnjs.cloudflare.com; "
             "connect-src 'self' https://cdn.jsdelivr.net https://code.jquery.com; "
+            "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; "
             "frame-ancestors 'none'; "
             "base-uri 'self';"
         )

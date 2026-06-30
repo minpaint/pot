@@ -100,6 +100,37 @@ def get_medical_referral_template(organization):
     return None
 
 
+def get_accessible_referral_organizations(request):
+    return AccessControlHelper.get_accessible_organizations(request.user, request).order_by('short_name_ru', 'full_name_ru')
+
+
+def get_selected_referral_organization_id(request, organizations, posted_organization_id=None):
+    for candidate_id in [posted_organization_id, request.GET.get('organization_id'), request.session.get('selected_org_id')]:
+        if candidate_id and organizations.filter(id=candidate_id).exists():
+            return int(candidate_id)
+    if organizations.count() == 1:
+        return organizations.first().id
+    return None
+
+
+def get_referral_position_options(organizations):
+    from directory.models import Position
+    return list(Position.objects.filter(organization__in=organizations).values('organization_id', 'position_name').distinct().order_by('organization_id', 'position_name'))
+
+
+def build_new_employee_referral_context(request, organizations, errors=None, form_data=None, selected_organization_id=None):
+    form_data = form_data or {}
+    if selected_organization_id is None:
+        selected_organization_id = get_selected_referral_organization_id(request, organizations, form_data.get('organization_id'))
+    return {
+        'organizations': organizations,
+        'position_options': get_referral_position_options(organizations),
+        'selected_organization_id': selected_organization_id,
+        'errors': errors or [],
+        'form_data': form_data,
+    }
+
+
 def generate_referral_document(referral):
     """
     Генерирует DOCX документ направления на медосмотр.
@@ -183,7 +214,7 @@ class EmployeeReferralDataView(LoginRequiredMixin, View):
 
     def get(self, request, employee_id):
         # Получаем сотрудника
-        employee = get_object_or_404(Employee, pk=employee_id)
+        employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
         # Проверяем права доступа через AccessControlHelper (поддерживает иерархию)
         if not AccessControlHelper.can_access_object(request.user, employee):
@@ -236,7 +267,7 @@ class GenerateReferralView(LoginRequiredMixin, View):
                 }, status=400)
 
             # Получаем сотрудника
-            employee = get_object_or_404(Employee, pk=employee_id)
+            employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
             # Проверяем права доступа через AccessControlHelper (поддерживает иерархию)
             if not AccessControlHelper.can_access_object(request.user, employee):
@@ -350,7 +381,7 @@ class ExistingEmployeeReferralView(LoginRequiredMixin, View):
         from directory.models import Employee
 
         # Получаем сотрудника
-        employee = get_object_or_404(Employee, pk=employee_id)
+        employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
         # Проверяем права доступа через AccessControlHelper (поддерживает иерархию)
         if not AccessControlHelper.can_access_object(request.user, employee):
@@ -376,35 +407,9 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
 
     def get(self, request):
         from django.shortcuts import render
-        from directory.models import Position, Organization
 
-        # Получаем организации пользователя
-        if request.user.is_superuser:
-            organizations = Organization.objects.all()
-        else:
-            # Проверяем наличие profile
-            if hasattr(request.user, 'profile'):
-                organizations = request.user.profile.organizations.all()
-            else:
-                organizations = Organization.objects.none()
-
-        # Автовыбор организации, если она одна
-        selected_organization_id = None
-        if organizations.count() == 1:
-            selected_organization_id = organizations.first().id
-
-        # Получаем уникальные названия профессий только для доступных организаций
-        position_names = Position.objects.filter(
-            organization__in=organizations
-        ).values_list(
-            'position_name', flat=True
-        ).distinct().order_by('position_name')
-
-        context = {
-            'organizations': organizations,
-            'position_names': list(position_names),
-            'selected_organization_id': selected_organization_id,
-        }
+        organizations = get_accessible_referral_organizations(request)
+        context = build_new_employee_referral_context(request, organizations)
         return render(request, 'deadline_control/new_employee_referral.html', context)
 
     def post(self, request):
@@ -432,49 +437,44 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
         if not organization_id:
             errors.append('Организация обязательна')
 
-        # Получаем организации пользователя для формы
-        if request.user.is_superuser:
-            organizations = Organization.objects.all()
-        else:
-            # Проверяем наличие profile
-            if hasattr(request.user, 'profile'):
-                organizations = request.user.profile.organizations.all()
-            else:
-                organizations = Organization.objects.none()
-
-        position_names = Position.objects.filter(
-            organization__in=organizations
-        ).values_list(
-            'position_name', flat=True
-        ).distinct().order_by('position_name')
+        organizations = get_accessible_referral_organizations(request)
+        form_data = {
+            'full_name': full_name,
+            'birth_date': birth_date_str,
+            'address': address,
+            'position_name': position_name,
+            'organization_id': organization_id,
+        }
 
         if errors:
-            context = {
-                'organizations': organizations,
-                'position_names': list(position_names),
-                'errors': errors,
-                'form_data': {
-                    'full_name': full_name,
-                    'birth_date': birth_date_str,
-                    'address': address,
-                    'position_name': position_name,
-                    'organization_id': organization_id,
-                }
-            }
+            context = build_new_employee_referral_context(
+                request,
+                organizations,
+                errors=errors,
+                form_data=form_data,
+            )
             return render(request, 'deadline_control/new_employee_referral.html', context)
 
         try:
             # Парсим дату
             birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
 
-            # Получаем организацию
-            organization = Organization.objects.get(pk=organization_id)
+            # Получаем организацию с учетом прав пользователя
+            organization = organizations.get(pk=organization_id)
 
-            # Проверяем права доступа к организации
-            if not request.user.is_superuser:
-                if not hasattr(request.user, 'profile') or \
-                        organization not in request.user.profile.organizations.all():
-                    raise PermissionDenied("У вас нет доступа к этой организации")
+            # Профессия должна принадлежать выбранной организации, а не любому справочнику
+            if not Position.objects.filter(
+                organization=organization,
+                position_name=position_name,
+            ).exists():
+                errors.append('Выбранная профессия не принадлежит выбранной организации')
+                context = build_new_employee_referral_context(
+                    request,
+                    organizations,
+                    errors=errors,
+                    form_data=form_data,
+                )
+                return render(request, 'deadline_control/new_employee_referral.html', context)
 
             # Получаем вредные факторы по названию профессии
             harmful_factors = []
@@ -487,18 +487,12 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
 
             if not harmful_factors:
                 errors.append(f'Для профессии "{position_name}" не найдены вредные факторы')
-                context = {
-                    'organizations': organizations,
-                    'position_names': list(position_names),
-                    'errors': errors,
-                    'form_data': {
-                        'full_name': full_name,
-                        'birth_date': birth_date_str,
-                        'address': address,
-                        'position_name': position_name,
-                        'organization_id': organization_id,
-                    }
-                }
+                context = build_new_employee_referral_context(
+                    request,
+                    organizations,
+                    errors=errors,
+                    form_data=form_data,
+                )
                 return render(request, 'deadline_control/new_employee_referral.html', context)
 
             # Создаём направление (без привязки к сотруднику - employee=None)
@@ -508,11 +502,12 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
             # Генерируем DOCX документ напрямую
             if not DOCXTPL_AVAILABLE:
                 errors.append('Библиотека docxtpl не установлена')
-                context = {
-                    'organizations': organizations,
-                    'position_names': list(position_names),
-                    'errors': errors,
-                }
+                context = build_new_employee_referral_context(
+                    request,
+                    organizations,
+                    errors=errors,
+                    form_data=form_data,
+                )
                 return render(request, 'deadline_control/new_employee_referral.html', context)
 
             # Получаем шаблон через систему DocumentTemplate
@@ -520,11 +515,12 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
 
             if not template_path or not os.path.exists(template_path):
                 errors.append('Шаблон направления на медосмотр не найден. Создайте эталонный шаблон типа "medical".')
-                context = {
-                    'organizations': organizations,
-                    'position_names': list(position_names),
-                    'errors': errors,
-                }
+                context = build_new_employee_referral_context(
+                    request,
+                    organizations,
+                    errors=errors,
+                    form_data=form_data,
+                )
                 return render(request, 'deadline_control/new_employee_referral.html', context)
 
             # Загружаем шаблон
@@ -597,16 +593,10 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
             # Логируем полную трассировку для отладки
             print(f"Error in NewEmployeeReferralView: {traceback.format_exc()}")
 
-        context = {
-            'organizations': organizations,
-            'position_names': list(position_names),
-            'errors': errors,
-            'form_data': {
-                'full_name': full_name,
-                'birth_date': birth_date_str,
-                'address': address,
-                'position_name': position_name,
-                'organization_id': organization_id,
-            }
-        }
+        context = build_new_employee_referral_context(
+            request,
+            organizations,
+            errors=errors,
+            form_data=form_data,
+        )
         return render(request, 'deadline_control/new_employee_referral.html', context)

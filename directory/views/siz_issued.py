@@ -130,7 +130,7 @@ class SIZIssueFormView(LoginRequiredMixin, CreateView):
         # Если есть employee_id в URL, добавляем информацию о сотруднике
         employee_id = self.kwargs.get('employee_id')
         if employee_id:
-            employee = get_object_or_404(Employee, id=employee_id)
+            employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
             context['employee'] = employee
 
             siz_norm_ids = set()
@@ -201,7 +201,7 @@ def issue_selected_siz(request, employee_id):
     """
     📝 Массовая выдача выбранных норм СИЗ сотруднику из личной карточки.
     """
-    employee = get_object_or_404(Employee, id=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
     selected_norm_ids = request.POST.getlist('selected_norms')
 
     if not selected_norm_ids:
@@ -266,7 +266,7 @@ def issue_group_siz(request, employee_id):
     📦 Массовая групповая выдача СИЗ сотруднику.
     Принимает JSON-список групп (каждая: siz_ids, condition, quantity, cost).
     """
-    employee = get_object_or_404(Employee, id=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
 
     try:
         groups = json.loads(request.POST.get('groups_json', '[]'))
@@ -337,7 +337,7 @@ class SIZPersonalCardView(LoginRequiredMixin, AccessControlObjectMixin, DetailVi
         🔍 Получаем объект сотрудника по его ID с проверкой прав доступа
         """
         # Получаем объект через стандартный метод
-        obj = Employee.objects.get(id=self.kwargs.get('employee_id'))
+        obj = Employee.objects.active_for_operations().get(id=self.kwargs.get('employee_id'))
 
         # AccessControlObjectMixin автоматически проверит права доступа
         # через переопределенный метод get_object в родительском классе
@@ -521,7 +521,7 @@ def employee_siz_issued_list(request, employee_id):
     Returns:
         JsonResponse с данными о выданных СИЗ
     """
-    employee = get_object_or_404(Employee, pk=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
     # Получаем все СИЗ, выданные сотруднику
     issued_items = SIZIssued.objects.filter(
@@ -561,7 +561,7 @@ def employee_siz_issued_list(request, employee_id):
 def update_employee_sizes(request, employee_id):
     """AJAX: сохраняет пол, рост, размер одежды и обуви сотрудника."""
     from directory.models.employee import Employee
-    employee = get_object_or_404(Employee, id=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
     if not AccessControlHelper.can_access_object(request.user, employee):
         return JsonResponse({'error': 'Нет доступа'}, status=403)
 
@@ -582,4 +582,3 @@ def update_employee_sizes(request, employee_id):
     employee.save(update_fields=['gender', 'height', 'clothing_size', 'shoe_size'])
 
     return JsonResponse({'ok': True})
-

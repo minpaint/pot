@@ -1,7 +1,7 @@
 # directory/utils/commission_service.py
 
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from directory.models import Commission, Employee
 from directory.utils.declension import get_initials_before_surname  # Формат "И.О. Фамилия" для комиссий
@@ -58,7 +58,26 @@ def find_appropriate_commission(employee: Employee, commission_type: str = "ot")
     return None
 
 
-def get_commission_members_formatted(commission: Commission) -> Dict[str, any]:
+def is_employee_commission_member(
+    employee: Employee,
+    commission: Optional[Commission] = None,
+    commission_type: str = "ot",
+) -> bool:
+    """
+    Проверяет, входит ли сотрудник в активный состав подходящей комиссии.
+    Член комиссии не должен проходить проверку знаний у этой же комиссии.
+    """
+    if not employee or not employee.pk:
+        return False
+
+    commission = commission or find_appropriate_commission(employee, commission_type)
+    if not commission:
+        return False
+
+    return commission.members.filter(employee_id=employee.pk, is_active=True).exists()
+
+
+def get_commission_members_formatted(commission: Commission) -> Dict[str, Any]:
     """
     Формирует состав комиссии с разбивкой по ролям:
       - chairman (председатель)
@@ -82,7 +101,8 @@ def get_commission_members_formatted(commission: Commission) -> Dict[str, any]:
             'role': member.role,
             'name': full_name,
             'name_initials': initials,
-            'position': position
+            'position': position,
+            'formatted': f"{initials}, {position.lower()}" if position else initials,
         }
         if member.role == 'chairman':
             chairman_data = entry

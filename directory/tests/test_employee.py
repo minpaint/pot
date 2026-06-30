@@ -7,7 +7,15 @@ from directory.document_generators.familiarization_generator import (
     generate_familiarization_document,
 )
 from directory.forms.position import PositionForm
-from directory.models import Organization, Employee, Position, Document
+from directory.models import (
+    Commission,
+    CommissionMember,
+    Document,
+    Employee,
+    Organization,
+    Position,
+)
+from directory.utils.commission_service import is_employee_commission_member
 
 
 class EmployeeTests(TestCase):
@@ -263,6 +271,52 @@ class FamiliarizationGeneratorTests(TestCase):
         self.assertIs(args[2], self.employee)
         self.assertIsNone(args[3])
         self.assertEqual(kwargs["post_processor"].__name__, "process_table_rows")
+
+
+class CommissionServiceTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(
+            full_name_ru='Тестовая организация',
+            short_name_ru='ТестОрг',
+            full_name_by='Тэставая арганізацыя',
+            short_name_by='ТэстАрг',
+        )
+        self.commission = Commission.objects.create(
+            name='Комиссия по ОТ',
+            commission_type='ot',
+            organization=self.organization,
+        )
+
+    def create_employee(self, full_name, position_name):
+        position = Position.objects.create(
+            position_name=position_name,
+            organization=self.organization,
+        )
+        return Employee.objects.create(
+            full_name_nominative=full_name,
+            organization=self.organization,
+            position=position,
+        )
+
+    def test_employee_commission_member_detects_active_member(self):
+        chairman = self.create_employee('Иванов Иван Иванович', 'Директор')
+        member1 = self.create_employee('Петров Петр Петрович', 'Инженер')
+        regular_employee = self.create_employee('Сидоров Сидор Сидорович', 'Мастер')
+
+        CommissionMember.objects.create(
+            commission=self.commission,
+            employee=chairman,
+            role='chairman',
+        )
+        CommissionMember.objects.create(
+            commission=self.commission,
+            employee=member1,
+            role='member',
+        )
+
+        self.assertTrue(is_employee_commission_member(chairman))
+        self.assertTrue(is_employee_commission_member(member1))
+        self.assertFalse(is_employee_commission_member(regular_employee))
 
 
 class PositionFormDocumentTests(TestCase):

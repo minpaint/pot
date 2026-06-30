@@ -29,9 +29,7 @@ class Command(BaseCommand):
         employees_without_position = 0
 
         # Получаем всех активных сотрудников
-        employees = Employee.objects.exclude(
-            status__in=['candidate', 'fired']
-        ).select_related('position').prefetch_related(
+        employees = Employee.objects.active_for_operations().select_related('position').prefetch_related(
             'medical_examinations',
             'position__medical_factors__harmful_factor'
         )

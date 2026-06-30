@@ -22,7 +22,7 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             "full_name_by",
             "date_of_birth", "place_of_residence", "email",
             "organization", "subdivision", "department", "position",
-            "work_schedule",
+            "hire_date", "start_date", "work_schedule",
             "education_level",
             "prior_qualification",
             "height", "clothing_size", "shoe_size",
@@ -61,6 +61,14 @@ class EmployeeForm(OrganizationRestrictionFormMixin, forms.ModelForm):
                 }
             ),
             "date_of_birth": forms.DateInput(
+                attrs={"type": "date"},
+                format="%Y-%m-%d"
+            ),
+            "hire_date": forms.DateInput(
+                attrs={"type": "date"},
+                format="%Y-%m-%d"
+            ),
+            "start_date": forms.DateInput(
                 attrs={"type": "date"},
                 format="%Y-%m-%d"
             ),

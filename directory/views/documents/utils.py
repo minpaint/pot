@@ -35,7 +35,8 @@ def get_internship_leader(employee):
 
     # 1. Сначала ищем в отделе
     if employee.department:
-        leaders_in_dept = list(employee.department.employees.filter(
+        leaders_in_dept = list(Employee.objects.active_for_operations().filter(
+            department=employee.department,
             position__can_be_internship_leader=True
         ).exclude(id=employee.id))  # Исключаем самого сотрудника
 
@@ -48,7 +49,7 @@ def get_internship_leader(employee):
 
     # 2. Если не нашли, ищем в подразделении
     if employee.subdivision:
-        leaders_in_subdiv = list(Employee.objects.filter(
+        leaders_in_subdiv = list(Employee.objects.active_for_operations().filter(
             subdivision=employee.subdivision,
             position__can_be_internship_leader=True,
         ).exclude(id=employee.id))  # Исключаем самого сотрудника
@@ -62,7 +63,7 @@ def get_internship_leader(employee):
 
     # 3. Если не нашли, ищем в организации
     if employee.organization:
-        leaders_in_org = list(Employee.objects.filter(
+        leaders_in_org = list(Employee.objects.active_for_operations().filter(
             organization=employee.organization,
             position__can_be_internship_leader=True,
         ).exclude(id=employee.id))  # Исключаем самого сотрудника
@@ -94,7 +95,8 @@ def get_document_signer(employee):
 
     # 1. Сначала ищем в отделе
     if employee.department:
-        signer = employee.department.employees.filter(
+        signer = Employee.objects.active_for_operations().filter(
+            department=employee.department,
             position__can_sign_orders=True
         ).first()
         if signer:
@@ -103,7 +105,7 @@ def get_document_signer(employee):
 
     # 2. Если не нашли, ищем в подразделении
     if employee.subdivision:
-        signer = Employee.objects.filter(
+        signer = Employee.objects.active_for_operations().filter(
             subdivision=employee.subdivision,
             position__can_sign_orders=True,
         ).first()
@@ -113,7 +115,7 @@ def get_document_signer(employee):
 
     # 3. Если не нашли, ищем в организации
     if employee.organization:
-        signer = Employee.objects.filter(
+        signer = Employee.objects.active_for_operations().filter(
             organization=employee.organization,
             position__can_sign_orders=True,
         ).first()
@@ -265,7 +267,7 @@ def get_commission_members(employee):
 
     # 1. Ищем председателя комиссии ВО ВСЕЙ ОРГАНИЗАЦИИ
     try:
-        chairman_found_obj = Employee.objects.filter(
+        chairman_found_obj = Employee.objects.active_for_operations().filter(
             organization=organization,
             position__commission_role='chairman' # Removed is_active=True
         ).select_related('position').first()
@@ -281,7 +283,7 @@ def get_commission_members(employee):
 
     # 2. Ищем членов комиссии ВО ВСЕЙ ОРГАНИЗАЦИИ
     try:
-        members_found_objs = list(Employee.objects.filter(
+        members_found_objs = list(Employee.objects.active_for_operations().filter(
             organization=organization,
             position__commission_role='member' # Removed is_active=True
         ).select_related('position'))
@@ -295,7 +297,7 @@ def get_commission_members(employee):
 
     # 3. Ищем секретаря комиссии ВО ВСЕЙ ОРГАНИЗАЦИИ
     try:
-        secretary_found_obj = Employee.objects.filter(
+        secretary_found_obj = Employee.objects.active_for_operations().filter(
             organization=organization,
             position__commission_role='secretary' # Removed is_active=True
         ).select_related('position').first()

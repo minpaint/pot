@@ -49,7 +49,7 @@ class GeneratedDocumentListView(LoginRequiredMixin, ListView):
         context['title'] = _('Сгенерированные документы')
 
         # Список сотрудников для фильтрации
-        context['employees'] = Employee.objects.all()
+        context['employees'] = Employee.objects.selectable()
 
         # Список типов документов для фильтрации (из справочника)
         context['document_types'] = [

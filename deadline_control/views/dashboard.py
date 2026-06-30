@@ -99,9 +99,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ).distinct()
 
         # Находим сотрудников, чья должность требует медосмотров
-        employees_qs = Employee.objects.exclude(
-            status__in=['candidate', 'fired']
-        ).filter(
+        employees_qs = Employee.objects.active_for_operations().filter(
             Q(position__medical_factors__isnull=False) |  # Есть переопределения
             Q(position__position_name__in=position_names_with_norms)  # Есть в эталонах
         )

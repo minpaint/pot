@@ -48,6 +48,8 @@ def _build_deadline_groups(accessible_orgs, selected_org_id, threshold_days=60):
     today = timezone.now().date()
     active_qs = SIZIssued.objects.filter(
         employee__organization__in=accessible_orgs,
+        employee__marked_for_deletion=False,
+        employee__status='active',
         is_returned=False,
         siz__wear_period__gt=0,
     ).select_related('employee', 'siz', 'employee__subdivision', 'employee__department',
@@ -88,7 +90,7 @@ def _build_journal_hierarchy(accessible_orgs, selected_org_id, page_number, per_
     from collections import defaultdict as _dd, OrderedDict as _OD
     from django.core.paginator import Paginator
 
-    journal_qs = Employee.objects.filter(
+    journal_qs = Employee.objects.active_for_operations().filter(
         organization__in=accessible_orgs,
         issued_siz__isnull=False,
     ).distinct().select_related(
@@ -158,7 +160,7 @@ class SIZListView(LoginRequiredMixin, ListView):
         accessible_orgs, selected_org_id = _get_accessible_orgs_and_selected(self.request)
 
         # Список сотрудников для быстрого поиска
-        employees = Employee.objects.filter(
+        employees = Employee.objects.active_for_operations().filter(
             organization__in=accessible_orgs
         ).select_related('position')
         if selected_org_id:
@@ -174,6 +176,8 @@ class SIZListView(LoginRequiredMixin, ListView):
         today = timezone.now().date()
         issued_month_qs = SIZIssued.objects.filter(
             employee__organization__in=accessible_orgs,
+            employee__marked_for_deletion=False,
+            employee__status='active',
             issue_date__year=today.year,
             issue_date__month=today.month,
         )
@@ -182,7 +186,7 @@ class SIZListView(LoginRequiredMixin, ListView):
         context['kpi_issued_month'] = issued_month_qs.count()
 
         # KPI: сотрудников с активными СИЗ
-        employees_qs = Employee.objects.filter(
+        employees_qs = Employee.objects.active_for_operations().filter(
             organization__in=accessible_orgs,
             issued_siz__is_returned=False,
         )
@@ -385,7 +389,7 @@ def get_employee_issued_siz(request, employee_id):
     API для получения фактически выданных СИЗ сотруднику
     Используется для формирования оборотной стороны личной карточки
     """
-    employee = get_object_or_404(Employee, pk=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
     # Здесь должен быть код для получения выданных СИЗ
     # Пока это заглушка, т.к. у нас нет соответствующей модели

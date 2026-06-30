@@ -359,7 +359,11 @@ class HomePageView(LoginRequiredMixin, TemplateView):
             dl_upcoming = items_qs.filter(next_date__gte=today, next_date__lte=warning_date).count()
 
             # Медосмотры
-            med_qs = EmployeeMedicalExamination.objects.filter(employee__organization=org)
+            med_qs = EmployeeMedicalExamination.objects.filter(
+                employee__organization=org,
+                employee__marked_for_deletion=False,
+                employee__status='active',
+            )
             med_overdue = med_qs.filter(next_date__lt=today).count()
             med_upcoming = med_qs.filter(next_date__gte=today, next_date__lte=warning_date).count()
 
@@ -483,6 +487,8 @@ class HomePageView(LoginRequiredMixin, TemplateView):
             EmployeeMedicalExamination.objects
             .filter(
                 employee__organization_id__in=org_ids,
+                employee__marked_for_deletion=False,
+                employee__status='active',
                 next_date__isnull=False,
                 next_date__lte=window,
             )

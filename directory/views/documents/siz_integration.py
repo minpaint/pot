@@ -22,7 +22,7 @@ def generate_siz_card_docx_view(request, employee_id):
     from directory.utils.permissions import AccessControlHelper
     from urllib.parse import quote
 
-    employee = get_object_or_404(Employee, pk=employee_id)
+    employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
     # Проверка прав доступа
     if not AccessControlHelper.can_access_object(request.user, employee):

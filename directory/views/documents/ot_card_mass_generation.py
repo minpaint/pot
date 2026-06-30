@@ -204,7 +204,7 @@ def generate_ot_cards_bulk(request):
             instruction_date_display = instruction_date_raw
 
     # Берём название организации для заголовка
-    first_emp = Employee.objects.filter(id__in=employee_ids[:1]).select_related('organization').first()
+    first_emp = Employee.objects.active_for_operations().filter(id__in=employee_ids[:1]).select_related('organization').first()
     org_name = first_emp.organization.short_name_ru if first_emp and first_emp.organization else ''
 
     job = GenerationJob.objects.create(

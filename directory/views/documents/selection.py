@@ -154,7 +154,7 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
 
             # Получаем сотрудника
             try:
-                employee = Employee.objects.get(id=employee_id)
+                employee = Employee.objects.active_for_operations().get(id=employee_id)
 
                 # Автоматически выбираем типы документов
                 document_types = get_auto_selected_document_types(employee)
@@ -171,7 +171,7 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
 
         if employee_id:
             try:
-                employee = Employee.objects.get(id=employee_id)
+                employee = Employee.objects.active_for_operations().get(id=employee_id)
                 context['employee'] = employee
 
                 # Добавляем информацию о правилах выбора документов
@@ -217,7 +217,7 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
 
         # Получаем сотрудника
         try:
-            employee = Employee.objects.get(id=employee_id)
+            employee = Employee.objects.active_for_operations().get(id=employee_id)
         except Employee.DoesNotExist:
             messages.error(self.request, "Сотрудник не найден")
             return self.form_invalid(form)

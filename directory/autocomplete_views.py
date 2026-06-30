@@ -319,7 +319,7 @@ class EmployeeByCommissionAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Employee.objects.none()
 
-        qs = Employee.objects.filter(is_active=True)
+        qs = Employee.objects.active_for_operations()
 
         # Ограничение по организациям пользователя
         if not (self.request.user.is_superuser or self.request.user.is_staff) and hasattr(self.request.user, 'profile'):
@@ -440,7 +440,7 @@ class EmployeeForCommissionAutocomplete(autocomplete.Select2QuerySetView):
         )
 
         # Базовый queryset с фильтрацией по доступным организациям
-        qs = Employee.objects.filter(organization__in=accessible_orgs)
+        qs = Employee.objects.active_for_operations().filter(organization__in=accessible_orgs)
 
         # Получаем параметры из forwarded (для использования в комиссиях)
         organization_id = self.forwarded.get('organization', None)
@@ -466,9 +466,16 @@ class EmployeeForCommissionAutocomplete(autocomplete.Select2QuerySetView):
 
         # Фильтруем по иерархии (если параметры переданы)
         if department_id:
-            qs = qs.filter(position__department_id=department_id)
+            qs = qs.filter(
+                Q(department_id=department_id) |
+                Q(position__department_id=department_id)
+            )
         elif subdivision_id:
-            qs = qs.filter(position__department__subdivision_id=subdivision_id)
+            qs = qs.filter(
+                Q(subdivision_id=subdivision_id) |
+                Q(position__subdivision_id=subdivision_id) |
+                Q(position__department__subdivision_id=subdivision_id)
+            )
         elif organization_id:
             qs = qs.filter(organization_id=organization_id)
         # Иначе показываем всех сотрудников из доступных организаций

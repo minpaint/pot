@@ -46,14 +46,14 @@ class SIZIssueForm(forms.ModelForm):
         # 🔒 Ограничиваем выбор по организациям пользователя
         if self.user and hasattr(self.user, 'profile'):
             allowed_orgs = self.user.profile.organizations.all()
-            self.fields['employee'].queryset = Employee.objects.filter(
+            self.fields['employee'].queryset = Employee.objects.selectable().filter(
                 organization__in=allowed_orgs
             ).order_by('full_name_nominative')
 
         # 📌 Если уже выбран сотрудник, предзаполняем форму
         if self.initial_employee_id:
             try:
-                employee = Employee.objects.get(id=self.initial_employee_id)
+                employee = Employee.objects.selectable().get(id=self.initial_employee_id)
                 self.fields['employee'].initial = employee
 
                 # 🔍 Получаем список СИЗ, положенных по нормам для данного сотрудника
@@ -86,7 +86,7 @@ class SIZIssueMassForm(forms.Form):
     📋 Форма для массовой выдачи СИЗ сотрудникам
     """
     employee = forms.ModelChoiceField(
-        queryset=Employee.objects.all(),
+        queryset=Employee.objects.selectable(),
         label="Сотрудник",
         required=True
     )
@@ -141,7 +141,7 @@ class SIZIssueMassForm(forms.Form):
         # 🔒 Ограничиваем выбор по организациям пользователя
         if self.user and hasattr(self.user, 'profile'):
             allowed_orgs = self.user.profile.organizations.all()
-            self.fields['employee'].queryset = Employee.objects.filter(
+            self.fields['employee'].queryset = Employee.objects.selectable().filter(
                 organization__in=allowed_orgs
             ).order_by('full_name_nominative')
 

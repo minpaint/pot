@@ -203,6 +203,16 @@
             <div class="ef-card-body">
                 <div class="ef-grid-2">
                     <div class="ef-field">
+                        <label for="{{ form.hire_date.id_for_label }}">Дата приема на работу</label>
+                        {{ form.hire_date }}
+                        {% if form.hire_date.errors %}<ul class="errorlist">{% for e in form.hire_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
+                        <label for="{{ form.start_date.id_for_label }}">Дата начала работы</label>
+                        {{ form.start_date }}
+                        {% if form.start_date.errors %}<ul class="errorlist">{% for e in form.start_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="ef-field">
                         <label for="{{ form.full_name_nominative.id_for_label }}">ФИО (именительный падеж)</label>
                         {{ form.full_name_nominative }}
                         {% if form.full_name_nominative.errors %}<ul class="errorlist">{% for e in form.full_name_nominative.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}

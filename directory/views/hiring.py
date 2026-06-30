@@ -467,7 +467,7 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         context['internship_leader_level_display'] = il_level_display
 
         # Все кандидаты в руководители стажировки в организации
-        internship_leader_candidates = Employee.objects.filter(
+        internship_leader_candidates = Employee.objects.active_for_operations().filter(
             organization=employee.organization,
             position__can_be_internship_leader=True,
         ).exclude(id=employee.id).select_related(
@@ -1024,14 +1024,14 @@ class CreateHiringFromEmployeeView(LoginRequiredMixin, FormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         employee_id = self.kwargs.get('employee_id')
-        employee = get_object_or_404(Employee, id=employee_id)
+        employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
         context['employee'] = employee
         context['title'] = _('Создание записи о приеме из сотрудника')
         return context
 
     def form_valid(self, form):
         employee_id = self.kwargs.get('employee_id')
-        employee = get_object_or_404(Employee, id=employee_id)
+        employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
 
         try:
             hiring = create_hiring_from_employee(employee, self.request.user)

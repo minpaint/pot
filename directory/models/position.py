@@ -119,15 +119,15 @@ class Position(models.Model):
 
     height_group_1 = models.BooleanField(
         default=False,
-        verbose_name="⛰️ Группа 1 (работа на высоте)"
+        verbose_name="🪜 Группа 1 (работа на высоте)"
     )
     height_group_2 = models.BooleanField(
         default=False,
-        verbose_name="⛰️ Группа 2 (работа на высоте)"
+        verbose_name="🪜 Группа 2 (работа на высоте)"
     )
     height_group_3 = models.BooleanField(
         default=False,
-        verbose_name="⛰️ Группа 3 (работа на высоте)"
+        verbose_name="🪜 Группа 3 (работа на высоте)"
     )
 
     internship_period_days = models.PositiveIntegerField(

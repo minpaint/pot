@@ -100,9 +100,15 @@ def run_periodic_protocol_job(job_id: int):
 
         jt = job.job_type
 
+        check_type = job.params.get('check_type', 'периодическая') or 'периодическая'
+        height_only = bool(job.params.get('height_only', False))
+
         if jt == 'periodic_protocol':
             grouping_name = job.params.get('grouping_name') or None
-            doc = generate_periodic_protocol(employees, user=user, grouping_name=grouping_name)
+            doc = generate_periodic_protocol(
+                employees, user=user, grouping_name=grouping_name,
+                check_type=check_type, height_only=height_only,
+            )
             if not doc:
                 _finalize(job, status='failed', error='Не удалось сформировать протокол')
                 return
@@ -133,16 +139,25 @@ def run_periodic_protocol_job(job_id: int):
 
             buffer = BytesIO()
             done = 0
+            files_written = 0
             with ZipFile(buffer, 'w') as zf:
                 for key, emps in grouped.items():
                     if jt == 'periodic_protocol_by_sub':
-                        doc = generate_periodic_protocol(emps, user=user, grouping_name=key)
+                        doc = generate_periodic_protocol(
+                            emps, user=user, grouping_name=key,
+                            check_type=check_type, height_only=height_only,
+                        )
                     else:
                         doc = generate_safety_certificates(emps, grouping_name=key)
                     if doc:
                         zf.writestr(doc['filename'], doc['content'])
+                        files_written += 1
                     done += len(emps)
                     GenerationJob.objects.filter(pk=job.pk).update(progress_current=done)
+
+            if not files_written:
+                _finalize(job, status='failed', error='Нет документов для архива')
+                return
 
             org = employees[0].organization
             org_name = org.short_name_ru if org else 'Организация'

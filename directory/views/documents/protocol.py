@@ -16,7 +16,11 @@ from zipfile import ZipFile
 from directory.models import Employee, Organization
 from directory.document_generators.protocol_generator import generate_knowledge_protocol, generate_periodic_protocol
 from directory.document_generators.certificate_generator_rowwise import generate_safety_certificates_rowwise as generate_safety_certificates
-from directory.utils import find_appropriate_commission, get_commission_members_formatted
+from directory.utils import (
+    find_appropriate_commission,
+    get_commission_members_formatted,
+    is_employee_commission_member,
+)
 from directory.utils.permissions import AccessControlHelper
 
 # Настройка логирования
@@ -66,7 +70,7 @@ class KnowledgeProtocolCreateView(LoginRequiredMixin, FormView):
     def get_employee(self):
         """Получает сотрудника из параметров URL"""
         employee_id = self.kwargs.get('employee_id')
-        return get_object_or_404(Employee, id=employee_id)
+        return get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
 
     def get_form_kwargs(self):
         """Передаем сотрудника в форму"""
@@ -87,6 +91,13 @@ class KnowledgeProtocolCreateView(LoginRequiredMixin, FormView):
 
         if commission:
             context['commission'] = commission
+
+            if is_employee_commission_member(employee, commission):
+                context['warning_message'] = (
+                    "Сотрудник входит в состав комиссии. "
+                    "Протокол проверки знаний для него не формируется."
+                )
+                return context
 
             # Получаем и форматируем участников комиссии для предпросмотра
             commission_data = get_commission_members_formatted(commission)
@@ -128,6 +139,13 @@ class KnowledgeProtocolCreateView(LoginRequiredMixin, FormView):
 
         if not commission:
             messages.error(self.request, 'Не найдена подходящая комиссия для сотрудника')
+            return self.form_invalid(form)
+
+        if is_employee_commission_member(employee, commission):
+            messages.error(
+                self.request,
+                'Сотрудник входит в состав комиссии и не может принимать знания сам у себя'
+            )
             return self.form_invalid(form)
 
         # Получаем данные о комиссии
@@ -226,7 +244,10 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
         qs = qs.filter(position__isnull=False).filter(
             Q(position__internship_period_days__gt=0) |
             Q(position__is_responsible_for_safety=True) |
-            Q(position__drives_company_vehicle=True)  # Добавляем водителей служебного транспорта
+            Q(position__drives_company_vehicle=True) |
+            Q(position__height_group_1=True) |
+            Q(position__height_group_2=True) |
+            Q(position__height_group_3=True)
         )
         return qs.order_by(
             'organization__short_name_ru',
@@ -431,6 +452,9 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
         org_name = org.short_name_ru if org else ''
         title = f'{title_map.get(job_type, job_type)} — {org_name} ({len(employees)} чел.)'
 
+        check_type = request.POST.get('check_type', 'периодическая') or 'периодическая'
+        height_only = request.POST.get('height_only') == '1'
+
         job = GenerationJob.objects.create(
             user=request.user,
             job_type=job_type,
@@ -439,6 +463,8 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
             params={
                 'employee_ids': employee_ids,
                 'grouping_name': grouping_name,
+                'check_type': check_type,
+                'height_only': height_only,
             },
             progress_total=len(employees),
         )

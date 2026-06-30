@@ -173,6 +173,35 @@
     white-space: nowrap;
     display: inline-block;
 }
+.badge-height {
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    display: inline-block;
+    margin-right: 4px;
+}
+.hidden-by-height { display: none !important; }
+.pp-check-type { display: flex; gap: 2px; align-items: center; }
+.pp-check-btn {
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #fff;
+    color: #6c757d;
+    transition: all 0.15s;
+}
+.pp-check-btn.active {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    border-color: #3498db;
+}
 
 /* Кнопки Протокол/Удостоверения в строках дерева */
 .scope-action { font-size: 0.72rem; padding: 2px 8px; border-radius: 5px; }
@@ -241,7 +270,7 @@
     <div class="mb-3">
         <h5 class="fw-bold mb-1">{{ title }}</h5>
         <p class="text-muted small mb-0">
-            Сотрудники со стажировкой или флагом «Ответственный за ОТ». Снимите галочки перед скачиванием протокола.
+            Сотрудники со стажировкой, флагом «Ответственный за ОТ» или группой для работы на высоте. Снимите галочки перед скачиванием протокола.
         </p>
     </div>
 
@@ -260,6 +289,8 @@
         <input type="hidden" name="action" id="actionField" value="">
         <input type="hidden" name="scope_type" id="scopeTypeField" value="">
         <input type="hidden" name="scope_id" id="scopeIdField" value="">
+        <input type="hidden" name="check_type" id="checkTypeField" value="периодическая">
+        <input type="hidden" name="height_only" id="heightOnlyField" value="">
 
         <!-- Карточка: заголовок + actionbar + treebar + таблица -->
         <div class="pp-card">
@@ -283,6 +314,16 @@
                 <button type="button" data-action="certificates_by_subdivision" class="btn btn-sm btn-outline-success action-submit">
                     🗂️ Удостоверения (zip)
                 </button>
+                <div class="vr"></div>
+                <div class="pp-check-type">
+                    <span class="small text-muted me-1">Вид:</span>
+                    <button type="button" class="pp-check-btn active" data-value="периодическая">Периодическая</button>
+                    <button type="button" class="pp-check-btn" data-value="внеочередная">Внеочередная</button>
+                </div>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="heightOnly">
+                    <label class="form-check-label small" for="heightOnly">⛰️ Только работы на высоте</label>
+                </div>
                 <div class="form-check mb-0 ms-1">
                     <input class="form-check-input" type="checkbox" id="selectAll" checked>
                     <label class="form-check-label small" for="selectAll">Выбрать всех</label>
@@ -335,7 +376,8 @@
 
                             {# Сотрудники без подразделения #}
                             {% for employee in org_data.items %}
-                                <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}">
+                                <tr class="tree-row" data-level="1" data-parent-id="org_{{ org.id }}"
+                                    data-has-height="{% if employee.position.height_group_1 or employee.position.height_group_2 or employee.position.height_group_3 %}true{% else %}false{% endif %}">
                                     <td class="column-checkbox">
                                         <input type="checkbox" class="form-check-input employee-checkbox action-select"
                                                name="employee_ids" value="{{ employee.id }}" checked>
@@ -351,6 +393,9 @@
                                         {% endif %}
                                         {% if employee.position.is_responsible_for_safety %}
                                             <span class="badge-responsible">Ответств. за ОТ</span>
+                                        {% endif %}
+                                        {% if employee.position.height_group_1 or employee.position.height_group_2 or employee.position.height_group_3 %}
+                                            <span class="badge-height">⛰️ Высота</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -380,7 +425,8 @@
 
                                 {# Сотрудники без отдела #}
                                 {% for employee in sub_data.items %}
-                                    <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}">
+                                    <tr class="tree-row" data-level="2" data-parent-id="sub_{{ sub.id }}"
+                                        data-has-height="{% if employee.position.height_group_1 or employee.position.height_group_2 or employee.position.height_group_3 %}true{% else %}false{% endif %}">
                                         <td class="column-checkbox">
                                             <input type="checkbox" class="form-check-input employee-checkbox"
                                                    name="employee_ids" value="{{ employee.id }}" checked>
@@ -396,6 +442,9 @@
                                             {% endif %}
                                             {% if employee.position.is_responsible_for_safety %}
                                                 <span class="badge-responsible">Ответств. за ОТ</span>
+                                            {% endif %}
+                                            {% if employee.position.height_group_1 or employee.position.height_group_2 or employee.position.height_group_3 %}
+                                                <span class="badge-height">⛰️ Высота</span>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -425,7 +474,8 @@
 
                                     {# Сотрудники в отделе #}
                                     {% for employee in dept_data.items %}
-                                        <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}">
+                                        <tr class="tree-row" data-level="3" data-parent-id="dept_{{ dept.id }}"
+                                            data-has-height="{% if employee.position.height_group_1 or employee.position.height_group_2 or employee.position.height_group_3 %}true{% else %}false{% endif %}">
                                             <td class="column-checkbox">
                                                 <input type="checkbox" class="form-check-input employee-checkbox"
                                                        name="employee_ids" value="{{ employee.id }}" checked>
@@ -441,6 +491,9 @@
                                                 {% endif %}
                                                 {% if employee.position.is_responsible_for_safety %}
                                                     <span class="badge-responsible">Ответств. за ОТ</span>
+                                                {% endif %}
+                                                {% if employee.position.height_group_1 or employee.position.height_group_2 or employee.position.height_group_3 %}
+                                                    <span class="badge-height">⛰️ Высота</span>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -500,6 +553,38 @@ document.addEventListener('DOMContentLoaded', function() {
     const table = document.getElementById('result_list');
     if (table) {
         observer.observe(table, { attributes: true, attributeFilter: ['class'], subtree: true });
+    }
+
+    // Переключатель вида проверки
+    const checkTypeField = document.getElementById('checkTypeField');
+    document.querySelectorAll('.pp-check-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.pp-check-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            if (checkTypeField) checkTypeField.value = this.dataset.value;
+        });
+    });
+
+    // Фильтр «Только работы на высоте»
+    const heightOnlyCheckbox = document.getElementById('heightOnly');
+    const heightOnlyField = document.getElementById('heightOnlyField');
+    function applyHeightFilter() {
+        const heightOnly = heightOnlyCheckbox && heightOnlyCheckbox.checked;
+        if (heightOnlyField) heightOnlyField.value = heightOnly ? '1' : '';
+        document.querySelectorAll('.employee-checkbox').forEach(cb => {
+            const row = cb.closest('tr');
+            const hasHeight = row && row.dataset.hasHeight === 'true';
+            if (heightOnly && !hasHeight) {
+                row.classList.add('hidden-by-height');
+                cb.checked = false;
+            } else {
+                row.classList.remove('hidden-by-height');
+            }
+        });
+        updateCounter();
+    }
+    if (heightOnlyCheckbox) {
+        heightOnlyCheckbox.addEventListener('change', applyHeightFilter);
     }
 
     const form = document.getElementById('periodicProtocolForm');

@@ -15,7 +15,11 @@ from directory.document_generators.base import (
 )
 
 # Сервисные функции для работы с комиссией (экспортируемые из directory/utils/__init__.py)
-from directory.utils import find_appropriate_commission, get_commission_members_formatted
+from directory.utils import (
+    find_appropriate_commission,
+    get_commission_members_formatted,
+    is_employee_commission_member,
+)
 # Для склонения названий в родительном падеже
 from directory.utils.declension import decline_phrase
 # Для очистки пустых параграфов в сгенерированных документах
@@ -58,6 +62,15 @@ def generate_knowledge_protocol(
 
         # 4) Комиссия и её состав
         commission = find_appropriate_commission(employee)
+        if is_employee_commission_member(employee, commission):
+            logger.info(
+                "[generate_knowledge_protocol] Протокол не создан: "
+                "сотрудник %s входит в состав комиссии %s",
+                employee.full_name_nominative,
+                commission,
+            )
+            return None
+
         cdata = get_commission_members_formatted(commission) if commission else {}
 
         # 4.1) Председатель
@@ -417,6 +430,21 @@ def _apply_list_numbering(cell, num_id: int) -> None:
         p.remove(r)
 
 
+def _get_height_label(position) -> str:
+    """Возвращает строку вида '(1 группа)' / '(2, 3 группы)' для должности с группами высоты."""
+    groups = []
+    if position.height_group_1:
+        groups.append('1')
+    if position.height_group_2:
+        groups.append('2')
+    if position.height_group_3:
+        groups.append('3')
+    if not groups:
+        return ''
+    suffix = 'группа' if len(groups) == 1 else 'группы'
+    return f"работы на высоте ({', '.join(groups)} {suffix})"
+
+
 def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type: str = 'периодическая', num_id: int = None):
     """
     Append rows with employee data to the protocol table.
@@ -482,6 +510,8 @@ def generate_periodic_protocol(
     user=None,
     custom_context: Optional[Dict[str, Any]] = None,
     grouping_name: Optional[str] = None,
+    check_type: str = 'периодическая',
+    height_only: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Сформировать протокол периодической проверки знаний для списка сотрудников.
@@ -534,10 +564,15 @@ def generate_periodic_protocol(
         context.setdefault('secretary_position', secretary.get('position', '').lower() if secretary.get('position') else '')
         context.setdefault('secretary_name_initials', secretary.get('name_initials', ''))
 
-        # Члены комиссии в периодическом протоколе не выводятся
-        context['members_formatted'] = []
-        context['members_paragraphs'] = []
-        context['members_initials_paragraphs'] = []
+        members = cdata.get('members_formatted', [])
+        context['members_formatted'] = members
+        context['members_paragraphs'] = [
+            f"{m['name']} - {m['position'].lower()}"
+            for m in members
+        ]
+        context['members_initials_paragraphs'] = [
+            m['name_initials'] for m in members
+        ]
 
         # Определяем binding по уровню найденной комиссии, а не по grouping_name
         # grouping_name используется только для группировки файлов, но не влияет на состав комиссии
@@ -557,13 +592,6 @@ def generate_periodic_protocol(
         if custom_context:
             context.update(custom_context)
 
-        # ID сотрудников, которые сами являются членами комиссии — их не проверяем
-        commission_member_ids = set()
-        if commission:
-            commission_member_ids = set(
-                commission.members.filter(is_active=True).values_list('employee_id', flat=True)
-            )
-
         # Импортируем утилиты для управления автомобилем
         from directory.utils.vehicle_utils import (
             needs_vehicle_training,
@@ -572,35 +600,62 @@ def generate_periodic_protocol(
 
         employees_data = []
         for emp in employees:
-            if emp.id in commission_member_ids:
+            if is_employee_commission_member(emp, commission):
                 logger.info(f"[periodic_protocol] Пропущен член комиссии: {emp.full_name_nominative}")
                 continue
             emp_ctx = prepare_employee_context(emp)
+            fio = emp_ctx.get('fio_nominative', '')
+            pos_name = emp_ctx.get('position_nominative', '')
 
-            # Проверка знаний по профессии - всегда добавляем основную должность
+            has_height = emp.position and (
+                emp.position.height_group_1 or emp.position.height_group_2 or emp.position.height_group_3
+            )
+            height_label = _get_height_label(emp.position) if has_height else ''
+
+            if height_only:
+                # Только строка по высоте; сотрудники без группы пропускаются
+                if has_height and height_label:
+                    employees_data.append({
+                        'fio_nominative': fio,
+                        'position_nominative': f"{pos_name}, {height_label}",
+                        'ticket_number': '',
+                    })
+                continue
+
+            # Основная строка по должности
             employees_data.append({
-                'fio_nominative': emp_ctx.get('fio_nominative', ''),
-                'position_nominative': emp_ctx.get('position_nominative', ''),
-                'ticket_number': '',  # Номер билета оставляем пустым для ручного заполнения
+                'fio_nominative': fio,
+                'position_nominative': pos_name,
+                'ticket_number': '',
             })
 
-            # Проверка знаний по видам выполняемых работ
-            # Если сотрудник управляет автомобилем - добавляем вторую строку
+            # Строка по управлению автомобилем
             if needs_vehicle_training(emp):
                 employees_data.append({
-                    'fio_nominative': emp_ctx.get('fio_nominative', ''),
+                    'fio_nominative': fio,
                     'position_nominative': get_vehicle_position_name(),
                     'ticket_number': '',
                 })
 
-            # Проверка знаний по видам ответственности
+            # Строки по видам ответственности
             if emp.position and emp.position.responsibility_types.exists():
                 for resp_type in emp.position.responsibility_types.filter(is_active=True).order_by('order', 'name'):
                     employees_data.append({
-                        'fio_nominative': emp_ctx.get('fio_nominative', ''),
+                        'fio_nominative': fio,
                         'position_nominative': resp_type.name,
                         'ticket_number': '',
                     })
+
+            # Строка по работе на высоте
+            if has_height and height_label:
+                employees_data.append({
+                    'fio_nominative': fio,
+                    'position_nominative': f"{pos_name}, {height_label}",
+                    'ticket_number': '',
+                })
+
+        if not employees_data:
+            raise ValueError("Нет сотрудников для протокола: выбранные сотрудники входят в состав комиссии")
 
         doc = DocxTemplate(template_path)
         render_context = context.copy()
@@ -611,7 +666,7 @@ def generate_periodic_protocol(
         if table:
             _reset_periodic_table(table)
             # Заполняем таблицу — номер пока текстом, заменим после сохранения
-            _fill_periodic_rows(table, employees_data, check_type='периодическая', num_id=None)
+            _fill_periodic_rows(table, employees_data, check_type=check_type, num_id=None)
             _remove_empty_paragraphs_after_table(doc.docx, table)
 
         buffer = BytesIO()

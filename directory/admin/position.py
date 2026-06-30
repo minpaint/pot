@@ -177,6 +177,10 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                 'internship_period_days',
             )
         }),
+        ('⛰️ Работа на высоте', {
+            'fields': ('height_group_1', 'height_group_2', 'height_group_3'),
+            'description': 'Укажите группы для работы на высоте, присвоенные данной должности. Можно выбрать несколько групп.',
+        }),
         ('🛡️ Переопределение норм СИЗ', {
             'fields': ('requires_siz', 'siz_norms_overridden'),
             'description': '''<strong>⚠️ Включите этот флаг, если:</strong><br>

@@ -116,6 +116,20 @@ class Position(models.Model):
         blank=True,
         verbose_name="Группа по электробезопасности"
     )
+
+    height_group_1 = models.BooleanField(
+        default=False,
+        verbose_name="⛰️ Группа 1 (работа на высоте)"
+    )
+    height_group_2 = models.BooleanField(
+        default=False,
+        verbose_name="⛰️ Группа 2 (работа на высоте)"
+    )
+    height_group_3 = models.BooleanField(
+        default=False,
+        verbose_name="⛰️ Группа 3 (работа на высоте)"
+    )
+
     internship_period_days = models.PositiveIntegerField(
         default=0,
         verbose_name="Срок стажировки (дни)"
@@ -232,6 +246,13 @@ class Position(models.Model):
         if self.drives_company_vehicle and not self.company_vehicle_instructions:
             raise ValidationError({
                 'company_vehicle_instructions': 'Необходимо указать инструкции при управлении служебным автомобилем'
+            })
+
+        # Валидация групп для работы на высоте: 1 группа несовместима с 2 и 3
+        if self.height_group_1 and (self.height_group_2 or self.height_group_3):
+            raise ValidationError({
+                'height_group_1': '1 группа не совместима со 2-й и 3-й группами. '
+                                  'Совместно могут устанавливаться только 2 и 3 группы.'
             })
 
     def save(self, *args, **kwargs):

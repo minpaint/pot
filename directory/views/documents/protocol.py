@@ -237,7 +237,7 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
     template_name = 'directory/documents/periodic_protocol_tree.html'
 
     def get_base_queryset(self):
-        qs = Employee.objects.select_related(
+        qs = Employee.objects.active_for_operations().select_related(
             'organization', 'subdivision', 'department', 'position'
         )
         qs = AccessControlHelper.filter_queryset(qs, self.request.user, self.request)

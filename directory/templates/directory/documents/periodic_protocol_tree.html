@@ -574,11 +574,17 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.employee-checkbox').forEach(cb => {
             const row = cb.closest('tr');
             const hasHeight = row && row.dataset.hasHeight === 'true';
-            if (heightOnly && !hasHeight) {
-                row.classList.add('hidden-by-height');
-                cb.checked = false;
+            if (heightOnly) {
+                if (!hasHeight) {
+                    row.classList.add('hidden-by-height');
+                    cb.checked = false;
+                } else {
+                    row.classList.remove('hidden-by-height');
+                    cb.checked = true;
+                }
             } else {
                 row.classList.remove('hidden-by-height');
+                cb.checked = true;
             }
         });
         updateCounter();

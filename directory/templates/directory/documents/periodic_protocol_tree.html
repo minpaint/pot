@@ -185,6 +185,28 @@
     margin-right: 4px;
 }
 .hidden-by-height { display: none !important; }
+
+/* ── Блоки actionbar ── */
+.pp-action-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.pp-action-group-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #adb5bd;
+    font-weight: 600;
+    line-height: 1;
+}
+.pp-action-group-btns {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 .pp-check-type { display: flex; gap: 2px; align-items: center; }
 .pp-check-btn {
     padding: 4px 12px;
@@ -267,12 +289,6 @@
 {% block content %}
 <div class="container-fluid mt-3">
 
-    <div class="mb-3">
-        <h5 class="fw-bold mb-1">{{ title }}</h5>
-        <p class="text-muted small mb-0">
-            Сотрудники со стажировкой, флагом «Ответственный за ОТ» или группой для работы на высоте. Снимите галочки перед скачиванием протокола.
-        </p>
-    </div>
 
     {% if not show_tree %}
     <div class="alert alert-info rounded-3">
@@ -297,36 +313,50 @@
 
             <div class="pp-card-header">
                 <span>📋</span>
-                <span class="hdr-title">{{ title }}</span>
+                <span class="hdr-title">Проверка знаний по вопросам охраны труда (периодическая, внеочередная)</span>
             </div>
 
-            <!-- Кнопки действий + выбор всех -->
+            <!-- Кнопки действий -->
             <div class="pp-actionbar">
-                <button type="button" data-action="download_single" class="btn btn-sm btn-primary action-submit">
-                    📥 Скачать общий протокол
-                </button>
-                <button type="button" data-action="download_by_subdivision" class="btn btn-sm btn-outline-primary action-submit">
-                    🗂️ По подразделениям (zip)
-                </button>
-                <button type="button" data-action="certificates_org" class="btn btn-sm btn-success action-submit">
-                    🪪 Удостоверения
-                </button>
-                <button type="button" data-action="certificates_by_subdivision" class="btn btn-sm btn-outline-success action-submit">
-                    🗂️ Удостоверения (zip)
-                </button>
+                <!-- Блок: Вид проверки знаний -->
+                <div class="pp-action-group">
+                    <div class="pp-action-group-label">Вид проверки знаний</div>
+                    <div class="pp-action-group-btns">
+                        <div class="pp-check-type">
+                            <button type="button" class="pp-check-btn active" data-value="периодическая">Периодическая</button>
+                            <button type="button" class="pp-check-btn" data-value="внеочередная">Внеочередная</button>
+                        </div>
+                        <div class="form-check mb-0 ms-1">
+                            <input class="form-check-input" type="checkbox" id="heightOnly">
+                            <label class="form-check-label small" for="heightOnly">🪜 Только на высоте</label>
+                        </div>
+                    </div>
+                </div>
                 <div class="vr"></div>
-                <div class="pp-check-type">
-                    <span class="small text-muted me-1">Вид:</span>
-                    <button type="button" class="pp-check-btn active" data-value="периодическая">Периодическая</button>
-                    <button type="button" class="pp-check-btn" data-value="внеочередная">Внеочередная</button>
+                <!-- Блок: Протокол -->
+                <div class="pp-action-group">
+                    <div class="pp-action-group-label">Протокол</div>
+                    <div class="pp-action-group-btns">
+                        <button type="button" data-action="download_single" class="btn btn-sm btn-primary action-submit">
+                            📥 Вся организация
+                        </button>
+                        <button type="button" data-action="download_by_subdivision" class="btn btn-sm btn-outline-primary action-submit">
+                            🗂️ По подразделениям
+                        </button>
+                    </div>
                 </div>
-                <div class="form-check mb-0">
-                    <input class="form-check-input" type="checkbox" id="heightOnly">
-                    <label class="form-check-label small" for="heightOnly">🪜 Только работы на высоте</label>
-                </div>
-                <div class="form-check mb-0 ms-1">
-                    <input class="form-check-input" type="checkbox" id="selectAll" checked>
-                    <label class="form-check-label small" for="selectAll">Выбрать всех</label>
+                <div class="vr"></div>
+                <!-- Блок: Удостоверения -->
+                <div class="pp-action-group">
+                    <div class="pp-action-group-label">Удостоверения</div>
+                    <div class="pp-action-group-btns">
+                        <button type="button" data-action="certificates_org" class="btn btn-sm btn-success action-submit">
+                            🪪 Вся организация
+                        </button>
+                        <button type="button" data-action="certificates_by_subdivision" class="btn btn-sm btn-outline-success action-submit">
+                            🗂️ По подразделениям
+                        </button>
+                    </div>
                 </div>
                 <span class="pp-selected-info">Выбрано: <strong><span id="selectedCount">0</span></strong></span>
             </div>
@@ -524,23 +554,34 @@
 <script src="{% static 'admin/js/tree_search.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const selectAll = document.getElementById('selectAll');
+    const selectAllHeader = document.getElementById('select-all');
     const checkboxes = Array.from(document.querySelectorAll('.employee-checkbox'));
     const counter = document.getElementById('selectedCount');
+
+    function isRowVisible(row) {
+        return !row.classList.contains('tree-row-hidden') &&
+               !row.classList.contains('hidden-by-search') &&
+               !row.classList.contains('hidden-by-height');
+    }
 
     function updateCounter() {
         const selected = checkboxes.filter(cb => cb.checked).length;
         counter.textContent = selected;
+        if (selectAllHeader) {
+            const visible = checkboxes.filter(cb => isRowVisible(cb.closest('tr')));
+            const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
+            const someChecked = visible.some(cb => cb.checked);
+            selectAllHeader.checked = allChecked;
+            selectAllHeader.indeterminate = !allChecked && someChecked;
+        }
     }
 
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
+    if (selectAllHeader) {
+        selectAllHeader.addEventListener('change', function() {
             const checked = this.checked;
             checkboxes.forEach(cb => {
                 const row = cb.closest('tr');
-                if (!row.classList.contains('tree-row-hidden') && !row.classList.contains('hidden-by-search')) {
-                    cb.checked = checked;
-                }
+                if (isRowVisible(row)) cb.checked = checked;
             });
             updateCounter();
         });

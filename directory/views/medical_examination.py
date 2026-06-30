@@ -67,7 +67,7 @@ class MedicalExaminationTypeCreateView(LoginRequiredMixin, PermissionRequiredMix
     model = MedicalExaminationType
     form_class = MedicalExaminationTypeForm
     template_name = 'directory/medical_exams/exam_types/form.html'
-    success_url = reverse_lazy('directory:medical_examination_types')
+    success_url = reverse_lazy('directory:medical:medical_examination_types')
     permission_required = 'directory.add_medicalexaminationtype'
 
     def get_context_data(self, **kwargs):
@@ -87,7 +87,7 @@ class MedicalExaminationTypeUpdateView(LoginRequiredMixin, PermissionRequiredMix
     model = MedicalExaminationType
     form_class = MedicalExaminationTypeForm
     template_name = 'directory/medical_exams/exam_types/form.html'
-    success_url = reverse_lazy('directory:medical_examination_types')
+    success_url = reverse_lazy('directory:medical:medical_examination_types')
     permission_required = 'directory.change_medicalexaminationtype'
 
     def get_context_data(self, **kwargs):
@@ -106,7 +106,7 @@ class MedicalExaminationTypeDeleteView(LoginRequiredMixin, PermissionRequiredMix
     """
     model = MedicalExaminationType
     template_name = 'directory/medical_exams/exam_types/confirm_delete.html'
-    success_url = reverse_lazy('directory:medical_examination_types')
+    success_url = reverse_lazy('directory:medical:medical_examination_types')
     permission_required = 'directory.delete_medicalexaminationtype'
 
     def get_context_data(self, **kwargs):
@@ -120,7 +120,7 @@ class MedicalExaminationTypeDeleteView(LoginRequiredMixin, PermissionRequiredMix
             return super().post(request, *args, **kwargs)
         except Exception as e:
             messages.error(request, f'Ошибка при удалении: {str(e)}')
-            return redirect('directory:medical_examination_types')
+            return redirect('directory:medical:medical_examination_types')
 
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -193,7 +193,7 @@ class HarmfulFactorCreateView(LoginRequiredMixin, PermissionRequiredMixin, Creat
     model = HarmfulFactor
     form_class = HarmfulFactorForm
     template_name = 'directory/medical_exams/harmful_factors/form.html'
-    success_url = reverse_lazy('directory:harmful_factors')
+    success_url = reverse_lazy('directory:medical:harmful_factors')
     permission_required = 'directory.add_harmfulfactor'
 
     def get_context_data(self, **kwargs):
@@ -213,7 +213,7 @@ class HarmfulFactorUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Updat
     model = HarmfulFactor
     form_class = HarmfulFactorForm
     template_name = 'directory/medical_exams/harmful_factors/form.html'
-    success_url = reverse_lazy('directory:harmful_factors')
+    success_url = reverse_lazy('directory:medical:harmful_factors')
     permission_required = 'directory.change_harmfulfactor'
 
     def get_context_data(self, **kwargs):
@@ -227,7 +227,7 @@ class HarmfulFactorUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Updat
 
     def get_success_url(self):
         if 'continue' in self.request.POST:
-            return reverse('directory:harmful_factor_detail', kwargs={'pk': self.object.pk})
+            return reverse('directory:medical:harmful_factor_detail', kwargs={'pk': self.object.pk})
         return super().get_success_url()
 
 
@@ -237,7 +237,7 @@ class HarmfulFactorDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Delet
     """
     model = HarmfulFactor
     template_name = 'directory/medical_exams/harmful_factors/confirm_delete.html'
-    success_url = reverse_lazy('directory:harmful_factors')
+    success_url = reverse_lazy('directory:medical:harmful_factors')
     permission_required = 'directory.delete_harmfulfactor'
 
     def get_context_data(self, **kwargs):
@@ -269,7 +269,7 @@ class MedicalNormListView(LoginRequiredMixin, ListView):
     paginate_by = 30
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('harmful_factor', 'harmful_factor__examination_type')
+        queryset = super().get_queryset().select_related('harmful_factor')
 
         # Получаем параметры поиска
         form = MedicalNormSearchForm(self.request.GET)
@@ -280,9 +280,6 @@ class MedicalNormListView(LoginRequiredMixin, ListView):
 
             if position_name:
                 queryset = queryset.filter(position_name__icontains=position_name)
-
-            if examination_type:
-                queryset = queryset.filter(harmful_factor__examination_type=examination_type)
 
             if harmful_factor:
                 queryset = queryset.filter(
@@ -307,7 +304,7 @@ class MedicalNormCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateV
     model = MedicalExaminationNorm
     form_class = MedicalExaminationNormForm
     template_name = 'directory/medical_exams/medical_norms/form.html'
-    success_url = reverse_lazy('directory:medical_norms')
+    success_url = reverse_lazy('directory:medical:medical_norms')
     permission_required = 'directory.add_medicalexaminationnorm'
 
     def get_context_data(self, **kwargs):
@@ -330,7 +327,7 @@ class MedicalNormUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateV
     model = MedicalExaminationNorm
     form_class = MedicalExaminationNormForm
     template_name = 'directory/medical_exams/medical_norms/form.html'
-    success_url = reverse_lazy('directory:medical_norms')
+    success_url = reverse_lazy('directory:medical:medical_norms')
     permission_required = 'directory.change_medicalexaminationnorm'
 
     def get_context_data(self, **kwargs):
@@ -352,7 +349,7 @@ class MedicalNormDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteV
     """
     model = MedicalExaminationNorm
     template_name = 'directory/medical_exams/medical_norms/confirm_delete.html'
-    success_url = reverse_lazy('directory:medical_norms')
+    success_url = reverse_lazy('directory:medical:medical_norms')
     permission_required = 'directory.delete_medicalexaminationnorm'
 
     def delete(self, request, *args, **kwargs):
@@ -379,7 +376,7 @@ class MedicalNormImportView(LoginRequiredMixin, PermissionRequiredMixin, FormVie
     """
     form_class = MedicalNormImportForm
     template_name = 'directory/medical_exams/medical_norms/import.html'
-    success_url = reverse_lazy('directory:medical_norms')
+    success_url = reverse_lazy('directory:medical:medical_norms')
     permission_required = 'directory.add_medicalexaminationnorm'
 
     def form_valid(self, form):
@@ -414,7 +411,7 @@ class MedicalNormExportView(LoginRequiredMixin, PermissionRequiredMixin, FormVie
     """
     form_class = MedicalNormExportForm
     template_name = 'directory/medical_exams/medical_norms/export.html'
-    success_url = reverse_lazy('directory:medical_norms')
+    success_url = reverse_lazy('directory:medical:medical_norms')
     permission_required = 'directory.view_medicalexaminationnorm'
 
     def form_valid(self, form):
@@ -433,7 +430,7 @@ class MedicalSettingsView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVie
     model = MedicalSettings
     form_class = MedicalSettingsForm
     template_name = 'directory/medical_exams/settings/form.html'
-    success_url = reverse_lazy('directory:medical_settings')
+    success_url = reverse_lazy('directory:medical:medical_settings')
     permission_required = 'directory.change_medicalsettings'
 
     def get_object(self, queryset=None):
@@ -462,8 +459,11 @@ class EmployeeMedicalExaminationListView(LoginRequiredMixin, ListView):
     paginate_by = 30
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related(
-            'employee', 'examination_type', 'harmful_factor', 'employee__position'
+        queryset = super().get_queryset().filter(
+            employee__marked_for_deletion=False,
+            employee__status='active',
+        ).select_related(
+            'employee', 'harmful_factor', 'employee__position'
         )
 
         # Получаем параметры поиска
@@ -479,9 +479,6 @@ class EmployeeMedicalExaminationListView(LoginRequiredMixin, ListView):
                 queryset = queryset.filter(
                     Q(employee__full_name_nominative__icontains=employee)
                 )
-
-            if examination_type:
-                queryset = queryset.filter(examination_type=examination_type)
 
             if status:
                 queryset = queryset.filter(status=status)
@@ -511,11 +508,19 @@ class EmployeeMedicalExaminationDetailView(LoginRequiredMixin, DetailView):
     template_name = 'directory/medical_exams/employee_exams/detail.html'
     context_object_name = 'exam'
 
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            employee__marked_for_deletion=False,
+            employee__status='active',
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Получаем другие медосмотры этого сотрудника
         context['other_exams'] = EmployeeMedicalExamination.objects.filter(
-            employee=self.object.employee
+            employee=self.object.employee,
+            employee__marked_for_deletion=False,
+            employee__status='active',
         ).exclude(
             id=self.object.id
         ).order_by('-date_completed')[:5]
@@ -533,7 +538,7 @@ class EmployeeMedicalExaminationCreateView(LoginRequiredMixin, PermissionRequire
     model = EmployeeMedicalExamination
     form_class = EmployeeMedicalExaminationForm
     template_name = 'directory/medical_exams/employee_exams/form.html'
-    success_url = reverse_lazy('directory:employee_exams')
+    success_url = reverse_lazy('directory:medical:employee_exams')
     permission_required = 'directory.add_employeemedicalexamination'
 
     def get_context_data(self, **kwargs):
@@ -544,7 +549,7 @@ class EmployeeMedicalExaminationCreateView(LoginRequiredMixin, PermissionRequire
         employee_id = self.request.GET.get('employee_id')
         if employee_id:
             try:
-                employee = Employee.objects.get(id=employee_id)
+                employee = Employee.objects.active_for_operations().get(id=employee_id)
                 context['employee'] = employee
                 context['status_info'] = get_employee_medical_examination_status(employee)
             except Employee.DoesNotExist:
@@ -562,9 +567,9 @@ class EmployeeMedicalExaminationCreateView(LoginRequiredMixin, PermissionRequire
 
     def get_success_url(self):
         if 'continue' in self.request.POST:
-            return reverse('directory:employee_exam_detail', kwargs={'pk': self.object.pk})
+            return reverse('directory:medical:employee_exam_detail', kwargs={'pk': self.object.pk})
         elif 'add_another' in self.request.POST:
-            return reverse('directory:employee_exam_create')
+            return reverse('directory:medical:employee_exam_create')
         return super().get_success_url()
 
 
@@ -575,8 +580,14 @@ class EmployeeMedicalExaminationUpdateView(LoginRequiredMixin, PermissionRequire
     model = EmployeeMedicalExamination
     form_class = EmployeeMedicalExaminationForm
     template_name = 'directory/medical_exams/employee_exams/form.html'
-    success_url = reverse_lazy('directory:employee_exams')
+    success_url = reverse_lazy('directory:medical:employee_exams')
     permission_required = 'directory.change_employeemedicalexamination'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            employee__marked_for_deletion=False,
+            employee__status='active',
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -595,7 +606,7 @@ class EmployeeMedicalExaminationUpdateView(LoginRequiredMixin, PermissionRequire
 
     def get_success_url(self):
         if 'continue' in self.request.POST:
-            return reverse('directory:employee_exam_detail', kwargs={'pk': self.object.pk})
+            return reverse('directory:medical:employee_exam_detail', kwargs={'pk': self.object.pk})
         return super().get_success_url()
 
 
@@ -605,8 +616,14 @@ class EmployeeMedicalExaminationDeleteView(LoginRequiredMixin, PermissionRequire
     """
     model = EmployeeMedicalExamination
     template_name = 'directory/medical_exams/employee_exams/confirm_delete.html'
-    success_url = reverse_lazy('directory:employee_exams')
+    success_url = reverse_lazy('directory:medical:employee_exams')
     permission_required = 'directory.delete_employeemedicalexamination'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            employee__marked_for_deletion=False,
+            employee__status='active',
+        )
 
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -637,12 +654,12 @@ class EmployeeMedicalExaminationTabView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         employee_id = kwargs.get('employee_id')
-        employee = get_object_or_404(Employee, pk=employee_id)
+        employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
 
         context['employee'] = employee
         context['exams'] = EmployeeMedicalExamination.objects.filter(
             employee=employee
-        ).select_related('examination_type', 'harmful_factor').order_by('-date_completed')
+        ).select_related('harmful_factor').order_by('-date_completed')
 
         # Получаем статус медосмотров сотрудника
         context['status_info'] = get_employee_medical_examination_status(employee)
@@ -656,7 +673,7 @@ def api_employee_medical_status(request, employee_id):
     API для получения статуса медосмотров сотрудника
     """
     try:
-        employee = Employee.objects.get(pk=employee_id)
+        employee = Employee.objects.active_for_operations().get(pk=employee_id)
         status_info = get_employee_medical_examination_status(employee)
 
         result = {

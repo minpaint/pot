@@ -261,6 +261,9 @@ medical_patterns = [
          name='employee_exam_delete'),
     path('tabs/employee/<int:employee_id>/exams/', medical_examination.EmployeeMedicalExaminationTabView.as_view(),
          name='employee_exams_tab'),
+
+    # Настройки медосмотров
+    path('settings/', medical_examination.MedicalSettingsView.as_view(), name='medical_settings'),
 ]
 
 

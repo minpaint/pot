@@ -194,6 +194,8 @@ class EmployeeMedicalExamination(models.Model):
     )
 
     class Meta:
+        managed = False
+        db_table = 'deadline_control_employeemedicalexamination'
         verbose_name = "Медосмотр сотрудника"
         verbose_name_plural = "Медосмотры сотрудников"
         ordering = ['-date_completed', 'employee']

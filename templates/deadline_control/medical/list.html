@@ -115,6 +115,10 @@
     bottom: 1.5rem;
     right: 1.5rem;
     z-index: 1050;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
 }
 .med-fab .btn {
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -122,13 +126,14 @@
     font-weight: 600;
     font-size: 0.9rem;
     border-radius: 24px;
+    white-space: nowrap;
 }
 
 /* ── Мобильная адаптация ── */
 @media (max-width: 767px) {
     .col-period { display: none !important; }
 
-    .med-fab { bottom: 1rem; right: 1rem; left: 1rem; }
+    .med-fab { bottom: 1rem; right: 1rem; left: 1rem; align-items: stretch; }
     .med-fab .btn { width: 100%; border-radius: 8px; }
 
     .med-table thead { display: none; }
@@ -396,11 +401,39 @@
 
 </div><!-- container -->
 
-<!-- ── FAB: массовое обновление ── -->
-<div class="med-fab" id="fab-mass-update" style="display:none;">
-    <button class="btn btn-success" id="mass-update-btn">
-        📅 Внести дату для выбранных (<span id="selected-count">0</span>)
+<!-- ── FAB: массовое обновление + направления ── -->
+<div class="med-fab" id="fab-mass-update">
+    <button class="btn btn-primary" id="batch-referral-btn">
+        📋 Скачать направления (<span class="selected-count-ref">0</span>)
     </button>
+    <button class="btn btn-success" id="mass-update-btn">
+        📅 Внести дату (<span id="selected-count">0</span>)
+    </button>
+</div>
+
+<!-- ── Форма пакетного скачивания ── -->
+<form id="batchReferralForm" method="post" action="{% url 'deadline_control:medical:referral_batch_download' %}" style="display:none;">
+    {% csrf_token %}
+    <span id="batchReferralInputs"></span>
+</form>
+
+<!-- ── Модальное окно ошибок валидации ── -->
+<div class="modal fade" id="referralErrorsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#a93226 0%,#e74c3c 100%);color:#fff;border:none;padding:12px 18px;">
+                <h6 class="modal-title mb-0">⚠️ Невозможно создать направления</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px;">
+                <p class="small text-muted mb-3">Для следующих сотрудников не заполнены обязательные поля. Заполните данные и повторите попытку.</p>
+                <div id="referralErrorsList"></div>
+            </div>
+            <div class="modal-footer" style="border:none;padding:0 18px 16px;">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ── Модальное окно ── -->
@@ -457,15 +490,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // FAB: массовое обновление
+    // FAB: массовое обновление + направления
     const fab = document.getElementById('fab-mass-update');
     const massUpdateBtn = document.getElementById('mass-update-btn');
     const selectedCountSpan = document.getElementById('selected-count');
+    const selectedCountRefs = document.querySelectorAll('.selected-count-ref');
 
     function updateFab() {
         const count = document.querySelectorAll('.employee-checkbox:checked').length;
         selectedCountSpan.textContent = count;
-        fab.style.display = count > 0 ? 'block' : 'none';
+        selectedCountRefs.forEach(function(el) { el.textContent = count; });
+        fab.style.display = count > 0 ? 'flex' : 'none';
     }
 
     document.querySelectorAll('.employee-checkbox').forEach(function(cb) {
@@ -489,6 +524,70 @@ document.addEventListener('DOMContentLoaded', function() {
             const count = document.querySelectorAll('.employee-checkbox:checked').length;
             document.getElementById('performExamModalLabel').textContent = '📅 Внести дату для ' + count + ' сотрудников';
             performModal.show();
+        });
+    }
+
+    // Пакетное скачивание направлений
+    const batchReferralBtn = document.getElementById('batch-referral-btn');
+    const batchReferralForm = document.getElementById('batchReferralForm');
+    const batchReferralInputs = document.getElementById('batchReferralInputs');
+    const referralErrorsModal = new bootstrap.Modal(document.getElementById('referralErrorsModal'));
+    const referralErrorsList = document.getElementById('referralErrorsList');
+
+    if (batchReferralBtn) {
+        batchReferralBtn.addEventListener('click', function() {
+            const ids = Array.from(document.querySelectorAll('.employee-checkbox:checked')).map(cb => cb.value);
+            if (!ids.length) return;
+
+            // Сначала валидируем через AJAX
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const formData = new FormData();
+            ids.forEach(id => formData.append('employee_ids', id));
+
+            batchReferralBtn.disabled = true;
+            batchReferralBtn.textContent = '⏳ Проверка...';
+
+            fetch('{% url "deadline_control:medical:referral_batch_download" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData,
+            })
+            .then(function(r) {
+                const ct = r.headers.get('Content-Type') || '';
+                if (ct.includes('application/zip')) {
+                    return r.blob().then(function(blob) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'Направления_на_МО.zip';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                    });
+                }
+                return r.json().then(function(data) {
+                    if (data.errors && data.errors.length) {
+                        let html = '';
+                        data.errors.forEach(function(e) {
+                            html += '<div style="border:1px solid #f5c6cb;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fde8e8;">';
+                            html += '<div style="font-weight:600;font-size:0.9rem;margin-bottom:4px;">👤 ' + e.name + '</div>';
+                            html += '<ul style="margin:0;padding-left:18px;font-size:0.82rem;color:#c0392b;">';
+                            e.issues.forEach(function(issue) { html += '<li>' + issue + '</li>'; });
+                            html += '</ul></div>';
+                        });
+                        referralErrorsList.innerHTML = html;
+                        referralErrorsModal.show();
+                    } else if (data.error) {
+                        alert('❌ ' + data.error);
+                    }
+                });
+            })
+            .catch(function() { alert('❌ Ошибка при отправке запроса.'); })
+            .finally(function() {
+                batchReferralBtn.disabled = false;
+                batchReferralBtn.innerHTML = '📋 Скачать направления (<span class="selected-count-ref">' + ids.length + '</span>)';
+            });
         });
     }
 

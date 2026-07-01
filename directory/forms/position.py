@@ -84,8 +84,18 @@ class PositionForm(OrganizationRestrictionFormMixin, forms.ModelForm):
             self.fields[field_name].queryset = qs
 
         allowed_orgs = self.fields['organization'].queryset
+        allowed_orgs_count = allowed_orgs.count()
 
-        if not self.is_bound and allowed_orgs.count() == 1 and not self.initial.get('organization'):
+        # ModelSelect2 uses AJAX and ignores the form's queryset restriction.
+        # Switch to plain Select when restricted to 1 org so the dropdown only
+        # shows that org instead of all organizations from the autocomplete endpoint.
+        if allowed_orgs_count == 1:
+            self.fields['organization'].widget = forms.Select(
+                attrs={'class': 'form-select'},
+                choices=self.fields['organization'].choices,
+            )
+
+        if not self.is_bound and allowed_orgs_count == 1 and not self.initial.get('organization'):
             self.initial['organization'] = allowed_orgs.first().pk
 
         organization_id = _get_selected_id('organization')

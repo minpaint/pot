@@ -630,6 +630,13 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
         class PositionFormWithUser(Form):
             def __init__(self, *args, **kwargs):
                 kwargs['user'] = request.user
+                if not obj and not kwargs.get('initial_org_id'):
+                    _sid = request.session.get('selected_org_id')
+                    if _sid:
+                        try:
+                            kwargs['initial_org_id'] = int(_sid)
+                        except (ValueError, TypeError):
+                            pass
                 super().__init__(*args, **kwargs)
                 # Настраиваем labels и help_text для полей
                 self.fields['documents'].label = "ДОСТУПНЫЕ ДОКУМЕНТЫ"

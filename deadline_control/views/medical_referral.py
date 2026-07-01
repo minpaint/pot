@@ -600,3 +600,114 @@ class NewEmployeeReferralView(LoginRequiredMixin, View):
             form_data=form_data,
         )
         return render(request, 'deadline_control/new_employee_referral.html', context)
+
+
+class BatchReferralDownloadView(LoginRequiredMixin, View):
+    """
+    Пакетная генерация направлений на медосмотр для выбранных сотрудников.
+    POST: employee_ids[] → валидация → ZIP с DOCX-направлениями или JSON с ошибками.
+    """
+
+    def post(self, request):
+        import zipfile
+        from io import BytesIO
+        from urllib.parse import quote
+        from django.http import HttpResponse
+
+        employee_ids = request.POST.getlist('employee_ids')
+        if not employee_ids:
+            return JsonResponse({'success': False, 'error': 'Не выбраны сотрудники'}, status=400)
+
+        employees = list(
+            Employee.objects.active_for_operations()
+            .filter(id__in=employee_ids)
+            .select_related('organization', 'position')
+        )
+
+        # Фильтрация по правам
+        employees = [e for e in employees if AccessControlHelper.can_access_object(request.user, e)]
+
+        if not employees:
+            return JsonResponse({'success': False, 'error': 'Нет доступных сотрудников'}, status=403)
+
+        # Проверяем наличие шаблонов по организациям (кэшируем)
+        template_cache = {}
+        def get_template(org):
+            if org.id not in template_cache:
+                template_cache[org.id] = get_medical_referral_template(org)
+            return template_cache[org.id]
+
+        # Валидация
+        errors = []
+        for emp in employees:
+            emp_errors = []
+            if not emp.date_of_birth:
+                emp_errors.append('не указана дата рождения')
+            if not emp.place_of_residence or not emp.place_of_residence.strip():
+                emp_errors.append('не указан адрес проживания')
+            factors = get_harmful_factors_for_employee(emp)
+            if not factors:
+                emp_errors.append('нет вредных факторов для должности')
+            tpl = get_template(emp.organization)
+            if not tpl or not os.path.exists(tpl):
+                emp_errors.append('не найден шаблон направления для организации')
+            if emp_errors:
+                errors.append({'name': emp.full_name_nominative, 'issues': emp_errors})
+
+        if errors:
+            return JsonResponse({'success': False, 'errors': errors})
+
+        # Генерация ZIP
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for emp in employees:
+                harmful_factors = get_harmful_factors_for_employee(emp)
+                template_path = get_template(emp.organization)
+
+                referral = MedicalReferral.objects.create(
+                    employee=emp,
+                    employee_birth_date=emp.date_of_birth,
+                    employee_address=emp.place_of_residence,
+                    issued_by=request.user,
+                )
+                referral.harmful_factors.set(harmful_factors)
+
+                doc = DocxTemplate(template_path)
+                name_parts = emp.full_name_nominative.split()
+                last_name = name_parts[0] if name_parts else ''
+                first_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
+                factors_text = '\n'.join(f.full_name for f in harmful_factors) or 'Не определены'
+
+                doc.render({
+                    'organization_name': emp.organization.full_name_ru,
+                    'organization_name_by': getattr(emp.organization, 'full_name_by', emp.organization.full_name_ru),
+                    'requisites_ru': getattr(emp.organization, 'requisites_ru', ''),
+                    'requisites_by': getattr(emp.organization, 'requisites_by', ''),
+                    'last_name': last_name,
+                    'first_name': first_name,
+                    'full_name': emp.full_name_nominative,
+                    'date_of_birth': emp.date_of_birth.strftime('%d.%m.%Y'),
+                    'address': emp.place_of_residence,
+                    'position_name': emp.position.position_name,
+                    'harmful_factors': factors_text,
+                    'issue_date': timezone.now().date().strftime('%d.%m.%Y'),
+                })
+
+                doc_buffer = BytesIO()
+                doc.save(doc_buffer)
+                doc_bytes = doc_buffer.getvalue()
+
+                # Сохраняем файл направления
+                from django.core.files.base import ContentFile
+                safe_name = emp.full_name_nominative.replace(' ', '_')
+                rel_path = f'medical_referrals/{timezone.now().year}/{timezone.now().month:02d}/referral_{referral.id}_{safe_name}.docx'
+                referral.document.save(rel_path, ContentFile(doc_bytes), save=True)
+
+                arcname = f'Направление_{safe_name}.docx'
+                zf.writestr(arcname, doc_bytes)
+
+        zip_buffer.seek(0)
+        zip_filename = f'Направления_на_МО_{timezone.now().strftime("%d.%m.%Y")}.zip'
+        response = HttpResponse(zip_buffer.read(), content_type='application/zip')
+        response['Content-Disposition'] = f"attachment; filename*=UTF-8''{quote(zip_filename)}"
+        return response

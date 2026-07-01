@@ -243,6 +243,16 @@ class PositionCreateView(LoginRequiredMixin, CreateView):
                 pass
         return kwargs
 
+    def get_initial(self):
+        initial = super().get_initial()
+        org_id = self.request.session.get('selected_org_id')
+        if org_id:
+            try:
+                initial['organization'] = int(org_id)
+            except (ValueError, TypeError):
+                pass
+        return initial
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Добавление должности'

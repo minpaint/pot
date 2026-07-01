@@ -55,6 +55,8 @@ medical_patterns = [
     path('referral/download/<int:referral_id>/', medical_referral.DownloadReferralView.as_view(), name='referral_download'),
     # Форма для направления нового сотрудника
     path('referral/new-employee/', medical_referral.NewEmployeeReferralView.as_view(), name='referral_new_employee'),
+    # Пакетное скачивание направлений (ZIP)
+    path('referral/batch-download/', medical_referral.BatchReferralDownloadView.as_view(), name='referral_batch_download'),
 ]
 
 urlpatterns = [

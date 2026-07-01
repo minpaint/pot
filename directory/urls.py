@@ -30,7 +30,7 @@ from .views.documents.siz_integration import generate_siz_card_docx_view
 
 from deadline_control.views import medical_examination  # 🏥 Импортируем модуль с представлениями медосмотров
 
-from directory.views.employees import EmployeeTreeView, employee_tree_children
+from directory.views.employees import EmployeeTreeView, employee_tree_children, BatchFireEmployeesView
 
 from directory.views import quiz_views  # 📝 Импортируем модуль с представлениями экзаменов
 from directory.views import quiz_import_views  # 📥 Импорт вопросов
@@ -108,6 +108,7 @@ employee_patterns = [
     path('<int:pk>/', EmployeeProfileView.as_view(), name='employee_profile'),  # ← добавлено
     path('<int:pk>/update/', EmployeeUpdateView.as_view(), name='employee_update'),
     path('<int:pk>/delete/', EmployeeDeleteView.as_view(), name='employee_delete'),
+    path('batch-fire/', BatchFireEmployeesView.as_view(), name='employee_batch_fire'),
 ]
 
 # 👔 Должности

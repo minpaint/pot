@@ -247,10 +247,14 @@
                     Действия <span id="selectedCount" class="badge bg-light text-dark ms-1">0</span>
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="actionsDropdown">
-                    <li><a class="dropdown-item" href="#" id="btnIssueSIZ">🛡️ Карточка СИЗ</a></li>
-                    <li><a class="dropdown-item" href="#" id="btnMedicalReferralDropdown">🏥 Выдать направление</a></li>
-                    <li><a class="dropdown-item" href="#" id="btnGenerateDocuments">📄 Сформировать документы</a></li>
-                    <li><a class="dropdown-item" href="#" id="btnEditEmployee">✏️ Изменить сотрудника</a></li>
+                    <li><h6 class="dropdown-header" style="font-size:0.68rem;color:#aaa;">Один сотрудник</h6></li>
+                    <li><a class="dropdown-item single-only" href="#" id="btnIssueSIZ">🛡️ Карточка СИЗ</a></li>
+                    <li><a class="dropdown-item single-only" href="#" id="btnMedicalReferralDropdown">🏥 Выдать направление</a></li>
+                    <li><a class="dropdown-item single-only" href="#" id="btnGenerateDocuments">📄 Сформировать документы</a></li>
+                    <li><a class="dropdown-item single-only" href="#" id="btnEditEmployee">✏️ Изменить сотрудника</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header" style="font-size:0.68rem;color:#aaa;">Массовые действия</h6></li>
+                    <li><a class="dropdown-item text-danger" href="#" id="btnBatchFire">🚫 Отметить как уволенных</a></li>
                 </ul>
             </div>
 
@@ -308,7 +312,7 @@
                             data-level="1" data-parent-id="org_{{ org.id }}">
                             <td class="column-checkbox">
                                 <input type="checkbox" class="form-check-input action-select employee-checkbox"
-                                       data-id="{{ emp.id }}" value="{{ emp.id }}">
+                                       data-id="{{ emp.id }}" value="{{ emp.id }}" data-name="{{ emp.full_name_nominative }}">
                             </td>
                             <td class="field-name">
                                 {% if emp.position.is_responsible_for_safety %}👑{% else %}👤{% endif %}
@@ -348,7 +352,7 @@
                             data-level="2" data-parent-id="sub_{{ sub.id }}">
                             <td class="column-checkbox">
                                 <input type="checkbox" class="form-check-input action-select employee-checkbox"
-                                       data-id="{{ emp.id }}" value="{{ emp.id }}">
+                                       data-id="{{ emp.id }}" value="{{ emp.id }}" data-name="{{ emp.full_name_nominative }}">
                             </td>
                             <td class="field-name">
                                 {% if emp.position.is_responsible_for_safety %}👑{% else %}👤{% endif %}
@@ -388,7 +392,7 @@
                             data-level="3" data-parent-id="dept_{{ dept.id }}">
                             <td class="column-checkbox">
                                 <input type="checkbox" class="form-check-input action-select employee-checkbox"
-                                       data-id="{{ emp.id }}" value="{{ emp.id }}">
+                                       data-id="{{ emp.id }}" value="{{ emp.id }}" data-name="{{ emp.full_name_nominative }}">
                             </td>
                             <td class="field-name">
                                 {% if emp.position.is_responsible_for_safety %}👑{% else %}👤{% endif %}
@@ -477,6 +481,28 @@
         </div>
     </div>
 </div>
+<!-- ── Модальное окно: подтверждение массового увольнения ── -->
+<div class="modal fade" id="batchFireModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#a93226 0%,#e74c3c 100%);color:#fff;border:none;padding:12px 18px;">
+                <h6 class="modal-title mb-0">🚫 Отметить как уволенных</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px;">
+                <p class="mb-2">Следующие сотрудники будут отмечены как уволенные и скрыты из рабочих разделов:</p>
+                <ul id="batchFireList" style="font-size:0.9rem;max-height:260px;overflow-y:auto;padding-left:20px;"></ul>
+                <div class="alert alert-warning py-2 px-3 mb-0" style="font-size:0.82rem;border-radius:8px;">
+                    ⚠️ Действие можно отменить через карточку сотрудника.
+                </div>
+            </div>
+            <div class="modal-footer" style="border:none;padding:0 18px 16px;gap:8px;">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-sm btn-danger" id="batchFireConfirmBtn">🚫 Уволить</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -500,32 +526,38 @@ document.addEventListener('DOMContentLoaded', function() {
     const counterValue        = document.getElementById('counterValue');
     const selectedCountBadge  = document.getElementById('selectedCount');
 
+    function getSelectedCheckboxes() {
+        return Array.from(table.querySelectorAll('.employee-checkbox:checked'));
+    }
     function getSelectedEmployee() {
-        return table.querySelector('.employee-checkbox:checked');
+        const all = getSelectedCheckboxes();
+        return all.length === 1 ? all[0] : null;
     }
 
     function updateButtonsState() {
-        const sel = getSelectedEmployee();
-        const hasOne = !!sel;
+        const all = getSelectedCheckboxes();
+        const count = all.length;
+        const hasAny = count > 0;
+        const hasOne = count === 1;
 
-        if (selectedCountBadge) selectedCountBadge.textContent = hasOne ? 1 : 0;
-        if (counterValue) counterValue.textContent = hasOne ? 1 : 0;
-        if (selectedCounter) selectedCounter.style.display = hasOne ? 'inline' : 'none';
-        if (actionsDropdown) actionsDropdown.disabled = !hasOne;
+        if (selectedCountBadge) selectedCountBadge.textContent = count;
+        if (counterValue) counterValue.textContent = count;
+        if (selectedCounter) selectedCounter.style.display = hasAny ? 'inline' : 'none';
+        if (actionsDropdown) actionsDropdown.disabled = !hasAny;
         if (generateDocumentsBtn) generateDocumentsBtn.style.display = hasOne ? 'inline-block' : 'none';
         if (btnMedicalReferral) btnMedicalReferral.style.display = hasOne ? 'inline-block' : 'none';
+
+        // Визуально приглушить single-only пункты при множественном выборе
+        document.querySelectorAll('.single-only').forEach(function(el) {
+            el.classList.toggle('disabled', !hasOne);
+            el.style.opacity = hasOne ? '' : '0.45';
+        });
     }
 
-    // Одиночный выбор: при установке галочки снимаем все остальные
+    // Multi-select: чекбоксы независимы
     table.addEventListener('change', function(e) {
         if (!e.target.classList.contains('employee-checkbox')) return;
         if (e.target.checked) {
-            // Снять галочки со всех других сотрудников
-            table.querySelectorAll('.employee-checkbox').forEach(cb => {
-                if (cb !== e.target) cb.checked = false;
-            });
-            // Убрать подсветку со всех строк, добавить выбранной
-            table.querySelectorAll('.emp-selected').forEach(r => r.classList.remove('emp-selected'));
             e.target.closest('tr')?.classList.add('emp-selected');
         } else {
             e.target.closest('tr')?.classList.remove('emp-selected');
@@ -560,13 +592,74 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const sel = getSelectedEmployee();
         if (sel) window.location.href = employeeUpdateUrl.replace('0', sel.dataset.id);
-        else alert('Выберите сотрудника');
     });
 
     // Dropdown: Выдать направление
     document.getElementById('btnMedicalReferralDropdown')?.addEventListener('click', function(e) {
         e.preventDefault();
         if (btnMedicalReferral) btnMedicalReferral.click();
+    });
+
+    // Dropdown: Отметить как уволенных (batch fire)
+    const batchFireModal = new bootstrap.Modal(document.getElementById('batchFireModal'));
+    const batchFireList = document.getElementById('batchFireList');
+    const batchFireConfirmBtn = document.getElementById('batchFireConfirmBtn');
+
+    document.getElementById('btnBatchFire')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        const cbs = getSelectedCheckboxes();
+        if (!cbs.length) return;
+        batchFireList.innerHTML = cbs.map(function(cb) {
+            return '<li>' + (cb.dataset.name || 'Сотрудник #' + cb.value) + '</li>';
+        }).join('');
+        batchFireModal.show();
+    });
+
+    batchFireConfirmBtn?.addEventListener('click', function() {
+        const cbs = getSelectedCheckboxes();
+        if (!cbs.length) return;
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                       || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+        const formData = new FormData();
+        cbs.forEach(function(cb) { formData.append('employee_ids', cb.value); });
+
+        batchFireConfirmBtn.disabled = true;
+        batchFireConfirmBtn.textContent = '⏳ Обработка...';
+
+        fetch('{% url "directory:employees:employee_batch_fire" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData,
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            batchFireModal.hide();
+            if (data.success) {
+                // Скрываем строки уволенных из дерева без перезагрузки
+                cbs.forEach(function(cb) {
+                    const row = cb.closest('tr');
+                    if (row) row.style.display = 'none';
+                    cb.checked = false;
+                });
+                updateButtonsState();
+                const msg = data.fired.length
+                    ? 'Уволено: ' + data.fired.join(', ')
+                    : 'Все выбранные сотрудники уже были уволены.';
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2c3e50;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:0.9rem;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+                toast.textContent = '🚫 ' + msg;
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.remove(); }, 4000);
+            } else {
+                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(function() { alert('Ошибка при отправке запроса.'); })
+        .finally(function() {
+            batchFireConfirmBtn.disabled = false;
+            batchFireConfirmBtn.textContent = '🚫 Уволить';
+        });
     });
 
     // Модальное окно: загрузка данных сотрудника

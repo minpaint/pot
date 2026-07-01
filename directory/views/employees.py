@@ -1,3 +1,4 @@
+from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, FormView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
@@ -340,6 +341,33 @@ class EmployeeDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteVie
         else:
             messages.info(request, f'Сотрудник {self.object.full_name_nominative} уже помечен на удаление.')
         return redirect(self.get_success_url())
+
+
+class BatchFireEmployeesView(LoginRequiredMixin, View):
+    """Пакетное увольнение сотрудников. POST: employee_ids[] → JSON-ответ."""
+
+    def post(self, request):
+        employee_ids = request.POST.getlist('employee_ids')
+        if not employee_ids:
+            return JsonResponse({'success': False, 'error': 'Не выбраны сотрудники'}, status=400)
+
+        employees = list(
+            Employee.objects.visible()
+            .filter(id__in=employee_ids)
+        )
+        employees = [e for e in employees if AccessControlHelper.can_access_object(request.user, e)]
+
+        if not employees:
+            return JsonResponse({'success': False, 'error': 'Нет доступных сотрудников'}, status=403)
+
+        fired, already = [], []
+        for emp in employees:
+            if emp.mark_for_deletion():
+                fired.append(emp.full_name_nominative)
+            else:
+                already.append(emp.full_name_nominative)
+
+        return JsonResponse({'success': True, 'fired': fired, 'already': already})
 
 
 class EmployeeProfileView(LoginRequiredMixin, AccessControlObjectMixin, DetailView):

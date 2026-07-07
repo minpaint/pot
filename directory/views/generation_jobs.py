@@ -2,7 +2,7 @@
 ⚙️ Views для отслеживания асинхронных задач генерации документов.
 """
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse, Http404, FileResponse
+from django.http import JsonResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, ListView
 from django.urls import reverse
@@ -63,8 +63,17 @@ class GenerationJobDownloadView(LoginRequiredMixin, GenerationJobAccessMixin, De
         if job.status != 'done' or not job.result_file:
             raise Http404('Файл недоступен')
 
-        resp = FileResponse(job.result_file.open('rb'), content_type=job.content_type or 'application/octet-stream')
         filename = job.result_filename or f'job_{job.id}.bin'
         filename_encoded = quote(filename)
+
+        try:
+            file_path = job.result_file.path
+            with open(file_path, 'rb') as f:
+                content = f.read()
+        except (OSError, ValueError):
+            raise Http404('Файл не найден на диске')
+
+        resp = HttpResponse(content, content_type=job.content_type or 'application/octet-stream')
+        resp['Content-Length'] = len(content)
         resp['Content-Disposition'] = f'attachment; filename="document"; filename*=UTF-8\'\'{filename_encoded}'
         return resp

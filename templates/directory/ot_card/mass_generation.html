@@ -303,7 +303,7 @@
     <div class="ot-topbar">
         <div>
             <label>📅 Дата инструктажа</label>
-            <input type="date" id="date_povtorny" name="date_povtorny" value="{{ default_date }}">
+            <input type="date" id="date_povtorny" name="date_povtorny" value="{{ default_date }}" form="mass-generation-form">
         </div>
         <div style="padding-bottom: 2px;">
             <div style="margin-top: 20px; display: flex; align-items: center; gap: 8px;">
@@ -313,7 +313,7 @@
         </div>
         <div>
             <label>📋 Вид инструктажа</label>
-            <select id="instruction_type" name="instruction_type" required>
+            <select id="instruction_type" name="instruction_type" required form="mass-generation-form">
                 {% for value, label in instruction_types %}
                 <option value="{{ value }}" {% if value == 'Повторный' %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
@@ -325,7 +325,7 @@
     <div class="reason-bar" id="reasonField">
         <label>📝 Причина проведения инструктажа</label>
         <input type="text" id="instruction_reason" name="instruction_reason"
-               placeholder="Укажите причину проведения инструктажа">
+               placeholder="Укажите причину проведения инструктажа" form="mass-generation-form">
     </div>
 
     {% if not show_tree %}
@@ -514,8 +514,8 @@
 <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;">
     <div class="position-absolute top-50 start-50 translate-middle text-center text-white">
         <div class="spinner-border" role="status"></div>
-        <div class="mt-2">Генерация карточек…</div>
-        <div class="mt-1" style="font-size:0.85rem;opacity:0.8;">Это может занять некоторое время</div>
+        <div class="mt-2">Создаём задачу генерации…</div>
+        <div class="mt-1" style="font-size:0.85rem;opacity:0.8;">Сейчас откроется страница с прогрессом</div>
     </div>
 </div>
 {% endblock %}
@@ -666,59 +666,26 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             groupEmployees.forEach(cb => { cb.checked = true; });
             updateAllGroupStates();
-            form.dispatchEvent(new Event('submit', { cancelable: true }));
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                loadingOverlay.style.display = 'block';
+                form.submit();
+            }
         });
     });
 
-    // Отправка формы (async fetch → ZIP)
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    // Отправка формы: обычный POST → редирект на страницу задачи с прогрессом
+    // (по аналогии с периодической проверкой знаний)
+    form.addEventListener('submit', function(e) {
         const checked = allEmployeeCheckboxes.filter(cb => cb.checked);
         if (checked.length === 0) {
+            e.preventDefault();
             alert('Пожалуйста, выберите хотя бы одного сотрудника.');
             return;
         }
         loadingOverlay.style.display = 'block';
         submitButtons.forEach(btn => { btn.disabled = true; });
-        try {
-            const formData = new FormData(form);
-            const datePovtorny = document.getElementById('date_povtorny');
-            const instructionType = document.getElementById('instruction_type');
-            const instructionReason = document.getElementById('instruction_reason');
-            const skipDate = document.getElementById('skip_date');
-            if (skipDate && skipDate.checked) {
-                formData.set('date_povtorny', '');
-            } else if (datePovtorny) {
-                formData.set('date_povtorny', datePovtorny.value);
-            }
-            if (instructionType) formData.set('instruction_type', instructionType.value);
-            if (instructionReason) formData.set('instruction_reason', instructionReason.value);
-
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Ошибка сервера: ' + response.status);
-            }
-            const blob = await response.blob();
-            const contentDisposition = response.headers.get('Content-Disposition') || '';
-            const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
-                || contentDisposition.match(/filename="([^"]+)"/i);
-            const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'Личные_карточки_ОТ.zip';
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = filename;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (err) {
-            alert('Не удалось скачать архив: ' + err.message);
-        } finally {
-            loadingOverlay.style.display = 'none';
-            submitButtons.forEach(btn => { btn.disabled = false; });
-        }
     });
 });
 </script>

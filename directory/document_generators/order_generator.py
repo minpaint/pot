@@ -10,7 +10,9 @@ from typing import Dict, Any, Optional
 from directory.document_generators.base import (
     get_document_template, prepare_employee_context, generate_docx_from_template
 )
-from directory.utils.declension import decline_phrase, decline_full_name, get_initials_from_name
+from directory.utils.declension import (
+    decline_phrase, decline_full_name, get_initials_from_name, join_phrase_parts
+)
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -92,15 +94,14 @@ def prepare_internship_context(employee, context, internship_leader_override=Non
         logger.warning("Не удалось получить объект руководителя стажировки или success=False для определения отдела/подразделения.")
 
 
-    # Формируем полную строку должности руководителя без лишних пробелов
-    head_position_parts = []
-    if position_success and leader_position:
-        head_position_parts.append(decline_phrase(leader_position, 'accs'))
-    if head_subdiv_genitive:
-        head_position_parts.append(head_subdiv_genitive)
-    if head_dept_genitive:
-        head_position_parts.append(head_dept_genitive)
-    head_position_full_accusative = ' '.join(head_position_parts)
+    # Формируем полную строку должности руководителя без лишних пробелов.
+    # join_phrase_parts убирает дублирование на стыке частей:
+    # «начальника склада» + «склада (аг Сеница)» -> «начальника склада (аг Сеница)»
+    head_position_full_accusative = join_phrase_parts(
+        decline_phrase(leader_position, 'accs') if position_success and leader_position else '',
+        head_subdiv_genitive,
+        head_dept_genitive,
+    )
 
     context.update({
         'head_of_internship_position': leader_position,

@@ -15,7 +15,9 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 
 from directory.models.document_template import DocumentTemplate, GeneratedDocument
-from directory.utils.declension import decline_full_name, decline_phrase, get_initials_from_name, format_days
+from directory.utils.declension import (
+    decline_full_name, decline_phrase, get_initials_from_name, format_days, join_phrase_parts
+)
 from directory.utils.docx_vml import replace_vml_text_in_docx
 
 # Настройка логирования
@@ -307,27 +309,26 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
 
 
     # Умные переменные - готовые строки без лишних пробелов
-    # Полная строка "должность отдела подразделения" в нужном падеже
-    position_parts_dative = [context['position_dative']]
-    if context['department_genitive']:
-        position_parts_dative.append(context['department_genitive'])
-    if context['subdivision_genitive']:
-        position_parts_dative.append(context['subdivision_genitive'])
-    context['position_full_dative'] = ' '.join(position_parts_dative)
+    # Полная строка "должность отдела подразделения" в нужном падеже.
+    # join_phrase_parts убирает дублирование на стыке частей:
+    # «начальника склада» + «склада (аг Сеница)» -> «начальника склада (аг Сеница)»
+    context['position_full_dative'] = join_phrase_parts(
+        context['position_dative'],
+        context['department_genitive'],
+        context['subdivision_genitive'],
+    )
 
-    position_parts_genitive = [context['position_genitive']]
-    if context['department_genitive']:
-        position_parts_genitive.append(context['department_genitive'])
-    if context['subdivision_genitive']:
-        position_parts_genitive.append(context['subdivision_genitive'])
-    context['position_full_genitive'] = ' '.join(position_parts_genitive)
+    context['position_full_genitive'] = join_phrase_parts(
+        context['position_genitive'],
+        context['department_genitive'],
+        context['subdivision_genitive'],
+    )
 
-    position_parts_accusative = [context['position_accusative']]
-    if context['department_genitive']:
-        position_parts_accusative.append(context['department_genitive'])
-    if context['subdivision_genitive']:
-        position_parts_accusative.append(context['subdivision_genitive'])
-    context['position_full_accusative'] = ' '.join(position_parts_accusative)
+    context['position_full_accusative'] = join_phrase_parts(
+        context['position_accusative'],
+        context['department_genitive'],
+        context['subdivision_genitive'],
+    )
 
     # Подписание
     from directory.views.documents.utils import get_document_signer

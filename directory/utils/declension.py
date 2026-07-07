@@ -459,3 +459,64 @@ def format_days(number: int) -> str:
     - format_days(21) -> "21 день"
     """
     return f"{number} {pluralize_days(number)}"
+
+
+def _word_lemma(word: str) -> str:
+    """
+    Лемма слова для сравнения при склейке частей должности.
+    Скобки и знаки препинания отбрасываются: '(аг' -> 'аг', 'склада' -> 'склад'.
+    """
+    cleaned = re.sub(r'[^\w-]', '', word).lower()
+    if not cleaned:
+        return ''
+    parses = morph.parse(cleaned)
+    return parses[0].normal_form if parses else cleaned
+
+
+def trim_duplicate_overlap(base_phrase: str, appendix: str) -> str:
+    """
+    Убирает из начала appendix слова, которые по леммам совпадают с хвостом
+    base_phrase. Нужно, чтобы «начальника склада» + «склада (аг Сеница)»
+    давало «начальника склада (аг Сеница)», а не «... склада склада ...».
+
+    Сравнение по леммам, т.к. части стоят в разных падежах.
+    Возвращает обрезанный appendix ('' — если он весь дублирует хвост).
+    """
+    base_words = base_phrase.split()
+    app_words = appendix.split()
+    if not base_words or not app_words:
+        return appendix
+
+    base_lemmas = [_word_lemma(w) for w in base_words]
+    app_lemmas = [_word_lemma(w) for w in app_words]
+
+    for k in range(min(len(base_words), len(app_words)), 0, -1):
+        overlap = base_lemmas[-k:]
+        if overlap == app_lemmas[:k] and all(overlap):
+            return ' '.join(app_words[k:])
+    return appendix
+
+
+def join_phrase_parts(*parts: str) -> str:
+    """
+    Склеивает части наименования должности («должность» + «отдел» +
+    «подразделение»), убирая дублирование слов на стыке частей:
+
+    join_phrase_parts('начальника склада', 'склада (аг Сеница)')
+        -> 'начальника склада (аг Сеница)'
+    join_phrase_parts('начальника отдела продаж', 'отдела продаж')
+        -> 'начальника отдела продаж'
+
+    Пустые части пропускаются.
+    """
+    result = []
+    for part in parts:
+        part = (part or '').strip()
+        if not part:
+            continue
+        if result:
+            part = trim_duplicate_overlap(' '.join(result), part)
+            if not part:
+                continue
+        result.append(part)
+    return ' '.join(result)

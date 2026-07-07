@@ -432,7 +432,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
     # ACTIONS
     # ========================================================================
 
-    actions = ['action_assign_training', 'action_generate_hiring_docs']
+    actions = ['action_assign_training', 'action_generate_hiring_docs', 'action_copy_employee']
 
     def action_generate_hiring_docs(self, request, queryset):
         """📄 Перейти к выбору документов для генерации при приёме"""
@@ -444,6 +444,43 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         return HttpResponseRedirect(reverse('admin:directory_employee_bulk_hiring_docs'))
 
     action_generate_hiring_docs.short_description = '📄 Сгенерировать документы при приёме'
+
+    def action_copy_employee(self, request, queryset):
+        """📋 Открыть форму добавления нового сотрудника с данными выбранного."""
+        if queryset.count() != 1:
+            self.message_user(request, 'Выберите ровно одного сотрудника для копирования.', level=messages.WARNING)
+            return
+
+        employee = queryset.select_related('organization', 'subdivision', 'department', 'position').first()
+
+        from urllib.parse import urlencode
+        params = {}
+
+        # Текстовые / выбираемые поля
+        for field in ('full_name_nominative', 'full_name_by', 'place_of_residence',
+                      'email', 'contract_type', 'status', 'work_schedule',
+                      'height', 'clothing_size', 'shoe_size',
+                      'education_level', 'prior_qualification'):
+            value = getattr(employee, field, None)
+            if value:
+                params[field] = value
+
+        # Дата рождения и даты трудоустройства
+        for field in ('date_of_birth', 'hire_date', 'start_date'):
+            value = getattr(employee, field, None)
+            if value:
+                params[field] = value.strftime('%d.%m.%Y')
+
+        # FK-поля — передаём ID
+        for field in ('organization', 'subdivision', 'department', 'position'):
+            value = getattr(employee, f'{field}_id', None)
+            if value:
+                params[field] = value
+
+        add_url = reverse('admin:directory_employee_add') + '?' + urlencode(params)
+        return HttpResponseRedirect(add_url)
+
+    action_copy_employee.short_description = '📋 Копировать сотрудника'
 
     def bulk_hiring_docs_view(self, request):
         """Промежуточный экран выбора документов для массовой генерации при приёме."""

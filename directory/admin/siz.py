@@ -419,6 +419,7 @@ class ProfessionSIZNormAdmin(ImportExportModelAdmin):
 
     # Используем кастомный шаблон для древовидного отображения
     change_list_template = "admin/directory/professionsiznorm/change_list_tree.html"
+    change_form_template = "admin/directory/professionsiznorm/change_form.html"
 
     fieldsets = (
         ('Основная информация', {
@@ -429,6 +430,21 @@ class ProfessionSIZNormAdmin(ImportExportModelAdmin):
             'description': 'Укажите условие выдачи СИЗ (например, "При работе в зимнее время", "При влажной уборке" и т.д.)'
         }),
     )
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        return [
+            path('siz-info/', self.admin_site.admin_view(self.siz_info_view), name='professionsiznorm_siz_info'),
+        ] + urls
+
+    def siz_info_view(self, request):
+        from django.http import JsonResponse
+        try:
+            siz = SIZ.objects.get(pk=request.GET.get('pk'))
+            return JsonResponse({'wear_period_display': siz.wear_period_display})
+        except (SIZ.DoesNotExist, ValueError, TypeError):
+            return JsonResponse({'wear_period_display': ''})
 
     def get_condition(self, obj):
         """📝 Получение условия выдачи для отображения в списке"""

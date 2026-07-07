@@ -1,0 +1,36 @@
+{% extends "admin/import_export/change_form.html" %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var $ = (window.django && window.django.jQuery) ? window.django.jQuery : window.jQuery;
+    if (typeof $ === 'undefined') return;
+
+    var $siz = $('#id_siz');
+    if (!$siz.length) return;
+
+    var $fieldRow = $siz.closest('.field-siz');
+    if (!$fieldRow.length) return;
+
+    var $hint = $('<p id="siz-wear-period-hint" class="help" style="margin-top:4px;font-weight:600;color:#417690;padding-left:170px;"></p>');
+    $fieldRow.append($hint);
+
+    function updateHint(pk) {
+        if (!pk) { $hint.text(''); return; }
+        fetch('/admin/directory/professionsiznorm/siz-info/?pk=' + encodeURIComponent(pk))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                $hint.text(data.wear_period_display ? 'Срок носки: ' + data.wear_period_display : '');
+            })
+            .catch(function() { $hint.text(''); });
+    }
+
+    $siz.on('select2:select', function() { updateHint($siz.val()); });
+    $siz.on('select2:clear select2:unselect', function() { updateHint(null); });
+
+    /* Режим редактирования — показать сразу */
+    if ($siz.val()) { updateHint($siz.val()); }
+});
+</script>
+{% endblock %}

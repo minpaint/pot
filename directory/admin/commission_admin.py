@@ -160,6 +160,14 @@ class CommissionAdmin(CommissionTreeViewMixin, admin.ModelAdmin):
 
         return form
 
+    def get_changeform_initial_data(self, request):
+        """Предзаполняем 'organization' организацией, выбранной в хэдере."""
+        initial = super().get_changeform_initial_data(request)
+        selected_org_id = request.session.get('selected_org_id')
+        if selected_org_id:
+            initial.setdefault('organization', selected_org_id)
+        return initial
+
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
         parent_obj = form.instance

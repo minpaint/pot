@@ -31,8 +31,8 @@ class DepartmentForm(OrganizationRestrictionFormMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # 🔑 Извлекаем пользователя из kwargs (для миксина и дополнительной логики)
-        self.user = kwargs.pop('user', None)
+        # user/initial_org_id обрабатывает OrganizationRestrictionFormMixin.__init__ —
+        # не извлекаем их здесь заранее, иначе миксин перезатрёт self.user значением None
         super().__init__(*args, **kwargs)
 
         # 🎨 Настройка crispy-forms

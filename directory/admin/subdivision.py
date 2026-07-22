@@ -98,6 +98,13 @@ class StructuralSubdivisionAdmin(OrgFilterAdminMixin, TreeViewMixin, admin.Model
         class FormWithUser(Form):
             def __init__(self2, *args, **inner_kwargs):
                 inner_kwargs['user'] = request.user
+                if not obj and not inner_kwargs.get('initial_org_id'):
+                    selected_org_id = request.session.get('selected_org_id')
+                    if selected_org_id:
+                        try:
+                            inner_kwargs['initial_org_id'] = int(selected_org_id)
+                        except (ValueError, TypeError):
+                            pass
                 super().__init__(*args, **inner_kwargs)
 
         return FormWithUser

@@ -101,6 +101,23 @@ class EquipmentAdmin(OrgFilterAdminMixin, EquipmentTreeViewMixin, admin.ModelAdm
     list_filter = ['equipment_type', 'organization', 'subdivision', 'department']
     search_fields = ['equipment_name', 'inventory_number']
 
+    def get_form(self, request, obj=None, **kwargs):
+        Form = super().get_form(request, obj, **kwargs)
+
+        class FormWithUser(Form):
+            def __init__(self2, *args, **inner_kwargs):
+                inner_kwargs['user'] = request.user
+                if not obj and not inner_kwargs.get('initial_org_id'):
+                    selected_org_id = request.session.get('selected_org_id')
+                    if selected_org_id:
+                        try:
+                            inner_kwargs['initial_org_id'] = int(selected_org_id)
+                        except (ValueError, TypeError):
+                            pass
+                super().__init__(*args, **inner_kwargs)
+
+        return FormWithUser
+
     def get_urls(self):
         """🔗 Добавляем кастомные URL для импорта/экспорта"""
         urls = super().get_urls()

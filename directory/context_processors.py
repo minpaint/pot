@@ -7,10 +7,11 @@ def selected_organization(request):
     Предоставляет переменные global_org_options, global_selected_org_id,
     global_selected_org всем шаблонам.
     """
-    if not request.user.is_authenticated:
+    user = getattr(request, 'user', None)
+    if user is None or not user.is_authenticated:
         return {}
 
-    accessible_orgs = AccessControlHelper.get_accessible_organizations(request.user, request)
+    accessible_orgs = AccessControlHelper.get_accessible_organizations(user, request)
     selected_org_id = request.session.get('selected_org_id')
 
     # Авто-выбор единственной организации

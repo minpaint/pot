@@ -10,6 +10,9 @@ Middleware для защиты от индексации поисковыми с
 from django.http import HttpResponse
 from django.conf import settings
 
+# Единственный легитимный GET-параметр главной страницы (см. HomePageView.get_context_data)
+HOME_ALLOWED_QUERY_PARAMS = {'org'}
+
 
 class AntiIndexationMiddleware:
     """
@@ -18,7 +21,11 @@ class AntiIndexationMiddleware:
     Функции:
     1. Добавляет X-Robots-Tag заголовок ко всем ответам
     2. Обрабатывает запросы к /robots.txt
-    3. Работает как для основного домена, так и для поддоменов
+    3. Отдаёт 410 Gone на мусорные query-параметры главной страницы
+       (спам-ссылки вида /?items/M26981882928/, индексируемые поисковиками
+       по внешним бэклинкам) — 410 явно говорит поисковику удалить URL
+       из индекса, в отличие от 200 с redirect на логин
+    4. Работает как для основного домена, так и для поддоменов
     """
 
     def __init__(self, get_response):
@@ -29,7 +36,16 @@ class AntiIndexationMiddleware:
         if request.path == '/robots.txt':
             return self._serve_robots_txt()
 
-        # 2. Обрабатываем запрос
+        # 2. Мусорные query-параметры на главной ("/?items/M123.../" и т.п.) -> 410 Gone.
+        # Именно 410 (а не 404) прямо говорит поисковику: URL не существует, удали
+        # его из индекса. Чтобы бот вообще смог увидеть этот ответ, в robots.txt
+        # ниже добавлено точечное разрешение "Allow: /?" именно для корня.
+        if request.path == '/' and request.GET and not set(request.GET.keys()) <= HOME_ALLOWED_QUERY_PARAMS:
+            response = HttpResponse(status=410)
+            response['X-Robots-Tag'] = 'noindex, nofollow'
+            return response
+
+        # 3. Обрабатываем запрос
         response = self.get_response(request)
 
         # 3. Добавляем X-Robots-Tag ко всем ответам
@@ -67,7 +83,13 @@ Disallow: /media/
 # Блокируем static если содержит чувствительные данные
 Disallow: /static/
 
-# Запрещаем любые URL с параметрами (могут содержать токены/ID)
+# Разрешаем сканирование query-параметров ИМЕННО на главной странице.
+# Нужно для того, чтобы боты доходили до спам-ссылок вида /?items/.../
+# и видели ответ 410 Gone (иначе URL остаётся "проиндексирован, но заблокирован
+# robots.txt" — заблокированную страницу нельзя деиндексировать)
+Allow: /?
+
+# Запрещаем остальные URL с параметрами (могут содержать токены/ID)
 Disallow: /*?*
 
 # Блокируем debug toolbar (если случайно включен)

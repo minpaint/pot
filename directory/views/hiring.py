@@ -1055,7 +1055,7 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
         training_type = form.cleaned_data['training_type']
         profession = form.cleaned_data['profession']
         program = form.cleaned_data.get('program')
-        qualification_grade = form.cleaned_data.get('qualification_grade')
+        qualification_grade = getattr(program, 'qualification_grade', None)
         start_date = form.cleaned_data['start_date']
         full_name_by = form.cleaned_data.get('full_name_by')
         education_level = form.cleaned_data.get('education_level')

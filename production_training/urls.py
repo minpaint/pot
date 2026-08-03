@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import ProductionTrainingListView
+from .views import ProductionTrainingListView, program_lookup_view
 from .autocomplete_views import (
     TrainingAssignmentEmployeeAutocomplete,
     TrainingAssignmentPositionAutocomplete,
@@ -20,4 +20,5 @@ urlpatterns = [
         TrainingAssignmentPositionAutocomplete.as_view(),
         name='position-for-assignment-autocomplete',
     ),
+    path('program-lookup/', program_lookup_view, name='program-lookup'),
 ]

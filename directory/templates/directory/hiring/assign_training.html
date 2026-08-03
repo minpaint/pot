@@ -160,11 +160,6 @@
                 </div>
 
                 <div class="at-row">
-                    <label for="{{ form.qualification_grade.id_for_label }}">{{ form.qualification_grade.label }}</label>
-                    {{ form.qualification_grade }}
-                </div>
-
-                <div class="at-row">
                     <label for="{{ form.start_date.id_for_label }}" class="required">{{ form.start_date.label }}</label>
                     {{ form.start_date }}
                     {% if form.start_date.help_text %}<div class="at-help">{{ form.start_date.help_text }}</div>{% endif %}
@@ -221,4 +216,8 @@
     </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'production_training/js/training_program_autofill.js' %}"></script>
 {% endblock %}

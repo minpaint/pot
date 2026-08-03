@@ -199,6 +199,16 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         extra_context['sort'] = sort_param
         extra_context['order'] = order_param
 
+        # Режим «Архив» и счётчик архивных (с учётом прав и выбранной организации)
+        archived_qs = Employee.objects.filter(marked_for_deletion=True)
+        if not request.user.is_superuser and hasattr(request.user, 'profile'):
+            archived_qs = archived_qs.filter(organization__in=accessible_orgs)
+        if selected_org_id:
+            archived_qs = archived_qs.filter(organization_id=selected_org_id)
+        extra_context['archived_mode'] = self._archived_mode(request)
+        extra_context['archived_count'] = archived_qs.count()
+        extra_context['can_hard_delete'] = self._archived_mode(request) and request.user.is_superuser
+
         return super().changelist_view(request, extra_context)
 
     # Допустимые поля для сортировки
@@ -209,8 +219,25 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         'status': 'status',
     }
 
+    @staticmethod
+    def _archived_mode(request):
+        """
+        Режим «Архив»: в дереве показываются только архивные сотрудники.
+        Используем реальное имя поля (marked_for_deletion), а не выдуманный
+        параметр — иначе Django admin пытается применить его как ORM-фильтр,
+        не находит такого поля и молча редиректит, обрезая query string
+        (IncorrectLookupParameters).
+        """
+        return request.GET.get('marked_for_deletion') == '1'
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+
+        # Архив: в дереве по умолчанию скрываем архивных, в режиме
+        # ?marked_for_deletion=1 показываем только их. Фильтруем только
+        # changelist, чтобы карточка/история архивного сотрудника не давали 404.
+        if request.resolver_match and request.resolver_match.url_name == 'directory_employee_changelist':
+            qs = qs.filter(marked_for_deletion=self._archived_mode(request))
 
         # Фильтрация по правам доступа
         if not request.user.is_superuser and hasattr(request.user, 'profile'):
@@ -309,15 +336,20 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         }
         return status_emojis.get(status, '❓')
 
-    @admin.display(description='Пометка удаления')
+    @admin.display(description='Архив')
     def deletion_mark_display(self, obj):
         if obj.marked_for_deletion:
+            details = []
             if obj.marked_for_deletion_at:
+                details.append(obj.marked_for_deletion_at.strftime('%d.%m.%Y %H:%M'))
+            if obj.marked_for_deletion_by:
+                details.append(obj.marked_for_deletion_by.get_username())
+            if details:
                 return format_html(
-                    '<span style="color:#7a4b00;font-weight:600;">🗂 На удаление<br><small>{}</small></span>',
-                    obj.marked_for_deletion_at.strftime('%d.%m.%Y %H:%M')
+                    '<span style="color:#7a4b00;font-weight:600;">🗂 В архиве<br><small>{}</small></span>',
+                    ' • '.join(details)
                 )
-            return format_html('<span style="color:#7a4b00;font-weight:600;">🗂 На удаление</span>')
+            return format_html('<span style="color:#7a4b00;font-weight:600;">🗂 В архиве</span>')
         return '—'
 
     def _get_commission_role_emoji(self, role):
@@ -439,7 +471,45 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
     # ACTIONS
     # ========================================================================
 
-    actions = ['action_assign_training', 'action_generate_hiring_docs', 'action_copy_employee']
+    actions = ['action_assign_training', 'action_generate_hiring_docs', 'action_copy_employee',
+               'action_archive_employees', 'action_restore_employees']
+
+    def has_delete_permission(self, request, obj=None):
+        """
+        🗑️ Жёсткое удаление из базы: только суперпользователь и только
+        для сотрудника, уже отправленного в архив.
+        """
+        if not request.user.is_superuser:
+            return False
+        if obj is not None and not obj.marked_for_deletion:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def get_actions(self, request):
+        """Массовое жёсткое удаление отключено — только поштучно из архива."""
+        actions = super().get_actions(request)
+        actions.pop('delete_selected', None)
+        return actions
+
+    def action_archive_employees(self, request, queryset):
+        """📥 Отправить выбранных сотрудников в архив."""
+        archived = 0
+        for employee in queryset:
+            if employee.mark_for_deletion(user=request.user):
+                archived += 1
+        self.message_user(request, f'📥 В архив отправлено: {archived} сотр.', level=messages.SUCCESS)
+
+    action_archive_employees.short_description = '📥 Отправить в архив'
+
+    def action_restore_employees(self, request, queryset):
+        """↩️ Восстановить выбранных сотрудников из архива."""
+        restored = 0
+        for employee in queryset:
+            if employee.restore():
+                restored += 1
+        self.message_user(request, f'↩️ Восстановлено из архива: {restored} сотр.', level=messages.SUCCESS)
+
+    action_restore_employees.short_description = '↩️ Восстановить из архива'
 
     def action_generate_hiring_docs(self, request, queryset):
         """📄 Перейти к выбору документов для генерации при приёме"""
@@ -689,7 +759,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 training_type = form.cleaned_data['training_type']
                 profession = form.cleaned_data['profession']
                 program = form.cleaned_data.get('program')
-                qualification_grade = form.cleaned_data.get('qualification_grade')
+                qualification_grade = getattr(program, 'qualification_grade', None)
                 start_date = form.cleaned_data['start_date']
                 full_name_by = form.cleaned_data.get('full_name_by')
                 education_level = form.cleaned_data.get('education_level')
@@ -989,12 +1059,21 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         return JsonResponse([{'id': p.id, 'name': p.position_name} for p in qs], safe=False)
 
     def restore_view(self, request, pk):
-        """↩️ Восстановить сотрудника — снять пометку на удаление."""
+        """↩️ Восстановить сотрудника из архива."""
         employee = Employee.objects.get(pk=pk)
         if employee.restore():
-            messages.success(request, f'↩️ Сотрудник {employee.full_name_nominative} восстановлен.')
+            messages.success(request, f'↩️ Сотрудник {employee.full_name_nominative} восстановлен из архива.')
         else:
-            messages.info(request, f'Сотрудник {employee.full_name_nominative} не был помеч��н на удаление.')
+            messages.info(request, f'Сотрудник {employee.full_name_nominative} не находится в архиве.')
+        return redirect('admin:directory_employee_changelist')
+
+    def archive_view(self, request, pk):
+        """📥 Отправить сотрудника в архив."""
+        employee = Employee.objects.get(pk=pk)
+        if employee.mark_for_deletion(user=request.user):
+            messages.success(request, f'📥 Сотрудник {employee.full_name_nominative} отправлен в архив.')
+        else:
+            messages.info(request, f'Сотрудник {employee.full_name_nominative} уже в архиве.')
         return redirect('admin:directory_employee_changelist')
 
     def get_urls(self):
@@ -1010,5 +1089,6 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             path('bulk-add/ajax/departments/', self.admin_site.admin_view(self.bulk_add_ajax_departments), name='directory_employee_bulk_add_departments'),
             path('bulk-add/ajax/positions/', self.admin_site.admin_view(self.bulk_add_ajax_positions), name='directory_employee_bulk_add_positions'),
             path('<int:pk>/restore/', self.admin_site.admin_view(self.restore_view), name='directory_employee_restore'),
+            path('<int:pk>/archive/', self.admin_site.admin_view(self.archive_view), name='directory_employee_archive'),
         ]
         return custom_urls + urls

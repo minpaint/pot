@@ -11,7 +11,6 @@ from .models import (
     TrainingType,
     TrainingProfession,
     TrainingProgram,
-    TrainingQualificationGrade,
 )
 
 
@@ -22,8 +21,7 @@ class AssignTrainingForm(forms.Form):
     Позволяет выбрать:
     - Тип обучения
     - Профессию обучения
-    - Программу обучения
-    - Разряд квалификации
+    - Программу обучения (разряд квалификации определяется программой)
     - Дату начала обучения
 
     Остальные даты рассчитываются автоматически.
@@ -47,14 +45,6 @@ class AssignTrainingForm(forms.Form):
         queryset=TrainingProgram.objects.filter(is_active=True),
         required=False,
         label="Программа обучения",
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text="Опционально. Если не выбрана, будет использован стандартный план часов."
-    )
-
-    qualification_grade = forms.ModelChoiceField(
-        queryset=TrainingQualificationGrade.objects.filter(is_active=True),
-        required=False,
-        label="Разряд квалификации",
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
 

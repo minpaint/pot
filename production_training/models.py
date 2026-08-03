@@ -470,7 +470,7 @@ class ProductionTraining(models.Model):
 
     def __str__(self):
         grade = f" ({self.qualification_grade.label_ru})" if self.qualification_grade else ""
-        return f"{self.profession.name_ru_nominative}{grade}"
+        return f"{self.training_type.name_ru} — {self.profession.name_ru_nominative}{grade}"
 
     def clean(self):
         """Валидация полей."""
@@ -691,6 +691,8 @@ class TrainingAssignment(models.Model):
 
     def save(self, *args, **kwargs):
         """Автоподстановка дат при установке start_date."""
+        if not self.current_position_id and self.employee_id:
+            self.current_position = self.employee.position
         if not self.practical_work_topic:
             program = getattr(self.training, 'program', None)
             program_topic = getattr(program, 'practical_work_topic', '') if program else ''

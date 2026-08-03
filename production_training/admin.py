@@ -499,6 +499,7 @@ class TrainingAssignmentAdmin(admin.ModelAdmin):
         js = (
             'production_training/js/training_dates.js',
             'production_training/js/training_days_left.js',
+            'production_training/js/training_employee_position.js',
         )
 
     fieldsets = (
@@ -690,8 +691,34 @@ class TrainingAssignmentAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.calculate_dates_view),
                 name='production_training_trainingassignment_calculate_dates'
             ),
+            path(
+                'employee-position/',
+                self.admin_site.admin_view(self.employee_position_view),
+                name='production_training_trainingassignment_employee_position'
+            ),
         ]
         return custom_urls + urls
+
+    def employee_position_view(self, request):
+        """AJAX endpoint: текущая должность сотрудника (для автоподстановки в форме)."""
+        from django.http import JsonResponse
+
+        employee_id = request.GET.get('employee_id')
+        if not employee_id:
+            return JsonResponse({'error': 'employee_id required'}, status=400)
+
+        try:
+            employee = Employee.objects.select_related('position').get(pk=employee_id)
+        except (Employee.DoesNotExist, ValueError):
+            return JsonResponse({'error': 'Employee not found'}, status=404)
+
+        if not employee.position_id:
+            return JsonResponse({'position_id': None, 'position_text': ''})
+
+        return JsonResponse({
+            'position_id': employee.position_id,
+            'position_text': str(employee.position),
+        })
 
     def calculate_dates_view(self, request):
         """AJAX endpoint для расчёта дат."""

@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView, View
+from django.views.generic.detail import SingleObjectMixin
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 from django.db import transaction
@@ -1012,6 +1013,100 @@ class HiringDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteView)
     def delete(self, request, *args, **kwargs):
         messages.success(request, _('Запись о приеме на работу успешно удалена'))
         return super().delete(request, *args, **kwargs)
+
+
+class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, SingleObjectMixin, View):
+    """
+    🎓 Назначение обучения на производстве сотруднику прямо из записи о приёме.
+
+    Позволяет создать курс обучения (ProductionTraining) и назначение
+    (TrainingAssignment) для сотрудника, не заходя в админку.
+    """
+    model = EmployeeHiring
+
+    def get(self, request, *args, **kwargs):
+        from production_training.forms import AssignTrainingForm
+
+        hiring = self.get_object()
+        form = AssignTrainingForm(initial={'start_date': hiring.start_date})
+        return render(request, 'directory/hiring/assign_training.html', {
+            'title': _('Назначить обучение'),
+            'hiring': hiring,
+            'employee': hiring.employee,
+            'form': form,
+        })
+
+    def post(self, request, *args, **kwargs):
+        from production_training.forms import AssignTrainingForm
+        from production_training.models import ProductionTraining, TrainingAssignment
+
+        hiring = self.get_object()
+        employee = hiring.employee
+        form = AssignTrainingForm(request.POST)
+
+        if not form.is_valid():
+            return render(request, 'directory/hiring/assign_training.html', {
+                'title': _('Назначить обучение'),
+                'hiring': hiring,
+                'employee': employee,
+                'form': form,
+            })
+
+        training_type = form.cleaned_data['training_type']
+        profession = form.cleaned_data['profession']
+        program = form.cleaned_data.get('program')
+        qualification_grade = form.cleaned_data.get('qualification_grade')
+        start_date = form.cleaned_data['start_date']
+        full_name_by = form.cleaned_data.get('full_name_by')
+        education_level = form.cleaned_data.get('education_level')
+        prior_qualification = form.cleaned_data.get('prior_qualification')
+
+        update_fields = []
+        if full_name_by:
+            employee.full_name_by = full_name_by
+            update_fields.append('full_name_by')
+        if education_level:
+            employee.education_level = education_level
+            update_fields.append('education_level')
+        if prior_qualification:
+            employee.prior_qualification = prior_qualification
+            update_fields.append('prior_qualification')
+        if update_fields:
+            employee.save(update_fields=update_fields)
+
+        training = ProductionTraining.objects.filter(
+            organization=employee.organization,
+            subdivision=employee.subdivision,
+            department=employee.department,
+            training_type=training_type,
+            profession=profession,
+            program=program,
+            qualification_grade=qualification_grade,
+        ).first()
+        if not training:
+            training = ProductionTraining(
+                organization=employee.organization,
+                subdivision=employee.subdivision,
+                department=employee.department,
+                training_type=training_type,
+                profession=profession,
+                program=program,
+                qualification_grade=qualification_grade,
+            )
+            training.save()
+
+        TrainingAssignment.objects.create(
+            training=training,
+            employee=employee,
+            current_position=employee.position,
+            prior_qualification=prior_qualification or employee.prior_qualification,
+            start_date=start_date,
+        )
+
+        messages.success(request, _('🎓 Обучение назначено сотруднику %(name)s') % {
+            'name': employee.full_name_nominative
+        })
+        return redirect('directory:hiring:hiring_detail', pk=hiring.pk)
 
 
 class CreateHiringFromEmployeeView(LoginRequiredMixin, FormView):

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}🎓 Назначить обучение: {{ employee.full_name_nominative }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.at-topbar {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.at-topbar-title { font-weight: 700; font-size: 0.95rem; color: #2c3e50; flex: 1; }
+
+.at-card {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    margin-bottom: 16px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.at-card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding: 12px 20px;
+}
+.at-card-body { padding: 18px 20px; }
+
+.at-emp-info {
+    background: #eef4fb;
+    border-left: 3px solid #3498db;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    font-size: 0.88rem;
+    color: #1a5276;
+}
+.at-emp-info strong { font-size: 0.92rem; color: #2c3e50; }
+
+.at-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9aa0ac;
+    margin: 18px 0 10px;
+}
+.at-section-title:first-of-type { margin-top: 0; }
+
+.at-row { margin-bottom: 14px; }
+.at-row label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 4px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.at-row label.required::after { content: " *"; color: #c0392b; }
+.at-row select, .at-row input[type="date"], .at-row input[type="text"], .at-row textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    color: #2c3e50;
+}
+.at-row select:focus, .at-row input:focus, .at-row textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+.at-help { font-size: 0.76rem; color: #9aa0ac; margin-top: 3px; }
+.at-errorlist { color: #c0392b; font-size: 0.8rem; margin: 4px 0 0; padding-left: 18px; }
+
+.at-note {
+    background: #e8f5e9;
+    border-left: 4px solid #4caf50;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 14px;
+    margin-top: 18px;
+    font-size: 0.84rem;
+    color: #2e7d32;
+}
+.at-note ul { margin: 6px 0 0; padding-left: 18px; }
+
+.at-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+}
+
+@media (max-width: 767px) {
+    .at-topbar { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .at-actions { flex-direction: column; }
+    .at-actions .btn { width: 100%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+
+    <div class="at-topbar">
+        <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:4px 10px;font-size:0.8rem;">← К оформлению</a>
+        <span class="at-topbar-title">🎓 Назначить обучение: {{ employee.full_name_nominative }}</span>
+    </div>
+
+    <div class="at-card">
+        <div class="at-card-header">
+            🎓 Назначение обучения на производстве
+        </div>
+        <div class="at-card-body">
+
+            <div class="at-emp-info">
+                <strong>👤 {{ employee.full_name_nominative }}</strong>
+                {% if employee.position %} — {{ employee.position.position_name }}{% endif %}
+                {% if employee.department %}({{ employee.department.name }}){% elif employee.subdivision %}({{ employee.subdivision.name }}){% endif %}
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="at-section-title">🎯 Параметры обучения</div>
+
+                <div class="at-row">
+                    <label for="{{ form.training_type.id_for_label }}" class="required">{{ form.training_type.label }}</label>
+                    {{ form.training_type }}
+                    {% for error in form.training_type.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="at-row">
+                    <label for="{{ form.profession.id_for_label }}" class="required">{{ form.profession.label }}</label>
+                    {{ form.profession }}
+                    {% for error in form.profession.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="at-row">
+                    <label for="{{ form.program.id_for_label }}">{{ form.program.label }}</label>
+                    {{ form.program }}
+                    {% if form.program.help_text %}<div class="at-help">{{ form.program.help_text }}</div>{% endif %}
+                </div>
+
+                <div class="at-row">
+                    <label for="{{ form.qualification_grade.id_for_label }}">{{ form.qualification_grade.label }}</label>
+                    {{ form.qualification_grade }}
+                </div>
+
+                <div class="at-row">
+                    <label for="{{ form.start_date.id_for_label }}" class="required">{{ form.start_date.label }}</label>
+                    {{ form.start_date }}
+                    {% if form.start_date.help_text %}<div class="at-help">{{ form.start_date.help_text }}</div>{% endif %}
+                    {% for error in form.start_date.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="at-section-title">👤 Данные сотрудника (опционально)</div>
+
+                <div class="at-row">
+                    <label for="{{ form.full_name_by.id_for_label }}">{{ form.full_name_by.label }}</label>
+                    {{ form.full_name_by }}
+                </div>
+
+                <div class="at-row">
+                    <label for="{{ form.education_level.id_for_label }}">{{ form.education_level.label }}</label>
+                    {{ form.education_level }}
+                </div>
+
+                <div class="at-row">
+                    <label for="{{ form.prior_qualification.id_for_label }}">{{ form.prior_qualification.label }}</label>
+                    {{ form.prior_qualification }}
+                </div>
+
+                <div class="at-note">
+                    <strong>📅 Автоматический расчёт дат:</strong>
+                    <ul>
+                        <li>Дата окончания — по типу обучения и графику работы (5/2 или 2/2)</li>
+                        <li>Дата экзамена — совпадает с датой окончания</li>
+                        <li>Дата пробной работы — за 1 рабочий день до экзамена</li>
+                        <li>Дата протокола — на следующий день после пробной работы</li>
+                    </ul>
+                </div>
+
+                <div class="at-actions">
+                    <button type="submit" class="btn btn-success" style="font-size:0.88rem;">
+                        🎓 Назначить обучение
+                    </button>
+                    <a href="{% url 'directory:hiring:hiring_detail' hiring.pk %}" class="btn btn-outline-secondary" style="font-size:0.88rem;">
+                        Отмена
+                    </a>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

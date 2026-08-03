@@ -184,6 +184,7 @@ hiring_patterns = [
     path('create/', hiring.HiringCreateView.as_view(), name='hiring_create'),
     path('<int:pk>/update/', hiring.HiringUpdateView.as_view(), name='hiring_update'),
     path('<int:pk>/delete/', hiring.HiringDeleteView.as_view(), name='hiring_delete'),
+    path('<int:pk>/assign-training/', hiring.HiringAssignTrainingView.as_view(), name='hiring_assign_training'),
 
     # ✉️ Отправка документов приема
     path('send-documents/<int:hiring_id>/', hiring.send_hiring_documents, name='send_hiring_documents'),

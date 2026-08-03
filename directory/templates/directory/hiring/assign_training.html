@@ -143,6 +143,7 @@
                 <div class="at-row">
                     <label for="{{ form.training_type.id_for_label }}" class="required">{{ form.training_type.label }}</label>
                     {{ form.training_type }}
+                    {% if form.training_type.help_text %}<div class="at-help">{{ form.training_type.help_text }}</div>{% endif %}
                     {% for error in form.training_type.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
                 </div>
 
@@ -169,6 +170,15 @@
                     {% if form.start_date.help_text %}<div class="at-help">{{ form.start_date.help_text }}</div>{% endif %}
                     {% for error in form.start_date.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
                 </div>
+
+                {% if form.work_schedule %}
+                <div class="at-row">
+                    <label for="{{ form.work_schedule.id_for_label }}">{{ form.work_schedule.label }}</label>
+                    {{ form.work_schedule }}
+                    {% if form.work_schedule.help_text %}<div class="at-help">{{ form.work_schedule.help_text }}</div>{% endif %}
+                    {% for error in form.work_schedule.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
 
                 <div class="at-section-title">👤 Данные сотрудника (опционально)</div>
 

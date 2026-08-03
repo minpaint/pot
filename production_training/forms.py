@@ -33,6 +33,8 @@ class AssignTrainingForm(forms.Form):
         queryset=TrainingType.objects.filter(is_active=True),
         label="Тип обучения",
         widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text="Если у работника отсутствует образование (профессия) по данному направлению — "
+                   "выбирайте «Подготовка». Если такое образование/квалификация уже есть — «Переподготовка».",
     )
 
     profession = forms.ModelChoiceField(
@@ -86,13 +88,26 @@ class AssignTrainingForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
     )
 
-    def __init__(self, *args, organization=None, **kwargs):
+    def __init__(self, *args, organization=None, employee=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Если передана организация, можно фильтровать программы
         if organization:
             # Программы не привязаны к организации, но можно добавить логику
             pass
+
+        # График работы редактируем только когда форма открыта для одного
+        # конкретного сотрудника (например, при приёме на работу) — при
+        # массовом назначении на разных сотрудников поле неоднозначно.
+        if employee is not None:
+            self.fields['work_schedule'] = forms.ChoiceField(
+                choices=Employee.WORK_SCHEDULE_CHOICES,
+                initial=employee.work_schedule,
+                label="График работы",
+                widget=forms.Select(attrs={'class': 'form-control'}),
+                help_text="Используется для расчёта дат обучения (рабочие/нерабочие дни). "
+                           "При изменении будет сохранён в карточке сотрудника.",
+            )
 
 
 class RecalculateDatesForm(forms.Form):

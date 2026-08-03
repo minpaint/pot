@@ -1028,7 +1028,7 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
         from production_training.forms import AssignTrainingForm
 
         hiring = self.get_object()
-        form = AssignTrainingForm(initial={'start_date': hiring.start_date})
+        form = AssignTrainingForm(initial={'start_date': hiring.start_date}, employee=hiring.employee)
         return render(request, 'directory/hiring/assign_training.html', {
             'title': _('Назначить обучение'),
             'hiring': hiring,
@@ -1042,7 +1042,7 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
 
         hiring = self.get_object()
         employee = hiring.employee
-        form = AssignTrainingForm(request.POST)
+        form = AssignTrainingForm(request.POST, employee=employee)
 
         if not form.is_valid():
             return render(request, 'directory/hiring/assign_training.html', {
@@ -1060,6 +1060,7 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
         full_name_by = form.cleaned_data.get('full_name_by')
         education_level = form.cleaned_data.get('education_level')
         prior_qualification = form.cleaned_data.get('prior_qualification')
+        work_schedule = form.cleaned_data.get('work_schedule')
 
         update_fields = []
         if full_name_by:
@@ -1071,6 +1072,9 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
         if prior_qualification:
             employee.prior_qualification = prior_qualification
             update_fields.append('prior_qualification')
+        if work_schedule and work_schedule != employee.work_schedule:
+            employee.work_schedule = work_schedule
+            update_fields.append('work_schedule')
         if update_fields:
             employee.save(update_fields=update_fields)
 

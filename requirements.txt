@@ -81,7 +81,7 @@ pymorphy2==0.9.1
 pymorphy2-dicts-ru==2.4.417127.4579844
 pymorphy3==2.0.4
 pymorphy3-dicts-ru==2.4.417150.4580142
-pypdf==6.1.1
+pypdf==6.16.1
 pyperclip==1.11.0
 pyphen==0.17.2
 python-bidi==0.6.6

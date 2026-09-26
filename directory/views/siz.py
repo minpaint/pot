@@ -274,11 +274,14 @@ class SIZNormCreateView(LoginRequiredMixin, CreateView):
         return context
 
 
+@login_required
 def position_siz_norms(request, position_id):
     """
     📋 Представление для отображения норм СИЗ для должности
     """
     position = get_object_or_404(Position, pk=position_id)
+    if not AccessControlHelper.can_access_object(request.user, position):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
 
     # Получаем все нормы СИЗ для данной должности
     base_norms = SIZNorm.objects.filter(position=position, condition='').select_related('siz')
@@ -305,6 +308,7 @@ def position_siz_norms(request, position_id):
     return render(request, 'admin/directory/position/siz_norms.html', context)
 
 
+@login_required
 def siz_by_position_api(request):
     """
     🔍 API для получения норм СИЗ для должности по AJAX-запросу
@@ -317,6 +321,9 @@ def siz_by_position_api(request):
         position = Position.objects.get(pk=position_id)
     except Position.DoesNotExist:
         return JsonResponse({'error': 'Должность не найдена'}, status=404)
+
+    if not AccessControlHelper.can_access_object(request.user, position):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
 
     norms = SIZNorm.objects.filter(position=position).select_related('siz')
 
@@ -343,12 +350,15 @@ def siz_by_position_api(request):
 
 
 @require_GET
+@login_required
 def get_position_siz_norms(request, position_id):
     """
     API для получения норм СИЗ для должности
     Используется для формирования лицевой стороны личной карточки
     """
     position = get_object_or_404(Position, pk=position_id)
+    if not AccessControlHelper.can_access_object(request.user, position):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
 
     # Получаем все нормы СИЗ для данной должности
     norms = position.siz_norms.all().select_related('siz')
@@ -384,12 +394,15 @@ def get_position_siz_norms(request, position_id):
 
 
 @require_GET
+@login_required
 def get_employee_issued_siz(request, employee_id):
     """
     API для получения фактически выданных СИЗ сотруднику
     Используется для формирования оборотной стороны личной карточки
     """
     employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
 
     # Здесь должен быть код для получения выданных СИЗ
     # Пока это заглушка, т.к. у нас нет соответствующей модели

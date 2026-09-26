@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -217,13 +218,21 @@ class Employee(models.Model):
     marked_for_deletion = models.BooleanField(
         default=False,
         db_index=True,
-        verbose_name="Помечен на удаление",
-        help_text="Сотрудник скрыт из рабочих разделов, но сохранен в базе"
+        verbose_name="В архиве",
+        help_text="Сотрудник скрыт из рабочих разделов и админ-дерева, но сохранён в базе"
     )
     marked_for_deletion_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name="Дата пометки на удаление"
+        verbose_name="Дата отправки в архив"
+    )
+    marked_for_deletion_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='archived_employees',
+        verbose_name="Кто отправил в архив"
     )
 
     objects = EmployeeQuerySet.as_manager()
@@ -302,33 +311,43 @@ class Employee(models.Model):
         emoji = status_emojis.get(self.status, '')
         status_text = f"{emoji} {self.get_status_display()}".strip()
         if self.marked_for_deletion:
-            return f"{status_text} • 🗂 На удаление"
+            return f"{status_text} • 🗂 В архиве"
         return status_text
 
     def get_contract_type_display(self):
         """Возвращает человекопонятное название типа договора"""
         return dict(self.CONTRACT_TYPE_CHOICES).get(self.contract_type, "Неизвестно")
 
-    def mark_for_deletion(self):
-        """Увольняет сотрудника: ставит статус fired и скрывает из рабочих разделов."""
+    def mark_for_deletion(self, user=None):
+        """
+        Отправляет сотрудника в архив: скрывает из рабочих разделов и админ-дерева.
+        Статус не меняется — при восстановлении сотрудник вернётся с прежним статусом.
+        """
         if self.marked_for_deletion:
             return False
 
         self.marked_for_deletion = True
         self.marked_for_deletion_at = timezone.now()
-        self.status = 'fired'
-        self.save(update_fields=['marked_for_deletion', 'marked_for_deletion_at', 'status'])
+        self.marked_for_deletion_by = user if user and user.is_authenticated else None
+        self.save(update_fields=['marked_for_deletion', 'marked_for_deletion_at', 'marked_for_deletion_by'])
         return True
 
+    def fire(self, user=None):
+        """Увольняет сотрудника: ставит статус fired и отправляет в архив."""
+        if self.status != 'fired':
+            self.status = 'fired'
+            self.save(update_fields=['status'])
+        return self.mark_for_deletion(user=user)
+
     def restore(self):
-        """Восстанавливает сотрудника: снимает пометку и возвращает статус active."""
+        """Восстанавливает сотрудника из архива: снимает пометку, статус остаётся прежним."""
         if not self.marked_for_deletion:
             return False
 
         self.marked_for_deletion = False
         self.marked_for_deletion_at = None
-        self.status = 'active'
-        self.save(update_fields=['marked_for_deletion', 'marked_for_deletion_at', 'status'])
+        self.marked_for_deletion_by = None
+        self.save(update_fields=['marked_for_deletion', 'marked_for_deletion_at', 'marked_for_deletion_by'])
         return True
 
     @property

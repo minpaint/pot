@@ -262,9 +262,11 @@ def prepare_employee_context(employee) -> Dict[str, Any]:
 
     # Добавляем период стажировки "с ДД.ММ.ГГГГ по ДД.ММ.ГГГГ"
     # Отнимаем 1 день, т.к. стажировка включает первый день
+    # Стажировка начинается с даты фактического начала работы (start_date),
+    # если она не заполнена — с даты приёма (hire_date)
     # Для договора подряда стажировка не нужна
-    if employee.hire_date and internship_days > 0 and contract_type != 'contractor':
-        internship_start = employee.hire_date
+    internship_start = employee.start_date or employee.hire_date
+    if internship_start and internship_days > 0 and contract_type != 'contractor':
         internship_end = internship_start + datetime.timedelta(days=internship_days - 1)
         context['internship_period'] = f"с {internship_start.strftime('%d.%m.%Y')} по {internship_end.strftime('%d.%m.%Y')}"
         context['has_internship'] = True

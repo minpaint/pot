@@ -545,32 +545,36 @@ document.addEventListener('DOMContentLoaded', function() {
             (selectedType === 'Внеплановый' || selectedType === 'Целевой') ? 'block' : 'none';
     }
 
-    if (instructionTypeSelect) {
-        instructionTypeSelect.addEventListener('change', toggleReasonField);
-        toggleReasonField();
-    }
-
-    // Галочка «Без даты»
+    // Галочка «Без даты» + режим «Первичный» (дата приёма каждого сотрудника)
     const skipDateCheckbox = document.getElementById('skip_date');
     const dateInput = document.getElementById('date_povtorny');
 
-    function applySkipDate() {
-        if (skipDateCheckbox.checked) {
-            dateInput.disabled = true;
-            dateInput.style.opacity = '0.4';
-        } else {
-            dateInput.disabled = false;
-            dateInput.style.opacity = '1';
+    function applyDateMode() {
+        const isPrimary = instructionTypeSelect && instructionTypeSelect.value === 'Первичный';
+        const dateDisabled = isPrimary || skipDateCheckbox.checked;
+        dateInput.disabled = dateDisabled;
+        dateInput.style.opacity = dateDisabled ? '0.4' : '1';
+        dateInput.title = isPrimary ? 'Для первичного инструктажа подставляется дата начала работы сотрудника (если её нет — дата приёма)' : '';
+        skipDateCheckbox.disabled = isPrimary;
+        if (!isPrimary) {
+            localStorage.setItem('ot_card_skip_date', skipDateCheckbox.checked ? '1' : '0');
         }
-        localStorage.setItem('ot_card_skip_date', skipDateCheckbox.checked ? '1' : '0');
     }
 
     if (skipDateCheckbox) {
         if (localStorage.getItem('ot_card_skip_date') === '1') {
             skipDateCheckbox.checked = true;
         }
-        applySkipDate();
-        skipDateCheckbox.addEventListener('change', applySkipDate);
+        applyDateMode();
+        skipDateCheckbox.addEventListener('change', applyDateMode);
+    }
+
+    if (instructionTypeSelect) {
+        instructionTypeSelect.addEventListener('change', function() {
+            toggleReasonField();
+            applyDateMode();
+        });
+        toggleReasonField();
     }
 
     // Логика чекбоксов

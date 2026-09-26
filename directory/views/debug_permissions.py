@@ -1,13 +1,14 @@
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from directory.models import Employee
 from directory.utils.permissions import AccessControlHelper
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def debug_permissions_view(request):
     """
-    Отладочная страница для проверки прав доступа
+    Отладочная страница для проверки прав доступа (только для суперпользователей)
     """
     user = request.user
 

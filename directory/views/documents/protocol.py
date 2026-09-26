@@ -5,6 +5,7 @@ from django.views.generic import FormView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 from django.http import HttpResponse
 from django.db.models import Q
@@ -70,7 +71,10 @@ class KnowledgeProtocolCreateView(LoginRequiredMixin, FormView):
     def get_employee(self):
         """Получает сотрудника из параметров URL"""
         employee_id = self.kwargs.get('employee_id')
-        return get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+        employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+        if not AccessControlHelper.can_access_object(self.request.user, employee):
+            raise PermissionDenied("У вас нет доступа к этому сотруднику")
+        return employee
 
     def get_form_kwargs(self):
         """Передаем сотрудника в форму"""

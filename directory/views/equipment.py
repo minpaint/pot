@@ -120,6 +120,14 @@ class EquipmentUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'directory/equipment/form.html'
     success_url = reverse_lazy('directory:equipment:equipment_list')
 
+    def get_queryset(self):
+        """Ограничиваем доступ к оборудованию только организациями из профиля"""
+        qs = super().get_queryset()
+        if not self.request.user.is_superuser and hasattr(self.request.user, 'profile'):
+            allowed_orgs = self.request.user.profile.organizations.all()
+            qs = qs.filter(organization__in=allowed_orgs)
+        return qs
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user

@@ -8,10 +8,10 @@
         <h3>{{ title }}</h3>
     </div>
     <div class="card-body">
-        <p>Вы уверены, что хотите скрыть сотрудника "{{ object.full_name_nominative }}" из рабочих разделов и пометить его на удаление?</p>
+        <p>Вы уверены, что хотите уволить сотрудника "{{ object.full_name_nominative }}"? Он получит статус «Уволен» и будет отправлен в архив: скрыт из рабочих разделов, данные сохранятся — восстановить можно в админке.</p>
         <form method="post">
             {% csrf_token %}
-            <button type="submit" class="btn btn-danger">Пометить на удаление</button>
+            <button type="submit" class="btn btn-danger">Уволить</button>
             <a href="{% url 'directory:employees:employee_list' %}" class="btn btn-secondary">Отмена</a>
         </form>
     </div>

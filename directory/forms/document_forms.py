@@ -30,7 +30,7 @@ class DocumentSelectionForm(forms.Form):
         required=True
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, include_training_documents=False, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Получаем choices из справочника DocumentTemplateType
@@ -39,6 +39,8 @@ class DocumentSelectionForm(forms.Form):
             for template_type in DocumentTemplateType.objects.filter(is_active=True, show_in_hiring=True)
             if template_type.code != 'periodic_protocol'  # Исключаем периодический протокол
         ]
+        if include_training_documents:
+            choices.append(('training_documents', '🎓 Документы по обучению'))
         self.fields['document_types'].choices = choices
         self.helper = FormHelper()
         self.helper.form_method = 'post'

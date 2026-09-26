@@ -319,6 +319,10 @@ class EmployeeUpdateView(LoginRequiredMixin, AccessControlObjectMixin, UpdateVie
 
 
 class EmployeeDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteView):
+    """
+    Кнопка «Уволить» на фронте: ставит статус 'fired' и отправляет
+    сотрудника в архив (скрывает из рабочих разделов, но не удаляет из базы).
+    """
     model = Employee
     template_name = 'directory/employees/confirm_delete.html'
     success_url = reverse_lazy('directory:employees:employee_list')
@@ -328,18 +332,18 @@ class EmployeeDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteVie
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Удаление сотрудника'
+        context['title'] = 'Увольнение сотрудника'
         return context
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        if self.object.mark_for_deletion():
+        if self.object.fire(user=request.user):
             messages.success(
                 request,
-                f'Сотрудник {self.object.full_name_nominative} помечен на удаление и скрыт из рабочих разделов.'
+                f'Сотрудник {self.object.full_name_nominative} уволен и отправлен в архив.'
             )
         else:
-            messages.info(request, f'Сотрудник {self.object.full_name_nominative} уже помечен на удаление.')
+            messages.info(request, f'Сотрудник {self.object.full_name_nominative} уже в архиве.')
         return redirect(self.get_success_url())
 
 
@@ -362,7 +366,7 @@ class BatchFireEmployeesView(LoginRequiredMixin, View):
 
         fired, already = [], []
         for emp in employees:
-            if emp.mark_for_deletion():
+            if emp.fire(user=request.user):
                 fired.append(emp.full_name_nominative)
             else:
                 already.append(emp.full_name_nominative)

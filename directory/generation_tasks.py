@@ -210,12 +210,9 @@ def run_ot_card_bulk_job(job_id: int):
         instruction_date = job.params.get('instruction_date', '')
         instruction_type = job.params.get('instruction_type', 'Повторный')
         instruction_reason = job.params.get('instruction_reason', '')
-
-        custom_context = {
-            'instruction_date': instruction_date,
-            'instruction_type': instruction_type,
-            'instruction_reason': instruction_reason,
-        }
+        # Для «Первичного» дата инструктажа = дата начала работы сотрудника,
+        # а если она не заполнена — дата приёма
+        is_primary = instruction_type == 'Первичный'
 
         zip_buffer = BytesIO()
         generated = 0
@@ -223,6 +220,16 @@ def run_ot_card_bulk_job(job_id: int):
 
         with ZipFile(zip_buffer, 'w', ZIP_DEFLATED) as zf:
             for i, employee in enumerate(employees, 1):
+                if is_primary:
+                    primary_date = employee.start_date or employee.hire_date
+                    employee_date = primary_date.strftime('%d.%m.%Y') if primary_date else ''
+                else:
+                    employee_date = instruction_date
+                custom_context = {
+                    'instruction_date': employee_date,
+                    'instruction_type': instruction_type,
+                    'instruction_reason': instruction_reason,
+                }
                 try:
                     result = generate_personal_ot_card(employee, user=user, custom_context=custom_context)
                 except Exception as e:
@@ -246,7 +253,7 @@ def run_ot_card_bulk_job(job_id: int):
                 f"Массовая генерация личных карточек по охране труда\n"
                 f"Дата генерации: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
                 f"Вид инструктажа: {instruction_type}\n"
-                f"Дата инструктажа: {instruction_date or 'не указана'}\n"
+                f"Дата инструктажа: {'дата начала работы (или приёма) сотрудника' if is_primary else (instruction_date or 'не указана')}\n"
                 f"Сгенерировано карточек: {generated}\n"
             )
             if errors:

@@ -16,7 +16,23 @@
     <a href="{% url 'admin:directory_employee_bulk_add' %}" class="addlink" style="background-position: 0 -96px;">
       📋 Массовый приём
     </a>
+    {% if archived_mode %}
+    <a href="?" class="addlink" style="background-position: 0 -96px;">
+      👥 К сотрудникам
+    </a>
+    {% else %}
+    <a href="?marked_for_deletion=1" class="addlink" style="background-position: 0 -96px;">
+      🗂 Архив ({{ archived_count }})
+    </a>
+    {% endif %}
   </div>
+  {% if archived_mode %}
+  <div class="archive-banner">
+    🗂 <strong>Архив сотрудников</strong> — показаны только архивные.
+    Они скрыты из рабочих разделов; восстановить можно кнопкой ↩️ в строке.
+    <a href="?">← Вернуться к рабочему списку</a>
+  </div>
+  {% endif %}
   <form id="changelist-form" method="post"
         {% if cl.formset and cl.formset.is_multipart %} enctype="multipart/form-data"{% endif %}
         novalidate>
@@ -27,8 +43,8 @@
           {% if field.label %}<label>{{ field.label }}</label>{% endif %}
           {{ field }}
         {% endfor %}
-        <button type="submit" class="button" title="Выполнить выбранное действие">Выполнить</button>
-        <span class="action-counter" style="display: none;">0 из {{ cl.result_count }} выбрано</span>
+        <button type="submit" class="button" title="Выполнить выбранное действие" name="index" value="0">Выполнить</button>
+        <span class="action-counter" data-actions-icnt="{{ cl.result_count }}" style="display: none;">0 из {{ cl.result_count }} выбрано</span>
       </div>
     {% endif %}
 
@@ -54,7 +70,11 @@
       </colgroup>
       <thead>
         <tr>
-          <th class="column-checkbox"><input type="checkbox" id="select-all"></th>
+          <th class="column-checkbox">
+            <input type="checkbox" id="select-all">
+            {# admin/js/actions.js жёстко ищет id="action-toggle" — держим скрытый дубль, чтобы не падало #}
+            <input type="checkbox" id="action-toggle" style="display:none" aria-hidden="true" tabindex="-1">
+          </th>
           <th class="column-name sortable {% if sort == 'name' %}sorted-{{ order }}{% endif %}">
             <a href="?sort=name&order={% if sort == 'name' and order == 'asc' %}desc{% else %}asc{% endif %}">
               СОТРУДНИК{% if sort == 'name' %}{% if order == 'asc' %} ▲{% else %} ▼{% endif %}{% endif %}
@@ -144,9 +164,13 @@
                 <td class="field-actions">
                   <a href="{% url 'admin:directory_employee_change' item.object.pk %}" class="edit-link" title="Редактировать">✏️</a>
                   {% if item.additional_data.marked_for_deletion %}
-                    <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить сотрудника">↩️</a>
+                    <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить из архива">↩️</a>
+                  {% else %}
+                    <a href="{% url 'admin:directory_employee_archive' item.object.pk %}" class="archive-link" title="Отправить в архив">🗂</a>
                   {% endif %}
-                  <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы">🗑️</a>
+                  {% if can_hard_delete %}
+                    <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы навсегда">🗑️</a>
+                  {% endif %}
                   <a href="{% url 'admin:directory_employee_history' item.object.pk %}" class="history-link" title="История">📋</a>
                 </td>
               </tr>
@@ -217,9 +241,13 @@
                   <td class="field-actions">
                     <a href="{% url 'admin:directory_employee_change' item.object.pk %}" class="edit-link" title="Редактировать">✏️</a>
                     {% if item.additional_data.marked_for_deletion %}
-                      <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить сотрудника">↩️</a>
+                      <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить из архива">↩️</a>
+                    {% else %}
+                      <a href="{% url 'admin:directory_employee_archive' item.object.pk %}" class="archive-link" title="Отправить в архив">🗂</a>
                     {% endif %}
-                    <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы">🗑️</a>
+                    {% if can_hard_delete %}
+                      <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы навсегда">🗑️</a>
+                    {% endif %}
                     <a href="{% url 'admin:directory_employee_history' item.object.pk %}" class="history-link" title="История">📋</a>
                   </td>
                 </tr>
@@ -289,9 +317,13 @@
                     <td class="field-actions">
                       <a href="{% url 'admin:directory_employee_change' item.object.pk %}" class="edit-link" title="Редактировать">✏️</a>
                       {% if item.additional_data.marked_for_deletion %}
-                        <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить сотрудника">↩️</a>
+                        <a href="{% url 'admin:directory_employee_restore' item.object.pk %}" class="restore-link" title="Восстановить из архива">↩️</a>
+                      {% else %}
+                        <a href="{% url 'admin:directory_employee_archive' item.object.pk %}" class="archive-link" title="Отправить в архив">🗂</a>
                       {% endif %}
-                      <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы">🗑️</a>
+                      {% if can_hard_delete %}
+                        <a href="{% url 'admin:directory_employee_delete' item.object.pk %}" class="delete-link" title="Удалить из базы навсегда">🗑️</a>
+                      {% endif %}
                       <a href="{% url 'admin:directory_employee_history' item.object.pk %}" class="history-link" title="История">📋</a>
                     </td>
                   </tr>
@@ -450,6 +482,31 @@
 
     .restore-link:hover {
       color: #155724;
+      text-decoration: underline;
+    }
+
+    .archive-link:hover {
+      opacity: 0.7;
+    }
+
+    .archive-banner {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+      color: #7a4b00;
+    }
+
+    .archive-banner a {
+      color: #1a5276;
+      font-weight: 600;
+      text-decoration: none;
+      margin-left: 6px;
+    }
+
+    .archive-banner a:hover {
       text-decoration: underline;
     }
 

@@ -23,7 +23,11 @@ from directory.document_generators.ot_card_generator import generate_personal_ot
 logger = logging.getLogger(__name__)
 
 # Виды инструктажей (без вводного - он проводится всегда при приёме)
+# Для «Первичного» дата инструктажа = дата начала работы сотрудника
+# (если не заполнена — дата приёма), стажировка считается от неё же
+# (см. run_ot_card_bulk_job и prepare_employee_context)
 INSTRUCTION_TYPE_CHOICES = [
+    ('Первичный', 'Первичный'),
     ('Повторный', 'Повторный'),
     ('Внеплановый', 'Внеплановый'),
     ('Целевой', 'Целевой'),
@@ -187,6 +191,17 @@ def generate_ot_cards_bulk(request):
     if not employee_ids:
         return HttpResponse("Не выбрано ни одного сотрудника", status=400)
 
+    # Отфильтровываем ID сотрудников, недоступных пользователю (защита от подмены employee_ids)
+    accessible_employees = AccessControlHelper.filter_queryset(
+        Employee.objects.active_for_operations(), request.user, request
+    )
+    employee_ids = list(
+        accessible_employees.filter(id__in=employee_ids).values_list('id', flat=True)
+    )
+    employee_ids = [str(eid) for eid in employee_ids]
+    if not employee_ids:
+        return HttpResponse("Нет доступных сотрудников среди выбранных", status=403)
+
     instruction_date_raw = (
         request.POST.get('date_povtorny')
         or request.POST.get('instruction_date')
@@ -195,9 +210,10 @@ def generate_ot_cards_bulk(request):
     instruction_type = request.POST.get('instruction_type') or 'Повторный'
     instruction_reason = request.POST.get('instruction_reason') or ''
 
-    # Форматируем дату для хранения в params
+    # Форматируем дату для хранения в params.
+    # Для «Первичного» ручная дата игнорируется — берётся дата приёма сотрудника.
     instruction_date_display = ''
-    if instruction_date_raw:
+    if instruction_date_raw and instruction_type != 'Первичный':
         try:
             instruction_date_display = datetime.strptime(instruction_date_raw, '%Y-%m-%d').strftime('%d.%m.%Y')
         except ValueError:

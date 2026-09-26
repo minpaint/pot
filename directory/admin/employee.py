@@ -731,7 +731,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
         View для формы назначения обучения.
         """
         from production_training.forms import AssignTrainingForm
-        from production_training.models import ProductionTraining, TrainingAssignment
+        from production_training.models import TrainingAssignment
 
         context = self.admin_site.each_context(request)
 
@@ -752,14 +752,15 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
             'organization', 'subdivision', 'department', 'position'
         )
 
+        # Если все выбранные сотрудники из одной организации — сужаем список курсов
+        org_ids = set(employees.values_list('organization_id', flat=True))
+        single_organization = employees.first().organization if len(org_ids) == 1 else None
+
         if request.method == 'POST':
-            form = AssignTrainingForm(request.POST)
+            form = AssignTrainingForm(request.POST, organization=single_organization)
 
             if form.is_valid():
-                training_type = form.cleaned_data['training_type']
-                profession = form.cleaned_data['profession']
-                program = form.cleaned_data.get('program')
-                qualification_grade = getattr(program, 'qualification_grade', None)
+                training = form.cleaned_data['training']
                 start_date = form.cleaned_data['start_date']
                 full_name_by = form.cleaned_data.get('full_name_by')
                 education_level = form.cleaned_data.get('education_level')
@@ -767,7 +768,6 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
 
                 created_count = 0
                 errors = []
-                course_cache = {}
 
                 for employee in employees:
                     try:
@@ -783,30 +783,6 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                             update_fields.append('prior_qualification')
                         if update_fields:
                             employee.save(update_fields=update_fields)
-
-                        key = (
-                            employee.organization_id,
-                            employee.subdivision_id,
-                            employee.department_id,
-                            training_type.id,
-                            profession.id,
-                            getattr(program, 'id', None),
-                            getattr(qualification_grade, 'id', None),
-                        )
-                        training = course_cache.get(key)
-                        if not training:
-                            training = ProductionTraining(
-                                organization=employee.organization,
-                                subdivision=employee.subdivision,
-                                department=employee.department,
-                                training_type=training_type,
-                                profession=profession,
-                                program=program,
-                                qualification_grade=qualification_grade,
-                            )
-
-                            training.save()
-                            course_cache[key] = training
 
                         assignment = TrainingAssignment(
                             training=training,
@@ -840,7 +816,7 @@ class EmployeeAdmin(TreeViewMixin, admin.ModelAdmin):
                 return redirect('admin:production_training_trainingassignment_changelist')
 
         else:
-            form = AssignTrainingForm()
+            form = AssignTrainingForm(organization=single_organization)
 
         context.update({
             'title': 'Назначить обучение на производстве',

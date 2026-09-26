@@ -6,6 +6,7 @@ from django.views.decorators.http import require_GET
 import logging
 
 from directory.models import Position, MedicalExaminationNorm
+from directory.utils.permissions import AccessControlHelper
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -20,6 +21,8 @@ def position_needs_step_info(request, position_id):
     """
     try:
         position = get_object_or_404(Position, pk=position_id)
+        if not AccessControlHelper.can_access_object(request.user, position):
+            return JsonResponse({'error': 'Нет доступа'}, status=403)
 
         logger.debug(f"Запрос информации о шагах для должности ID={position_id} ({position.position_name})")
 

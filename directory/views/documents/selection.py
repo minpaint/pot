@@ -3,6 +3,7 @@ from django.views.generic import FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpRequest
 import os
 import io
@@ -16,6 +17,7 @@ from directory.models.document_template import DocumentTemplate, DocumentGenerat
 from directory.forms.document_forms import DocumentSelectionForm
 from directory.utils.declension import get_initials_from_name
 from directory.utils import is_employee_commission_member
+from directory.utils.permissions import AccessControlHelper
 # --- Обновленные импорты ---
 from directory.document_generators.base import get_document_template  # Базовая функция для получения шаблона
 from directory.utils.docx_generator import analyze_template  # Для проверки шаблона
@@ -155,6 +157,8 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
             # Получаем сотрудника
             try:
                 employee = Employee.objects.active_for_operations().get(id=employee_id)
+                if not AccessControlHelper.can_access_object(self.request.user, employee):
+                    raise PermissionDenied("У вас нет доступа к этому сотруднику")
 
                 # Автоматически выбираем типы документов
                 document_types = get_auto_selected_document_types(employee)
@@ -172,6 +176,8 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
         if employee_id:
             try:
                 employee = Employee.objects.active_for_operations().get(id=employee_id)
+                if not AccessControlHelper.can_access_object(self.request.user, employee):
+                    raise PermissionDenied("У вас нет доступа к этому сотруднику")
                 context['employee'] = employee
 
                 # Добавляем информацию о правилах выбора документов
@@ -221,6 +227,9 @@ class DocumentSelectionView(LoginRequiredMixin, FormView):
         except Employee.DoesNotExist:
             messages.error(self.request, "Сотрудник не найден")
             return self.form_invalid(form)
+
+        if not AccessControlHelper.can_access_object(self.request.user, employee):
+            raise PermissionDenied("У вас нет доступа к этому сотруднику")
 
         # Генерируем все выбранные документы и собираем их для архива
         files_to_archive = []  # Список кортежей (content, filename)

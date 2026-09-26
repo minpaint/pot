@@ -6,12 +6,15 @@
 """
 from django.views.generic import ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
+from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext as _
 
 from directory.models import Employee
 from directory.models.document_template import DocumentTemplate, DocumentTemplateType, GeneratedDocument
+from directory.utils.permissions import AccessControlHelper
 
 
 class GeneratedDocumentListView(LoginRequiredMixin, ListView):
@@ -28,6 +31,14 @@ class GeneratedDocumentListView(LoginRequiredMixin, ListView):
         Получение списка документов с возможностью фильтрации
         """
         queryset = super().get_queryset().select_related('template', 'employee', 'created_by')
+
+        # Документ не имеет собственного organization/subdivision/department,
+        # поэтому фильтруем по доступности сотрудника, к которому он привязан
+        if not self.request.user.is_superuser:
+            accessible_employees = AccessControlHelper.filter_queryset(
+                Employee.objects.all(), self.request.user, self.request
+            )
+            queryset = queryset.filter(employee__in=accessible_employees)
 
         # Фильтрация по сотруднику
         employee_id = self.request.GET.get('employee')
@@ -72,6 +83,12 @@ class GeneratedDocumentDetailView(LoginRequiredMixin, DetailView):
     template_name = 'directory/documents/document_detail.html'
     context_object_name = 'document'
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not AccessControlHelper.can_access_object(self.request.user, obj.employee):
+            raise PermissionDenied("У вас нет доступа к этому документу")
+        return obj
+
     def get_context_data(self, **kwargs):
         """
         Подготовка контекста для шаблона
@@ -81,16 +98,17 @@ class GeneratedDocumentDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+@login_required
 def document_download(request, pk):
     """
     Функция для скачивания сгенерированного документа
     """
     document = get_object_or_404(GeneratedDocument, pk=pk)
 
-    # Проверка доступа к документу
-    # Если нужно ограничить доступ, например, только создателю или администратору
-    # if request.user != document.created_by and not request.user.is_staff:
-    #     raise PermissionDenied
+    # Проверка доступа к документу — по организации/подразделению/отделу сотрудника,
+    # к которому привязан документ (у GeneratedDocument нет собственного organization)
+    if not AccessControlHelper.can_access_object(request.user, document.employee):
+        raise PermissionDenied("У вас нет доступа к этому документу")
 
     # Получаем файл
     file_handle = document.document_file.open()

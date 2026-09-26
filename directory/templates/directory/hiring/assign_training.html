@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load static %}
 {% load i18n %}
 
 {% block title %}🎓 Назначить обучение: {{ employee.full_name_nominative }}{% endblock %}
@@ -141,22 +140,10 @@
                 <div class="at-section-title">🎯 Параметры обучения</div>
 
                 <div class="at-row">
-                    <label for="{{ form.training_type.id_for_label }}" class="required">{{ form.training_type.label }}</label>
-                    {{ form.training_type }}
-                    {% if form.training_type.help_text %}<div class="at-help">{{ form.training_type.help_text }}</div>{% endif %}
-                    {% for error in form.training_type.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
-                </div>
-
-                <div class="at-row">
-                    <label for="{{ form.profession.id_for_label }}" class="required">{{ form.profession.label }}</label>
-                    {{ form.profession }}
-                    {% for error in form.profession.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
-                </div>
-
-                <div class="at-row">
-                    <label for="{{ form.program.id_for_label }}">{{ form.program.label }}</label>
-                    {{ form.program }}
-                    {% if form.program.help_text %}<div class="at-help">{{ form.program.help_text }}</div>{% endif %}
+                    <label for="{{ form.training.id_for_label }}" class="required">{{ form.training.label }}</label>
+                    {{ form.training }}
+                    {% if form.training.help_text %}<div class="at-help">{{ form.training.help_text }}</div>{% endif %}
+                    {% for error in form.training.errors %}<div class="at-errorlist">{{ error }}</div>{% endfor %}
                 </div>
 
                 <div class="at-row">
@@ -216,8 +203,4 @@
     </div>
 
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'production_training/js/training_program_autofill.js' %}"></script>
 {% endblock %}

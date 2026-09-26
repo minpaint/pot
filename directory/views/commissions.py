@@ -404,29 +404,37 @@ class CommissionMemberCreateView(LoginRequiredMixin, CreateView):
     form_class = CommissionMemberForm
     template_name = 'directory/commissions/member_form.html'
 
+    def _get_commission(self):
+        commission_id = self.kwargs.get('commission_id')
+        if not commission_id:
+            return None
+        commission = Commission.objects.get(id=commission_id)
+        if not AccessControlHelper.can_access_object(self.request.user, commission):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("У вас нет доступа к этой комиссии")
+        return commission
+
     def get_initial(self):
         """Предустановка начальных значений формы"""
         initial = super().get_initial()
-        commission_id = self.kwargs.get('commission_id')
-        if commission_id:
-            initial['commission'] = Commission.objects.get(id=commission_id)
+        commission = self._get_commission()
+        if commission:
+            initial['commission'] = commission
         return initial
 
     def get_form_kwargs(self):
         """Передача дополнительных аргументов в форму"""
         kwargs = super().get_form_kwargs()
-        commission_id = self.kwargs.get('commission_id')
-        if commission_id:
-            commission = Commission.objects.get(id=commission_id)
+        commission = self._get_commission()
+        if commission:
             kwargs['commission'] = commission
         return kwargs
 
     def get_context_data(self, **kwargs):
         """Добавление дополнительного контекста"""
         context = super().get_context_data(**kwargs)
-        commission_id = self.kwargs.get('commission_id')
-        if commission_id:
-            commission = Commission.objects.get(id=commission_id)
+        commission = self._get_commission()
+        if commission:
             context['commission'] = commission
             context['title'] = f'Добавление участника в комиссию: {commission.name}'
         return context
@@ -446,6 +454,16 @@ class CommissionMemberUpdateView(LoginRequiredMixin, UpdateView):
     model = CommissionMember
     form_class = CommissionMemberForm
     template_name = 'directory/commissions/member_form.html'
+
+    def get_queryset(self):
+        """Ограничиваем доступ участниками комиссий, доступных пользователю"""
+        qs = super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs
+        accessible_commissions = AccessControlHelper.filter_queryset(
+            Commission.objects.all(), self.request.user, self.request
+        )
+        return qs.filter(commission__in=accessible_commissions)
 
     def get_form_kwargs(self):
         """Передача дополнительных аргументов в форму"""
@@ -474,6 +492,16 @@ class CommissionMemberDeleteView(LoginRequiredMixin, DeleteView):
     """Удаление участника комиссии"""
     model = CommissionMember
     template_name = 'directory/commissions/member_confirm_delete.html'
+
+    def get_queryset(self):
+        """Ограничиваем доступ участниками комиссий, доступных пользователю"""
+        qs = super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs
+        accessible_commissions = AccessControlHelper.filter_queryset(
+            Commission.objects.all(), self.request.user, self.request
+        )
+        return qs.filter(commission__in=accessible_commissions)
 
     def get_context_data(self, **kwargs):
         """Добавление дополнительного контекста"""

@@ -9,6 +9,7 @@ from django.urls import reverse_lazy, reverse
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
@@ -116,6 +117,9 @@ class SIZIssueFormView(LoginRequiredMixin, CreateView):
         # Если в URL есть параметр employee_id, передаем его в форму
         employee_id = self.kwargs.get('employee_id')
         if employee_id:
+            employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+            if not AccessControlHelper.can_access_object(self.request.user, employee):
+                raise PermissionDenied("У вас нет доступа к этому сотруднику")
             kwargs['employee_id'] = employee_id
 
         return kwargs
@@ -202,6 +206,8 @@ def issue_selected_siz(request, employee_id):
     📝 Массовая выдача выбранных норм СИЗ сотруднику из личной карточки.
     """
     employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        raise PermissionDenied("У вас нет доступа к этому сотруднику")
     selected_norm_ids = request.POST.getlist('selected_norms')
 
     if not selected_norm_ids:
@@ -267,6 +273,8 @@ def issue_group_siz(request, employee_id):
     Принимает JSON-список групп (каждая: siz_ids, condition, quantity, cost).
     """
     employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        raise PermissionDenied("У вас нет доступа к этому сотруднику")
 
     try:
         groups = json.loads(request.POST.get('groups_json', '[]'))
@@ -522,6 +530,8 @@ def employee_siz_issued_list(request, employee_id):
         JsonResponse с данными о выданных СИЗ
     """
     employee = get_object_or_404(Employee.objects.active_for_operations(), pk=employee_id)
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
 
     # Получаем все СИЗ, выданные сотруднику
     issued_items = SIZIssued.objects.filter(

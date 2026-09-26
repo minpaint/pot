@@ -3,6 +3,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView, View
 from django.views.generic.detail import SingleObjectMixin
@@ -185,6 +186,8 @@ def position_requirements_api(request, position_id):
     try:
         # Получаем должность или 404
         position = get_object_or_404(Position, pk=position_id)
+        if not AccessControlHelper.can_access_object(request.user, position):
+            return JsonResponse({'status': 'error', 'message': 'Нет доступа'}, status=403)
 
         # Проверяем переопределения для медосмотра
         has_custom_medical = position.medical_factors.filter(is_disabled=False).exists()
@@ -431,6 +434,11 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
     template_name = 'directory/hiring/detail.html'
     context_object_name = 'hiring'
 
+    @staticmethod
+    def _get_training_assignment(employee):
+        """Последнее назначение на обучение у сотрудника (если есть)."""
+        return employee.training_assignments.select_related('training').first()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = _(f'Прием на работу: {self.object.employee.full_name_nominative}')
@@ -445,11 +453,17 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         employee = self.object.employee
         auto_selected = get_auto_selected_document_types(employee)
 
+        training_assignment = self._get_training_assignment(employee)
+        if training_assignment:
+            auto_selected = list(auto_selected) + ['training_documents']
+        context['training_assignment'] = training_assignment
+
         context['document_selection_form'] = DocumentSelectionForm(
             initial={
                 'employee_id': employee.id,
                 'document_types': auto_selected
-            }
+            },
+            include_training_documents=bool(training_assignment),
         )
         context['employee'] = employee
 
@@ -509,7 +523,10 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
 
     def _handle_document_generation(self, request):
         """Обработка генерации документов"""
-        form = DocumentSelectionForm(request.POST)
+        employee = self.object.employee
+        training_assignment = self._get_training_assignment(employee)
+
+        form = DocumentSelectionForm(request.POST, include_training_documents=bool(training_assignment))
 
         if not form.is_valid():
             messages.error(request, "Ошибка в форме выбора документов")
@@ -520,8 +537,6 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         if not document_types:
             messages.error(request, "Не выбран ни один тип документа")
             return redirect('directory:hiring:hiring_detail', pk=self.object.pk)
-
-        employee = self.object.employee
 
         # Явно выбранный руководитель стажировки (из дропдауна на странице)
         internship_leader_override = None
@@ -558,6 +573,15 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
 
         for doc_type in document_types:
             try:
+                if doc_type == 'training_documents':
+                    if training_assignment:
+                        from production_training.document_generators.training_documents import generate_merged_document
+                        result = generate_merged_document(training_assignment, user=request.user)
+                        if result and 'content' in result and 'filename' in result:
+                            files_to_archive.append((result['content'].getvalue(), result['filename']))
+                            logger.info(f"Сгенерирован документ: {result['filename']}")
+                    continue
+
                 generator_func = generator_map.get(doc_type)
                 if generator_func:
                     if doc_type == 'doc_familiarization':
@@ -627,6 +651,7 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
         employee = self.object.employee
         organization = self.object.organization
         subdivision = self.object.subdivision
+        training_assignment = self._get_training_assignment(employee)
 
         logger.info(
             f"Начало отправки документов приема для сотрудника '{employee.full_name_nominative}' "
@@ -693,6 +718,15 @@ class HiringDetailView(LoginRequiredMixin, AccessControlObjectMixin, DetailView)
 
         for doc_type in document_types:
             try:
+                if doc_type == 'training_documents':
+                    if training_assignment:
+                        from production_training.document_generators.training_documents import generate_merged_document
+                        result = generate_merged_document(training_assignment, user=request.user)
+                        if result and 'content' in result and 'filename' in result:
+                            generated_files.append((result['content'].getvalue(), result['filename']))
+                            logger.info(f"Сгенерирован документ: {result['filename']}")
+                    continue
+
                 generator_func = generator_map.get(doc_type)
                 if generator_func:
                     if doc_type == 'doc_familiarization':
@@ -1017,10 +1051,11 @@ class HiringDeleteView(LoginRequiredMixin, AccessControlObjectMixin, DeleteView)
 
 class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, SingleObjectMixin, View):
     """
-    🎓 Назначение обучения на производстве сотруднику прямо из записи о приёме.
+    🎓 Назначение сотрудника на существующий курс обучения прямо из записи о приёме.
 
-    Позволяет создать курс обучения (ProductionTraining) и назначение
-    (TrainingAssignment) для сотрудника, не заходя в админку.
+    Курс (ProductionTraining) со всеми ролями (инструктор, ответственный,
+    консультант, комиссия) должен быть создан заранее в разделе «Обучение
+    на производстве» — здесь только выбирается подходящий курс.
     """
     model = EmployeeHiring
 
@@ -1028,7 +1063,11 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
         from production_training.forms import AssignTrainingForm
 
         hiring = self.get_object()
-        form = AssignTrainingForm(initial={'start_date': hiring.start_date}, employee=hiring.employee)
+        form = AssignTrainingForm(
+            initial={'start_date': hiring.start_date},
+            employee=hiring.employee,
+            organization=hiring.employee.organization,
+        )
         return render(request, 'directory/hiring/assign_training.html', {
             'title': _('Назначить обучение'),
             'hiring': hiring,
@@ -1038,11 +1077,11 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
 
     def post(self, request, *args, **kwargs):
         from production_training.forms import AssignTrainingForm
-        from production_training.models import ProductionTraining, TrainingAssignment
+        from production_training.models import TrainingAssignment
 
         hiring = self.get_object()
         employee = hiring.employee
-        form = AssignTrainingForm(request.POST, employee=employee)
+        form = AssignTrainingForm(request.POST, employee=employee, organization=employee.organization)
 
         if not form.is_valid():
             return render(request, 'directory/hiring/assign_training.html', {
@@ -1052,10 +1091,7 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
                 'form': form,
             })
 
-        training_type = form.cleaned_data['training_type']
-        profession = form.cleaned_data['profession']
-        program = form.cleaned_data.get('program')
-        qualification_grade = getattr(program, 'qualification_grade', None)
+        training = form.cleaned_data['training']
         start_date = form.cleaned_data['start_date']
         full_name_by = form.cleaned_data.get('full_name_by')
         education_level = form.cleaned_data.get('education_level')
@@ -1077,27 +1113,6 @@ class HiringAssignTrainingView(LoginRequiredMixin, AccessControlObjectMixin, Sin
             update_fields.append('work_schedule')
         if update_fields:
             employee.save(update_fields=update_fields)
-
-        training = ProductionTraining.objects.filter(
-            organization=employee.organization,
-            subdivision=employee.subdivision,
-            department=employee.department,
-            training_type=training_type,
-            profession=profession,
-            program=program,
-            qualification_grade=qualification_grade,
-        ).first()
-        if not training:
-            training = ProductionTraining(
-                organization=employee.organization,
-                subdivision=employee.subdivision,
-                department=employee.department,
-                training_type=training_type,
-                profession=profession,
-                program=program,
-                qualification_grade=qualification_grade,
-            )
-            training.save()
 
         TrainingAssignment.objects.create(
             training=training,
@@ -1124,6 +1139,8 @@ class CreateHiringFromEmployeeView(LoginRequiredMixin, FormView):
         context = super().get_context_data(**kwargs)
         employee_id = self.kwargs.get('employee_id')
         employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+        if not AccessControlHelper.can_access_object(self.request.user, employee):
+            raise PermissionDenied("У вас нет доступа к этому сотруднику")
         context['employee'] = employee
         context['title'] = _('Создание записи о приеме из сотрудника')
         return context
@@ -1131,6 +1148,8 @@ class CreateHiringFromEmployeeView(LoginRequiredMixin, FormView):
     def form_valid(self, form):
         employee_id = self.kwargs.get('employee_id')
         employee = get_object_or_404(Employee.objects.active_for_operations(), id=employee_id)
+        if not AccessControlHelper.can_access_object(self.request.user, employee):
+            raise PermissionDenied("У вас нет доступа к этому сотруднику")
 
         try:
             hiring = create_hiring_from_employee(employee, self.request.user)
@@ -1235,6 +1254,7 @@ def preview_hiring_email(request, hiring_id):
         'journal_example': '📓 Пример заполнения журналов',
         'siz_card': '🧥 Карточка учета СИЗ',
         'vvodny_journal_template': '📺 Образец журнала вводного инструктажа',
+        'training_documents': '🎓 Документы по обучению',
     }
 
     document_names = [document_names_map.get(dt, dt) for dt in document_types]

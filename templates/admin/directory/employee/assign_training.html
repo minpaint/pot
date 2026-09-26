@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n admin_urls static %}
+{% load i18n admin_urls %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -83,48 +83,14 @@
 
         <div class="form-row">
             <div>
-                <label for="id_training_type" class="required">Тип обучения:</label>
-                {{ form.training_type }}
-                {% if form.training_type.help_text %}
-                <p class="help">{{ form.training_type.help_text }}</p>
+                <label for="id_training" class="required">Курс обучения:</label>
+                {{ form.training }}
+                {% if form.training.help_text %}
+                <p class="help">{{ form.training.help_text }}</p>
                 {% endif %}
-                {% if form.training_type.errors %}
+                {% if form.training.errors %}
                 <ul class="errorlist">
-                    {% for error in form.training_type.errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div>
-                <label for="id_profession" class="required">Профессия обучения:</label>
-                {{ form.profession }}
-                {% if form.profession.help_text %}
-                <p class="help">{{ form.profession.help_text }}</p>
-                {% endif %}
-                {% if form.profession.errors %}
-                <ul class="errorlist">
-                    {% for error in form.profession.errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div>
-                <label for="id_program">Программа обучения:</label>
-                {{ form.program }}
-                {% if form.program.help_text %}
-                <p class="help">{{ form.program.help_text }}</p>
-                {% endif %}
-                {% if form.program.errors %}
-                <ul class="errorlist">
-                    {% for error in form.program.errors %}
+                    {% for error in form.training.errors %}
                     <li>{{ error }}</li>
                     {% endfor %}
                 </ul>
@@ -204,6 +170,4 @@
         padding-left: 20px;
     }
 </style>
-
-<script src="{% static 'production_training/js/training_program_autofill.js' %}"></script>
 {% endblock %}

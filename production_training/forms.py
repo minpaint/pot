@@ -4,48 +4,30 @@
 """
 
 from django import forms
-from dal import autocomplete
 
 from directory.models import Employee
-from .models import (
-    TrainingType,
-    TrainingProfession,
-    TrainingProgram,
-)
+from .models import ProductionTraining
 
 
 class AssignTrainingForm(forms.Form):
     """
-    Форма для массового назначения обучения сотрудникам.
+    Форма для назначения сотрудников на уже существующий курс обучения.
 
-    Позволяет выбрать:
-    - Тип обучения
-    - Профессию обучения
-    - Программу обучения (разряд квалификации определяется программой)
-    - Дату начала обучения
-
-    Остальные даты рассчитываются автоматически.
+    Курс (ProductionTraining) создаётся заранее в разделе «Обучение на
+    производстве» — там же указываются инструктор, ответственный,
+    консультант и комиссия. Здесь эти данные не запрашиваются: они
+    автоматически подтягиваются из выбранного курса при генерации
+    документов.
     """
 
-    training_type = forms.ModelChoiceField(
-        queryset=TrainingType.objects.filter(is_active=True),
-        label="Тип обучения",
+    training = forms.ModelChoiceField(
+        queryset=ProductionTraining.objects.select_related(
+            'organization', 'training_type', 'profession', 'qualification_grade'
+        ).order_by('-created_at'),
+        label="Курс обучения",
         widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text="Если у работника отсутствует образование (профессия) по данному направлению — "
-                   "выбирайте «Подготовка». Если такое образование/квалификация уже есть — «Переподготовка».",
-    )
-
-    profession = forms.ModelChoiceField(
-        queryset=TrainingProfession.objects.filter(is_active=True),
-        label="Профессия обучения",
-        widget=forms.Select(attrs={'class': 'form-control'}),
-    )
-
-    program = forms.ModelChoiceField(
-        queryset=TrainingProgram.objects.filter(is_active=True),
-        required=False,
-        label="Программа обучения",
-        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text="Инструктор, ответственный, консультант и комиссия берутся из карточки курса. "
+                   "Если подходящего курса нет — создайте его в разделе «Обучение на производстве».",
     )
 
     start_date = forms.DateField(
@@ -54,7 +36,8 @@ class AssignTrainingForm(forms.Form):
             attrs={
                 'type': 'date',
                 'class': 'form-control',
-            }
+            },
+            format='%Y-%m-%d',
         ),
         help_text="Все остальные даты рассчитаются автоматически с учетом графика работы"
     )
@@ -81,10 +64,12 @@ class AssignTrainingForm(forms.Form):
     def __init__(self, *args, organization=None, employee=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Если передана организация, можно фильтровать программы
+        # Сужаем список курсов до организации сотрудника/сотрудников —
+        # иначе легко перепутать курс из чужой организации.
         if organization:
-            # Программы не привязаны к организации, но можно добавить логику
-            pass
+            self.fields['training'].queryset = self.fields['training'].queryset.filter(
+                organization=organization
+            )
 
         # График работы редактируем только когда форма открыта для одного
         # конкретного сотрудника (например, при приёме на работу) — при
@@ -115,7 +100,8 @@ class RecalculateDatesForm(forms.Form):
             attrs={
                 'type': 'date',
                 'class': 'form-control',
-            }
+            },
+            format='%Y-%m-%d',
         ),
     )
 

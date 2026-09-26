@@ -1091,53 +1091,23 @@ function toggleSizBlock(headerEl, contentId) {
         }
     }
 
-    async function submitGenerationForm(event) {
-        event.preventDefault();
+    // Отправка формы: обычный POST → редирект на страницу задачи с прогрессом
+    // (генерация карточек СИЗ идёт через GenerationJob, как и другие массовые генерации)
+    function submitGenerationForm(event) {
         if (!form) return;
 
         const checked = document.querySelectorAll('.subdivision-checkbox:checked');
         if (!checked.length) {
+            event.preventDefault();
             alert('Выберите хотя бы одно подразделение');
             return;
         }
 
-        showLoading(true);
-        try {
-            const formData = new FormData(form);
-            if (issueDateInput) {
-                formData.set('issue_date', issueDateInput.value || '');
-            }
-
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || `Ошибка сервера: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const contentDisposition = response.headers.get('Content-Disposition') || '';
-            const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
-                || contentDisposition.match(/filename="([^"]+)"/i);
-            const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'Карточки_СИЗ.zip';
-
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (err) {
-            alert(err.message || 'Не удалось скачать архив');
-        } finally {
-            showLoading(false);
+        if (issueDateInput) {
+            issueDateInput.value = issueDateInput.value || '';
         }
+
+        showLoading(true);
     }
 
     restoreFilters();
@@ -1176,45 +1146,15 @@ function toggleSizBlock(headerEl, contentId) {
         btn.addEventListener('click', () => sendForOrganization(btn));
     });
 
+    // Генерация для организации без подразделений — обычный submit,
+    // сервер поставит задачу в очередь и вернёт редирект на страницу прогресса.
     document.querySelectorAll('.js-org-generate').forEach(btn => {
-        btn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            const orgForm = btn.closest('form');
-            if (!orgForm) return;
+        btn.addEventListener('click', function() {
             const issueFieldId = btn.dataset.issueField;
             if (issueFieldId && issueDateInput) {
                 document.getElementById(issueFieldId).value = issueDateInput.value || '';
             }
             showLoading(true);
-            try {
-                const formData = new FormData(orgForm);
-                const response = await fetch(orgForm.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(text || `Ошибка сервера: ${response.status}`);
-                }
-                const blob = await response.blob();
-                const contentDisposition = response.headers.get('Content-Disposition') || '';
-                const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
-                    || contentDisposition.match(/filename="([^"]+)"/i);
-                const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'Карточки_СИЗ.zip';
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-            } catch (err) {
-                alert(err.message || 'Не удалось скачать архив');
-            } finally {
-                showLoading(false);
-            }
         });
     });
 

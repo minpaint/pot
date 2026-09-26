@@ -35,6 +35,12 @@ from directory.utils.medical_examination import (
     get_employee_medical_examination_status,
     update_medical_examination_statuses
 )
+from directory.utils.permissions import AccessControlHelper
+
+
+def _accessible_employees(user, request=None):
+    """Сотрудники, доступные пользователю (для фильтрации медосмотров по org/subdivision/department)."""
+    return AccessControlHelper.filter_queryset(Employee.objects.all(), user, request)
 
 
 # Виды медосмотров
@@ -466,6 +472,11 @@ class EmployeeMedicalExaminationListView(LoginRequiredMixin, ListView):
             'employee', 'harmful_factor', 'employee__position'
         )
 
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                employee__in=_accessible_employees(self.request.user, self.request)
+            )
+
         # Получаем параметры поиска
         form = EmployeeMedicalExaminationSearchForm(self.request.GET)
         if form.is_valid():
@@ -509,10 +520,15 @@ class EmployeeMedicalExaminationDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'exam'
 
     def get_queryset(self):
-        return super().get_queryset().filter(
+        queryset = super().get_queryset().filter(
             employee__marked_for_deletion=False,
             employee__status='active',
         )
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                employee__in=_accessible_employees(self.request.user, self.request)
+            )
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -550,8 +566,9 @@ class EmployeeMedicalExaminationCreateView(LoginRequiredMixin, PermissionRequire
         if employee_id:
             try:
                 employee = Employee.objects.active_for_operations().get(id=employee_id)
-                context['employee'] = employee
-                context['status_info'] = get_employee_medical_examination_status(employee)
+                if AccessControlHelper.can_access_object(self.request.user, employee):
+                    context['employee'] = employee
+                    context['status_info'] = get_employee_medical_examination_status(employee)
             except Employee.DoesNotExist:
                 pass
 
@@ -584,10 +601,15 @@ class EmployeeMedicalExaminationUpdateView(LoginRequiredMixin, PermissionRequire
     permission_required = 'directory.change_employeemedicalexamination'
 
     def get_queryset(self):
-        return super().get_queryset().filter(
+        queryset = super().get_queryset().filter(
             employee__marked_for_deletion=False,
             employee__status='active',
         )
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                employee__in=_accessible_employees(self.request.user, self.request)
+            )
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -620,10 +642,15 @@ class EmployeeMedicalExaminationDeleteView(LoginRequiredMixin, PermissionRequire
     permission_required = 'directory.delete_employeemedicalexamination'
 
     def get_queryset(self):
-        return super().get_queryset().filter(
+        queryset = super().get_queryset().filter(
             employee__marked_for_deletion=False,
             employee__status='active',
         )
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                employee__in=_accessible_employees(self.request.user, self.request)
+            )
+        return queryset
 
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()

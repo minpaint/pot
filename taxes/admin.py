@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.template.loader import render_to_string
 from django.utils.html import format_html
@@ -37,8 +38,23 @@ class TaxMonthInline(admin.TabularInline):
         return False
 
 
+class TaxPaymentForm(forms.ModelForm):
+    """Проведённый (сохранённый) платёж доступен только для просмотра."""
+
+    class Meta:
+        model = TaxPayment
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            for field in self.fields.values():
+                field.disabled = True
+
+
 class TaxPaymentInline(admin.TabularInline):
     model = TaxPayment
+    form = TaxPaymentForm
     extra = 1
     fields = ("kind", "period_from", "period_month", "paid_date", "amount", "note")
 

@@ -51,6 +51,66 @@
   .tax-preview__debt { color: #c0392b; font-weight: 700; }
   .tax-preview__ok { color: #1e7e34; font-weight: 700; }
 
+  .tax-decl {
+    border: 2px solid #3498db;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 4px 0 20px;
+    background: #fff;
+  }
+
+  .tax-decl__head {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: #fff;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .tax-decl__hint {
+    font-weight: 400;
+    font-size: 12px;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+
+  .tax-decl__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .tax-decl__table th,
+  .tax-decl__table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .tax-decl__table thead th {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #6c757d;
+    background: #f8f9fa;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .tax-decl__table thead th:first-child,
+  .tax-decl__table tbody th {
+    text-align: left;
+  }
+
+  .tax-decl__table tbody th { font-weight: 400; }
+  .tax-decl__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tax-decl__line { color: #9aa0ac; display: inline-block; min-width: 38px; }
+  .tax-decl__empty { color: #bbb; }
+  .tax-decl__key th, .tax-decl__key td { background: #fff4cc; font-weight: 700; }
+
+  @media (max-width: 767px) {
+    .tax-decl__table { font-size: 12px; }
+    .tax-decl__table th, .tax-decl__table td { padding: 6px 8px; }
+  }
+
   .tax-preview__tax-due {
     background: #fff4cc;
     font-weight: 700;
@@ -67,6 +127,60 @@
 <div class="tax-preview">
   <div class="help tax-preview__help">
     Вводите суммы отдельно за каждый месяц; итоги по кварталам считаются из месяцев. Нарастающий итог и суммы к уплате считаются автоматически.
+  </div>
+
+  <div class="tax-decl">
+    <div class="tax-decl__head">
+      📋 Данные для декларации (нарастающим итогом)
+      <div class="tax-decl__hint">Значения строк декларации по подоходному налогу на конец периода. Строка 9 — налог к уплате по декларации за период.</div>
+    </div>
+    <div class="tax-preview__table-wrap">
+      <table class="tax-decl__table">
+        <thead>
+          <tr>
+            <th>Строка</th>
+            <th>1 квартал</th>
+            <th>1 полугодие</th>
+            <th>9 месяцев</th>
+            <th>Год</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th><span class="tax-decl__line">1</span> Доход</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num{% if q.income_cum == 0 %} tax-decl__empty{% endif %}">{{ q.income_cum|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <th><span class="tax-decl__line">3.4</span> Расходы (20% от дохода)</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num{% if q.income_cum == 0 %} tax-decl__empty{% endif %}">{{ q.expense_cum|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <th><span class="tax-decl__line">4</span> Налоговая база</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num{% if q.income_cum == 0 %} tax-decl__empty{% endif %}">{{ q.base_cum|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <th><span class="tax-decl__line">5</span> Подоходный налог</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num{% if q.income_cum == 0 %} tax-decl__empty{% endif %}">{{ q.tax_cum|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <th><span class="tax-decl__line">8</span> Налог по предыдущим декларациям</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num{% if q.income_cum == 0 %} tax-decl__empty{% endif %}">{{ q.tax_prev_cum|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr class="tax-decl__key">
+            <th><span class="tax-decl__line">9</span> К уплате по декларации</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num">{{ q.tax_due_q|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <th>Фактически уплачено налога (нараст.)</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num">{{ q.tax_paid_cum|floatformat:2 }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <th>Остаток налога к уплате</th>
+            {% for q in calc.quarters %}<td class="tax-decl__num {% if q.tax_balance > 0 %}tax-preview__debt{% else %}tax-preview__ok{% endif %}">{{ q.tax_balance|floatformat:2 }}</td>{% endfor %}
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <h3>По месяцам</h3>

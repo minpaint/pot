@@ -60,6 +60,7 @@ class QuarterCalculation:
     tax_balance: Decimal = ZERO
     fszn_paid_cum: Decimal = ZERO
     fszn_balance: Decimal = ZERO
+    tax_prev_cum: Decimal = ZERO  # стр. 8 декларации: налог по предыдущим декларациям
 
 
 @dataclass(frozen=True)
@@ -192,6 +193,7 @@ def calculate_year(expense_rate, tax_rate, month_inputs, payments=()) -> YearCal
                 tax_balance=last.tax_balance,
                 fszn_paid_cum=last.fszn_paid_cum,
                 fszn_balance=last.fszn_balance,
+                tax_prev_cum=months[(quarter - 1) * 3 - 1].tax_cum if quarter > 1 else ZERO,
             )
         )
 

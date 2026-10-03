@@ -90,3 +90,43 @@ class TaxCalculatorTests(TestCase):
 
         self.assertEqual(result.months[0].tax_balance, Decimal("0.00"))
         self.assertEqual(result.months[1].tax_balance, Decimal("40.00"))
+
+
+class TaxPaymentFormTests(TestCase):
+    def test_saved_payment_fields_are_disabled(self):
+        from datetime import date
+
+        from .admin import TaxPaymentForm
+        from .models import TaxPayment
+
+        year = TaxYear.objects.create(year=2026)
+        saved = TaxPayment.objects.create(
+            tax_year=year, kind="tax", period_month=3,
+            paid_date=date(2026, 3, 31), amount=Decimal("100"),
+        )
+
+        self.assertTrue(all(f.disabled for f in TaxPaymentForm(instance=saved).fields.values()))
+        self.assertFalse(any(f.disabled for f in TaxPaymentForm().fields.values()))
+
+        form = TaxPaymentForm(
+            data={"kind": "fszn", "period_month": 5, "amount": "999"}, instance=saved
+        )
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data["amount"], Decimal("100.00"))
+
+
+class DeclarationDataTests(TestCase):
+    def test_declaration_lines_use_previous_cumulative_tax(self):
+        months = [
+            SimpleNamespace(month=3, income_amount=Decimal("13289.98"), fszn_amount=Decimal("0")),
+            SimpleNamespace(month=6, income_amount=Decimal("16309.57"), fszn_amount=Decimal("0")),
+            SimpleNamespace(month=9, income_amount=Decimal("21263.98"), fszn_amount=Decimal("0")),
+        ]
+        result = calculate_year(Decimal("20"), Decimal("20"), months)
+        q3 = result.quarters[2]
+
+        self.assertEqual(q3.income_cum, Decimal("50863.53"))
+        self.assertEqual(q3.tax_cum, Decimal("8138.16"))
+        self.assertEqual(q3.tax_prev_cum, Decimal("4735.93"))
+        self.assertEqual(q3.tax_due_q, Decimal("3402.23"))
+        self.assertEqual(result.quarters[0].tax_prev_cum, Decimal("0.00"))

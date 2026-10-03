@@ -40,7 +40,7 @@ class TaxMonthInline(admin.TabularInline):
 class TaxPaymentInline(admin.TabularInline):
     model = TaxPayment
     extra = 1
-    fields = ("kind", "period_month", "paid_date", "amount", "note")
+    fields = ("kind", "period_from", "period_month", "paid_date", "amount", "note")
 
 
 @admin.register(TaxYear)

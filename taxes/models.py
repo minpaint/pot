@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from .calculator import MONTH_NAMES, calculate_year
@@ -178,10 +179,17 @@ class TaxPayment(models.Model):
         verbose_name="Налоговый год",
     )
     kind = models.CharField("Вид", max_length=8, choices=KIND_CHOICES, default=KIND_TAX)
-    period_month = models.PositiveSmallIntegerField(
-        "За месяц",
+    period_from = models.PositiveSmallIntegerField(
+        "С месяца",
         choices=TaxMonth.MONTH_CHOICES,
-        help_text="Месяц, за который уплачено. Остаток считается нарастающим итогом.",
+        null=True,
+        blank=True,
+        help_text="Только для платежа за несколько месяцев; иначе оставьте пустым.",
+    )
+    period_month = models.PositiveSmallIntegerField(
+        "За месяц (по месяц)",
+        choices=TaxMonth.MONTH_CHOICES,
+        help_text="Месяц, за который уплачено (для диапазона — последний). Остаток считается нарастающим итогом.",
     )
     paid_date = models.DateField("Дата платежа", null=True, blank=True)
     amount = models.DecimalField("Сумма", max_digits=12, decimal_places=2)
@@ -192,5 +200,13 @@ class TaxPayment(models.Model):
         verbose_name_plural = "Платежи"
         ordering = ["period_month", "paid_date", "id"]
 
+    def clean(self):
+        super().clean()
+        if self.period_from and self.period_month and self.period_from > self.period_month:
+            raise ValidationError({"period_from": "«С месяца» не может быть позже «по месяц»."})
+
     def __str__(self):
-        return f"{self.tax_year.year} / {self.get_kind_display()} / {self.get_period_month_display()}: {self.amount}"
+        period = self.get_period_month_display()
+        if self.period_from and self.period_from < self.period_month:
+            period = f"{self.get_period_from_display()}–{period}"
+        return f"{self.tax_year.year} / {self.get_kind_display()} / {period}: {self.amount}"

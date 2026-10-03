@@ -79,6 +79,32 @@ class YearCalculation:
     balance: Decimal = ZERO
 
 
+def allocate_payments(payments, dues):
+    """Раскладывает платежи по месяцам.
+
+    Платёж за один месяц целиком относится к нему. Платёж за диапазон
+    (period_from..period_month) закрывает по очереди самые старые долги месяцев
+    диапазона, остаток относится на последний месяц диапазона.
+    """
+    paid = {"tax": {}, "fszn": {}}
+    # сортировка устойчивая: внутри месяца сохраняется порядок по дате
+    ordered = sorted(payments, key=lambda p: p.period_month)
+    for pay in ordered:
+        bucket = paid[pay.kind]
+        end = pay.period_month
+        start = getattr(pay, "period_from", None) or end
+        left = money(pay.amount)
+        if start < end:
+            for month in range(start, end):
+                need = max(money(dues[pay.kind][month] - bucket.get(month, 0)), ZERO)
+                part = min(left, need)
+                if part > 0:
+                    bucket[month] = money(bucket.get(month, 0) + part)
+                    left = money(left - part)
+        bucket[end] = money(bucket.get(end, 0) + left)
+    return paid
+
+
 def calculate_year(expense_rate, tax_rate, month_inputs, payments=()) -> YearCalculation:
     """Расчёт нарастающим итогом по месяцам; кварталы агрегируются из месяцев.
 
@@ -89,10 +115,17 @@ def calculate_year(expense_rate, tax_rate, month_inputs, payments=()) -> YearCal
     tax_rate = normalize_rate(tax_rate)
     items_by_month = {item.month: item for item in month_inputs}
 
-    paid = {"tax": {}, "fszn": {}}
-    for pay in payments:
-        bucket = paid[pay.kind]
-        bucket[pay.period_month] = money(bucket.get(pay.period_month, 0) + money(pay.amount))
+    dues = {"tax": {}, "fszn": {}}
+    cum = ZERO
+    prev = ZERO
+    for month in range(1, 13):
+        item = items_by_month.get(month)
+        cum = money(cum + money(getattr(item, "income_amount", 0)))
+        tax_cum_pre = money(money(cum - money(cum * expense_rate)) * tax_rate)
+        dues["tax"][month] = money(tax_cum_pre - prev)
+        dues["fszn"][month] = money(getattr(item, "fszn_amount", 0))
+        prev = tax_cum_pre
+    paid = allocate_payments(payments, dues)
 
     months = []
     fszn_cum = ZERO

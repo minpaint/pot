@@ -71,3 +71,22 @@ class TaxCalculatorTests(TestCase):
         self.assertEqual(result.tax_balance, Decimal("80.00"))
         self.assertEqual(result.fszn_balance, Decimal("-50.00"))
         self.assertEqual(result.balance, Decimal("30.00"))
+
+    def test_multi_month_payment_closes_oldest_months_first(self):
+        months = [
+            SimpleNamespace(month=1, income_amount=Decimal("1000"), fszn_amount=Decimal("0")),
+            SimpleNamespace(month=2, income_amount=Decimal("500"), fszn_amount=Decimal("0")),
+        ]
+        # налог: янв 160, фев 80; платёж 240 за январь–февраль
+        payments = [SimpleNamespace(kind="tax", period_from=1, period_month=2, amount=Decimal("240"))]
+        result = calculate_year(Decimal("20"), Decimal("20"), months, payments)
+
+        self.assertEqual(result.months[0].tax_balance, Decimal("0.00"))
+        self.assertEqual(result.months[1].tax_balance, Decimal("0.00"))
+
+        # частичный платёж 200: январь закрыт полностью, на февраль 40
+        payments = [SimpleNamespace(kind="tax", period_from=1, period_month=2, amount=Decimal("200"))]
+        result = calculate_year(Decimal("20"), Decimal("20"), months, payments)
+
+        self.assertEqual(result.months[0].tax_balance, Decimal("0.00"))
+        self.assertEqual(result.months[1].tax_balance, Decimal("40.00"))

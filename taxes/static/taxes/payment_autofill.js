@@ -1,4 +1,5 @@
-// При выборе вида платежа и месяца подставляет сумму = остаток на конец месяца.
+// При выборе вида платежа и месяца (по месяц) подставляет сумму = остаток нарастающим на конец месяца.
+// Для платежа за несколько месяцев («С месяца» … «по месяц») это общий долг по последний месяц.
 (function () {
   function balances() {
     var el = document.getElementById("tax-balances");
@@ -25,7 +26,7 @@
   document.addEventListener("change", function (e) {
     var name = e.target.name || "";
     if (name.indexOf("payments-") !== 0 || name.indexOf("__prefix__") !== -1) return;
-    if (/-(kind|period_month)$/.test(name)) autofill(e.target.closest("tr"));
+    if (/-(kind|period_from|period_month)$/.test(name)) autofill(e.target.closest("tr"));
   });
 
   document.addEventListener("input", function (e) {

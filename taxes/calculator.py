@@ -34,6 +34,11 @@ class MonthCalculation:
     tax_due_m: Decimal
     fszn_due_m: Decimal
     total_due_m: Decimal
+    tax_paid_cum: Decimal = ZERO
+    tax_balance: Decimal = ZERO
+    fszn_cum: Decimal = ZERO
+    fszn_paid_cum: Decimal = ZERO
+    fszn_balance: Decimal = ZERO
 
     @property
     def month_name(self):
@@ -51,6 +56,10 @@ class QuarterCalculation:
     tax_due_q: Decimal
     fszn_due_q: Decimal
     total_due_q: Decimal
+    tax_paid_cum: Decimal = ZERO
+    tax_balance: Decimal = ZERO
+    fszn_paid_cum: Decimal = ZERO
+    fszn_balance: Decimal = ZERO
 
 
 @dataclass(frozen=True)
@@ -63,15 +72,32 @@ class YearCalculation:
     total_tax: Decimal
     total_fszn: Decimal
     total_due: Decimal
+    total_tax_paid: Decimal = ZERO
+    total_fszn_paid: Decimal = ZERO
+    tax_balance: Decimal = ZERO
+    fszn_balance: Decimal = ZERO
+    balance: Decimal = ZERO
 
 
-def calculate_year(expense_rate, tax_rate, month_inputs) -> YearCalculation:
-    """Расчёт нарастающим итогом по месяцам; кварталы агрегируются из месяцев."""
+def calculate_year(expense_rate, tax_rate, month_inputs, payments=()) -> YearCalculation:
+    """Расчёт нарастающим итогом по месяцам; кварталы агрегируются из месяцев.
+
+    payments — платежи с атрибутами kind ("tax"/"fszn"), period_month, amount.
+    Остаток за месяц = начислено нарастающим − уплачено нарастающим (по периодам до этого месяца).
+    """
     expense_rate = normalize_rate(expense_rate)
     tax_rate = normalize_rate(tax_rate)
     items_by_month = {item.month: item for item in month_inputs}
 
+    paid = {"tax": {}, "fszn": {}}
+    for pay in payments:
+        bucket = paid[pay.kind]
+        bucket[pay.period_month] = money(bucket.get(pay.period_month, 0) + money(pay.amount))
+
     months = []
+    fszn_cum = ZERO
+    tax_paid_cum = ZERO
+    fszn_paid_cum = ZERO
     income_cum = ZERO
     prev_tax_cum = ZERO
     total_fszn = ZERO
@@ -86,6 +112,9 @@ def calculate_year(expense_rate, tax_rate, month_inputs) -> YearCalculation:
         base_cum = money(income_cum - expense_cum)
         tax_cum = money(base_cum * tax_rate)
         tax_due_m = money(tax_cum - prev_tax_cum)
+        fszn_cum = money(fszn_cum + fszn_due_m)
+        tax_paid_cum = money(tax_paid_cum + paid["tax"].get(month, 0))
+        fszn_paid_cum = money(fszn_paid_cum + paid["fszn"].get(month, 0))
 
         months.append(
             MonthCalculation(
@@ -98,6 +127,11 @@ def calculate_year(expense_rate, tax_rate, month_inputs) -> YearCalculation:
                 tax_due_m=tax_due_m,
                 fszn_due_m=fszn_due_m,
                 total_due_m=money(tax_due_m + fszn_due_m),
+                tax_paid_cum=tax_paid_cum,
+                tax_balance=money(tax_cum - tax_paid_cum),
+                fszn_cum=fszn_cum,
+                fszn_paid_cum=fszn_paid_cum,
+                fszn_balance=money(fszn_cum - fszn_paid_cum),
             )
         )
 
@@ -121,6 +155,10 @@ def calculate_year(expense_rate, tax_rate, month_inputs) -> YearCalculation:
                 tax_due_q=tax_due_q,
                 fszn_due_q=fszn_due_q,
                 total_due_q=money(tax_due_q + fszn_due_q),
+                tax_paid_cum=last.tax_paid_cum,
+                tax_balance=last.tax_balance,
+                fszn_paid_cum=last.fszn_paid_cum,
+                fszn_balance=last.fszn_balance,
             )
         )
 
@@ -134,4 +172,9 @@ def calculate_year(expense_rate, tax_rate, month_inputs) -> YearCalculation:
         total_tax=last.tax_cum,
         total_fszn=total_fszn,
         total_due=money(last.tax_cum + total_fszn),
+        total_tax_paid=last.tax_paid_cum,
+        total_fszn_paid=last.fszn_paid_cum,
+        tax_balance=last.tax_balance,
+        fszn_balance=last.fszn_balance,
+        balance=money(last.tax_balance + last.fszn_balance),
     )

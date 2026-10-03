@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.template.loader import render_to_string
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from .calculator import normalize_rate
-from .models import TaxMonth, TaxYear
+from .models import TaxMonth, TaxPayment, TaxYear
 
 
 class SuperuserOnlyMixin:
@@ -36,6 +37,12 @@ class TaxMonthInline(admin.TabularInline):
         return False
 
 
+class TaxPaymentInline(admin.TabularInline):
+    model = TaxPayment
+    extra = 1
+    fields = ("kind", "period_month", "paid_date", "amount", "note")
+
+
 @admin.register(TaxYear)
 class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
     list_display = (
@@ -47,10 +54,11 @@ class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
         "total_tax_display",
         "total_fszn_display",
         "total_due_display",
+        "balance_display",
         "quarters_summary",
     )
     readonly_fields = ("calculation_preview",)
-    inlines = [TaxMonthInline]
+    inlines = [TaxMonthInline, TaxPaymentInline]
     fieldsets = (
         (None, {
             "fields": ("year", "expense_rate", "tax_rate", "note")
@@ -64,7 +72,7 @@ class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("months")
+        return super().get_queryset(request).prefetch_related("months", "payments")
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -80,6 +88,13 @@ class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
             "taxes/calculation_preview.html",
             {
                 "calc": calculation,
+                "balances": {
+                    str(m.month): {
+                        "tax": str(m.tax_balance),
+                        "fszn": str(m.fszn_balance),
+                    }
+                    for m in calculation.months
+                },
             },
         )
         return mark_safe(html)
@@ -132,5 +147,15 @@ class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
         return obj.calculation().total_due
     total_due_display.short_description = "Всего к уплате"
 
+    def balance_display(self, obj):
+        calc = obj.calculation()
+        color = "#c0392b" if calc.balance > 0 else "#1e7e34"
+        return format_html(
+            '<b style="color:{}">{}</b><br><span style="color:#999;font-size:11px">налог {} / ФСЗН {}</span>',
+            color, f"{calc.balance:.2f}", f"{calc.tax_balance:.2f}", f"{calc.fszn_balance:.2f}",
+        )
+    balance_display.short_description = "Остаток к уплате"
+
     class Media:
         css = {"all": ("taxes/admin.css",)}
+        js = ("taxes/payment_autofill.js",)

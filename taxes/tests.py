@@ -51,3 +51,23 @@ class TaxCalculatorTests(TestCase):
             list(year.months.values_list("month", flat=True)),
             list(range(1, 13)),
         )
+
+    def test_payments_reduce_balance_cumulatively(self):
+        months = [
+            SimpleNamespace(month=1, income_amount=Decimal("1000"), fszn_amount=Decimal("100")),
+            SimpleNamespace(month=2, income_amount=Decimal("500"), fszn_amount=Decimal("100")),
+        ]
+        payments = [
+            SimpleNamespace(kind="tax", period_month=1, amount=Decimal("160")),
+            SimpleNamespace(kind="fszn", period_month=2, amount=Decimal("250")),
+        ]
+        result = calculate_year(Decimal("20"), Decimal("20"), months, payments)
+
+        self.assertEqual(result.months[0].tax_balance, Decimal("0.00"))
+        self.assertEqual(result.months[1].tax_balance, Decimal("80.00"))
+        self.assertEqual(result.months[0].fszn_balance, Decimal("100.00"))
+        self.assertEqual(result.months[1].fszn_balance, Decimal("-50.00"))
+        self.assertEqual(result.quarters[0].tax_balance, Decimal("80.00"))
+        self.assertEqual(result.tax_balance, Decimal("80.00"))
+        self.assertEqual(result.fszn_balance, Decimal("-50.00"))
+        self.assertEqual(result.balance, Decimal("30.00"))

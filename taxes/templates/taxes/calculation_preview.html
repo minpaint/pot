@@ -15,7 +15,7 @@
 
   .tax-preview__table {
     width: 100%;
-    min-width: 940px;
+    min-width: 1300px;
     border-collapse: collapse;
     margin-top: 12px;
     font-size: 13px;
@@ -48,6 +48,9 @@
     white-space: nowrap;
   }
 
+  .tax-preview__debt { color: #c0392b; font-weight: 700; }
+  .tax-preview__ok { color: #1e7e34; font-weight: 700; }
+
   .tax-preview__tax-due {
     background: #fff4cc;
     font-weight: 700;
@@ -60,6 +63,7 @@
   }
 </style>
 
+{{ balances|json_script:"tax-balances" }}
 <div class="tax-preview">
   <div class="help tax-preview__help">
     Вводите суммы отдельно за каждый месяц; итоги по кварталам считаются из месяцев. Нарастающий итог и суммы к уплате считаются автоматически.
@@ -79,6 +83,10 @@
           <th class="tax-preview__num tax-preview__tax-due">Налог<br>к уплате</th>
           <th class="tax-preview__num">ФСЗН</th>
           <th class="tax-preview__num">Всего<br>к уплате</th>
+          <th class="tax-preview__num">Налог<br>уплачено</th>
+          <th class="tax-preview__num">Налог<br>остаток</th>
+          <th class="tax-preview__num">ФСЗН<br>уплачено</th>
+          <th class="tax-preview__num">ФСЗН<br>остаток</th>
         </tr>
       </thead>
       <tbody>
@@ -93,6 +101,10 @@
           <td class="tax-preview__num tax-preview__tax-due">{{ m.tax_due_m|floatformat:2 }}</td>
           <td class="tax-preview__num">{{ m.fszn_due_m|floatformat:2 }}</td>
           <td class="tax-preview__num">{{ m.total_due_m|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.tax_paid_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num {% if m.tax_balance > 0 %}tax-preview__debt{% else %}tax-preview__ok{% endif %}">{{ m.tax_balance|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.fszn_paid_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num {% if m.fszn_balance > 0 %}tax-preview__debt{% else %}tax-preview__ok{% endif %}">{{ m.fszn_balance|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -112,6 +124,10 @@
           <th class="tax-preview__num tax-preview__tax-due">Налог<br>к уплате</th>
           <th class="tax-preview__num">ФСЗН</th>
           <th class="tax-preview__num">Всего<br>к уплате</th>
+          <th class="tax-preview__num">Налог<br>уплачено</th>
+          <th class="tax-preview__num">Налог<br>остаток</th>
+          <th class="tax-preview__num">ФСЗН<br>уплачено</th>
+          <th class="tax-preview__num">ФСЗН<br>остаток</th>
         </tr>
       </thead>
       <tbody>
@@ -126,6 +142,10 @@
           <td class="tax-preview__num tax-preview__tax-due">{{ quarter.tax_due_q|floatformat:2 }}</td>
           <td class="tax-preview__num">{{ quarter.fszn_due_q|floatformat:2 }}</td>
           <td class="tax-preview__num">{{ quarter.total_due_q|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ quarter.tax_paid_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num {% if quarter.tax_balance > 0 %}tax-preview__debt{% else %}tax-preview__ok{% endif %}">{{ quarter.tax_balance|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ quarter.fszn_paid_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num {% if quarter.fszn_balance > 0 %}tax-preview__debt{% else %}tax-preview__ok{% endif %}">{{ quarter.fszn_balance|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -140,6 +160,14 @@
           <td></td>
           <th class="tax-preview__num">{{ calc.total_fszn|floatformat:2 }}</th>
           <th class="tax-preview__num">{{ calc.total_due|floatformat:2 }}</th>
+          <th class="tax-preview__num">{{ calc.total_tax_paid|floatformat:2 }}</th>
+          <th class="tax-preview__num">{{ calc.tax_balance|floatformat:2 }}</th>
+          <th class="tax-preview__num">{{ calc.total_fszn_paid|floatformat:2 }}</th>
+          <th class="tax-preview__num">{{ calc.fszn_balance|floatformat:2 }}</th>
+        </tr>
+        <tr>
+          <th class="tax-preview__text" colspan="9">Остаток к уплате (налог + ФСЗН)</th>
+          <th class="tax-preview__num" colspan="4">{{ calc.balance|floatformat:2 }}</th>
         </tr>
       </tfoot>
     </table>

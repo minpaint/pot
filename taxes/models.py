@@ -76,6 +76,7 @@ class TaxYear(models.Model):
             expense_rate=self.expense_rate,
             tax_rate=self.tax_rate,
             month_inputs=self.months.all(),
+            payments=self.payments.all(),
         )
 
 
@@ -160,3 +161,36 @@ class TaxMonth(models.Model):
 
     def __str__(self):
         return f"{self.tax_year.year} / {self.get_month_display()}"
+
+
+class TaxPayment(models.Model):
+    KIND_TAX = "tax"
+    KIND_FSZN = "fszn"
+    KIND_CHOICES = (
+        (KIND_TAX, "Налог"),
+        (KIND_FSZN, "ФСЗН"),
+    )
+
+    tax_year = models.ForeignKey(
+        TaxYear,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        verbose_name="Налоговый год",
+    )
+    kind = models.CharField("Вид", max_length=8, choices=KIND_CHOICES, default=KIND_TAX)
+    period_month = models.PositiveSmallIntegerField(
+        "За месяц",
+        choices=TaxMonth.MONTH_CHOICES,
+        help_text="Месяц, за который уплачено. Остаток считается нарастающим итогом.",
+    )
+    paid_date = models.DateField("Дата платежа", null=True, blank=True)
+    amount = models.DecimalField("Сумма", max_digits=12, decimal_places=2)
+    note = models.CharField("Примечание", max_length=255, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Платёж"
+        verbose_name_plural = "Платежи"
+        ordering = ["period_month", "paid_date", "id"]
+
+    def __str__(self):
+        return f"{self.tax_year.year} / {self.get_kind_display()} / {self.get_period_month_display()}: {self.amount}"

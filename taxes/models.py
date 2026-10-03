@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db import models
 
-from .calculator import calculate_year
+from .calculator import MONTH_NAMES, calculate_year
 
 
 class TaxYear(models.Model):
@@ -45,7 +45,19 @@ class TaxYear(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        self.ensure_quarters()
+        self.ensure_months()
+
+    def ensure_months(self):
+        if not self.pk:
+            return
+        existing = set(self.months.values_list("month", flat=True))
+        missing = [
+            TaxMonth(tax_year=self, month=month)
+            for month in range(1, 13)
+            if month not in existing
+        ]
+        if missing:
+            TaxMonth.objects.bulk_create(missing)
 
     def ensure_quarters(self):
         if not self.pk:
@@ -63,7 +75,7 @@ class TaxYear(models.Model):
         return calculate_year(
             expense_rate=self.expense_rate,
             tax_rate=self.tax_rate,
-            quarter_inputs=self.quarters.all(),
+            month_inputs=self.months.all(),
         )
 
 
@@ -109,3 +121,42 @@ class TaxQuarter(models.Model):
 
     def __str__(self):
         return f"{self.tax_year.year} / {self.get_quarter_display()}"
+
+
+class TaxMonth(models.Model):
+    MONTH_CHOICES = tuple((i, name) for i, name in enumerate(MONTH_NAMES, start=1))
+
+    tax_year = models.ForeignKey(
+        TaxYear,
+        on_delete=models.CASCADE,
+        related_name="months",
+        verbose_name="Налоговый год",
+    )
+    month = models.PositiveSmallIntegerField("Месяц", choices=MONTH_CHOICES)
+    income_amount = models.DecimalField(
+        "Сумма за месяц",
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    fszn_amount = models.DecimalField(
+        "ФСЗН за месяц",
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    note = models.CharField("Примечание", max_length=255, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Налоговый месяц"
+        verbose_name_plural = "Налоговые месяцы"
+        ordering = ["month"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tax_year", "month"],
+                name="unique_tax_month_per_year",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.tax_year.year} / {self.get_month_display()}"

@@ -62,9 +62,43 @@
 
 <div class="tax-preview">
   <div class="help tax-preview__help">
-    Вводите суммы отдельно за каждый квартал. Нарастающий итог и суммы к уплате считаются автоматически.
+    Вводите суммы отдельно за каждый месяц; итоги по кварталам считаются из месяцев. Нарастающий итог и суммы к уплате считаются автоматически.
   </div>
 
+  <h3>По месяцам</h3>
+  <div class="tax-preview__table-wrap">
+    <table class="tax-preview__table">
+      <thead>
+        <tr>
+          <th class="tax-preview__text">Месяц</th>
+          <th class="tax-preview__num">Доход<br>за месяц</th>
+          <th class="tax-preview__num">Доход<br>нарастающим</th>
+          <th class="tax-preview__num">Расходы<br>нарастающим</th>
+          <th class="tax-preview__num">База<br>нарастающим</th>
+          <th class="tax-preview__num">Налог<br>нарастающим</th>
+          <th class="tax-preview__num tax-preview__tax-due">Налог<br>к уплате</th>
+          <th class="tax-preview__num">ФСЗН</th>
+          <th class="tax-preview__num">Всего<br>к уплате</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in calc.months %}
+        <tr>
+          <td class="tax-preview__text">{{ m.month_name }}</td>
+          <td class="tax-preview__num">{{ m.income_m|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.income_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.expense_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.base_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.tax_cum|floatformat:2 }}</td>
+          <td class="tax-preview__num tax-preview__tax-due">{{ m.tax_due_m|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.fszn_due_m|floatformat:2 }}</td>
+          <td class="tax-preview__num">{{ m.total_due_m|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <h3>По кварталам</h3>
   <div class="tax-preview__table-wrap">
     <table class="tax-preview__table">
       <thead>

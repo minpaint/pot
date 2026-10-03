@@ -3,7 +3,7 @@ from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 
 from .calculator import normalize_rate
-from .models import TaxQuarter, TaxYear
+from .models import TaxMonth, TaxYear
 
 
 class SuperuserOnlyMixin:
@@ -21,16 +21,16 @@ class SuperuserOnlyMixin:
         return request.user.is_superuser
 
 
-class TaxQuarterInline(admin.TabularInline):
-    model = TaxQuarter
+class TaxMonthInline(admin.TabularInline):
+    model = TaxMonth
     extra = 0
     can_delete = False
-    fields = ("quarter_label", "income_amount", "fszn_amount", "note")
-    readonly_fields = ("quarter_label",)
+    fields = ("month_label", "income_amount", "fszn_amount", "note")
+    readonly_fields = ("month_label",)
 
-    def quarter_label(self, obj):
-        return obj.get_quarter_display()
-    quarter_label.short_description = "Квартал"
+    def month_label(self, obj):
+        return obj.get_month_display()
+    month_label.short_description = "Месяц"
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -50,7 +50,7 @@ class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
         "quarters_summary",
     )
     readonly_fields = ("calculation_preview",)
-    inlines = [TaxQuarterInline]
+    inlines = [TaxMonthInline]
     fieldsets = (
         (None, {
             "fields": ("year", "expense_rate", "tax_rate", "note")
@@ -64,17 +64,17 @@ class TaxYearAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("quarters")
+        return super().get_queryset(request).prefetch_related("months")
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        obj.ensure_quarters()
+        obj.ensure_months()
 
     def calculation_preview(self, obj):
         if not obj.pk:
             return "Сохраните год, после этого появятся 4 квартала и расчет."
 
-        obj.ensure_quarters()
+        obj.ensure_months()
         calculation = obj.calculation()
         html = render_to_string(
             "taxes/calculation_preview.html",

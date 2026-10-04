@@ -395,6 +395,46 @@ def get_position_siz_norms(request, position_id):
 
 @require_GET
 @login_required
+def get_employee_siz_norms(request, employee_id):
+    """
+    AJAX: нормы СИЗ сотрудника (как в карточке): сначала нормы должности,
+    если их нет — эталонные нормы профессии. Используется раскрывающейся
+    строкой на странице «Карточки СИЗ».
+    """
+    from directory.models.siz import ProfessionSIZNorm
+
+    employee = get_object_or_404(Employee.objects.select_related('position'), pk=employee_id)
+    if not AccessControlHelper.can_access_object(request.user, employee):
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
+
+    position = employee.position
+    norms = list(SIZNorm.objects.filter(position=position).select_related('siz').order_by('order', 'id'))
+    source = 'position'
+    if not norms:
+        norms = list(ProfessionSIZNorm.objects.filter(
+            profession_name__iexact=position.position_name
+        ).select_related('siz').order_by('order', 'id'))
+        source = 'reference'
+    if not norms:
+        source = ''
+
+    return JsonResponse({
+        'position': position.position_name,
+        'requires_siz': position.requires_siz,
+        'source': source,
+        'items': [{
+            'condition': n.condition,
+            'name': n.siz.name,
+            'classification': n.siz.classification,
+            'unit': n.siz.unit,
+            'quantity': n.quantity,
+            'wear': n.siz.wear_period_display,
+        } for n in norms],
+    })
+
+
+@require_GET
+@login_required
 def get_employee_issued_siz(request, employee_id):
     """
     API для получения фактически выданных СИЗ сотруднику
@@ -495,6 +535,16 @@ def _safe_name(value):
     return re.sub(r'[<>:"/\\|?*]', '_', str(value or '').strip()) or 'unknown'
 
 
+def siz_card_file_name(employee):
+    """Имя файла карточки в архиве: «Фамилия И.О._Профессия_карточка_СИЗ.docx»."""
+    from directory.utils.declension import get_initials_from_name
+
+    fio = _safe_name(get_initials_from_name(employee.full_name_nominative or ''))
+    profession = _safe_name(employee.position.position_name if employee.position else '')[:80].strip()
+    parts = [fio] + ([profession] if profession != 'unknown' else [])
+    return '_'.join(parts) + '_карточка_СИЗ.docx'
+
+
 def _request_value(request, key, default=''):
     return request.POST.get(key, default) if request.method == 'POST' else request.GET.get(key, default)
 
@@ -584,8 +634,7 @@ def _create_cards_archive(employees, user, custom_context, folder_name):
                 errors.append(f"Ошибка генерации для {employee.full_name_nominative}: пустой результат")
                 continue
 
-            safe_emp = _safe_name(employee.full_name_nominative)
-            zip_file.writestr(f"{safe_folder}/{safe_emp}_карточка_СИЗ.docx", result['content'])
+            zip_file.writestr(f"{safe_folder}/{siz_card_file_name(employee)}", result['content'])
             generated_count += 1
 
         summary = (

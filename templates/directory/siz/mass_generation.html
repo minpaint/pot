@@ -256,6 +256,18 @@
     flex: 0 0 34px;
 }
 
+/* ── Раскрывающиеся нормы сотрудника ── */
+.emp-norms-toggle { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; margin-right: 6px; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; font-size: 0.7rem; line-height: 1; cursor: pointer; vertical-align: middle; flex-shrink: 0; }
+.emp-norms-toggle:hover { background: #e8f4fd; border-color: #3498db; }
+.emp-norms-panel { background: #f8f9fa; border-bottom: 1px solid #f0f0f0; padding: 8px 18px 10px 60px; font-size: 0.82rem; }
+.emp-norms-panel .norms-source { font-size: 0.72rem; color: #9aa0ac; margin-bottom: 4px; }
+.emp-norms-panel .norms-cond { font-size: 0.78rem; font-weight: 600; color: #856404; padding: 8px 0 2px; border-bottom: none !important; }
+.emp-norms-table { width: 100%; max-width: 760px; border-collapse: collapse; table-layout: fixed; }
+.emp-norms-table col.c-qty { width: 90px; }
+.emp-norms-table col.c-wear { width: 110px; }
+.emp-norms-table td { padding: 3px 10px 3px 0; vertical-align: top; border-bottom: 1px solid #eee; }
+.emp-norms-table td.norms-num { white-space: nowrap; color: #6c757d; }
+
 /* ── Блок «Требуют внимания» ── */
 .att-card { border: none; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px; background: #fff; }
 .att-header { display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: #fff3cd; color: #856404; font-weight: 700; cursor: pointer; user-select: none; }
@@ -297,6 +309,11 @@
     #expand-all-tree + #collapse-all-tree + span { display: none; }
 
 
+    .emp-norms-panel { padding: 6px 10px 8px 12px; }
+    .emp-norms-table { max-width: 100%; }
+    .emp-norms-table col.c-qty { width: 64px; }
+    .emp-norms-table col.c-wear { width: 76px; }
+    .emp-norms-table td { padding: 3px 6px 3px 0; font-size: 0.76rem; white-space: normal; }
     /* Блок «Требуют внимания» */
     .att-header { padding: 8px 12px; }
     .att-reason { padding: 8px 12px 4px; }
@@ -924,6 +941,79 @@ function toggleSizBlock(headerEl, contentId) {
         headerEl.classList.add('collapsed');
     }
 }
+
+// Раскрывающиеся нормы сотрудника (по умолчанию свёрнуты, грузятся при первом раскрытии)
+(function() {
+    const urlTemplate = "{% url 'directory:siz:employee_siz_norms' 0 %}";
+
+    function esc(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function render(panel, data) {
+        if (!data.items.length) {
+            panel.innerHTML = '<span class="text-muted">' +
+                (data.requires_siz ? 'Нормы СИЗ для должности не заданы.' : 'Для должности СИЗ не требуются.') + '</span>';
+            return;
+        }
+        let html = '<div class="norms-source">' +
+            (data.source === 'reference' ? 'Эталонные нормы профессии' : 'Нормы должности') + '</div>' +
+            '<table class="emp-norms-table"><colgroup><col><col class="c-qty"><col class="c-wear"></colgroup><tbody>';
+        let current = '';
+        data.items.forEach(function(item) {
+            if (item.condition && item.condition !== current) {
+                html += '<tr><td class="norms-cond" colspan="3">' + esc(item.condition) + '</td></tr>';
+            }
+            current = item.condition || '';
+            html += '<tr><td>' + esc(item.name) + (item.classification ? ' <span class="text-muted">[' + esc(item.classification) + ']</span>' : '') + '</td>' +
+                '<td class="norms-num">' + esc(item.quantity) + ' ' + esc(item.unit) + '</td>' +
+                '<td class="norms-num">' + esc(item.wear) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        panel.innerHTML = html;
+    }
+
+    document.querySelectorAll('.emp-row').forEach(function(row) {
+        const saveBtn = row.querySelector('.emp-save-btn');
+        const nameEl = row.querySelector('.emp-name');
+        if (!saveBtn || !nameEl) return;
+        const empId = saveBtn.dataset.emp;
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'emp-norms-toggle';
+        toggle.textContent = '➕';
+        toggle.title = 'Показать нормы СИЗ';
+        nameEl.insertBefore(toggle, nameEl.firstChild);
+
+        const panel = document.createElement('div');
+        panel.className = 'emp-norms-panel';
+        panel.style.display = 'none';
+        row.insertAdjacentElement('afterend', panel);
+
+        let loaded = false;
+        toggle.addEventListener('click', async function(event) {
+            event.stopPropagation();
+            const opening = panel.style.display === 'none';
+            panel.style.display = opening ? '' : 'none';
+            toggle.textContent = opening ? '➖' : '➕';
+            toggle.title = opening ? 'Скрыть нормы СИЗ' : 'Показать нормы СИЗ';
+            if (!opening || loaded) return;
+            panel.innerHTML = '<span class="text-muted">Загрузка…</span>';
+            try {
+                const resp = await fetch(urlTemplate.replace('/0/', '/' + empId + '/'), {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Ошибка загрузки');
+                render(panel, data);
+                loaded = true;
+            } catch (e) {
+                panel.innerHTML = '<span class="text-danger">' + esc(e.message) + '</span>';
+            }
+        });
+    });
+})();
 
 // Блок «Требуют внимания»: отключение/возврат «Требуются СИЗ» у должностей
 (function() {

@@ -36,6 +36,13 @@
 .status-running   { background: #cfe8ff; color: #1a5276; }
 .status-done      { background: #d1f5d3; color: #1e7e34; }
 .status-failed    { background: #fde8e8; color: #c0392b; }
+.job-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.job-back-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px;
+    border: 1px solid #dee2e6; border-radius: 6px; background: #fff; color: #2c3e50;
+    font-size: 0.88rem; font-weight: 600; text-decoration: none;
+}
+.job-back-btn:hover { background: #e8f4fd; border-color: #3498db; color: #2c3e50; }
 .download-btn {
     display: inline-block; padding: 10px 20px; background: #3498db; color: #fff;
     border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 10px;
@@ -45,6 +52,13 @@
     background: #fde8e8; color: #c0392b; padding: 14px; border-radius: 6px;
     margin-top: 12px; white-space: pre-wrap; font-size: 0.85rem;
     font-family: monospace; max-height: 300px; overflow: auto;
+}
+@media (max-width: 767px) {
+    .job-card-header { flex-wrap: wrap; padding: 10px 14px; }
+    .job-card-body { padding: 14px; }
+    .job-actions { flex-direction: column; }
+    .job-back-btn { width: 100%; justify-content: center; box-sizing: border-box; }
+    .download-btn { display: block; text-align: center; }
 }
 </style>
 {% endblock %}
@@ -69,6 +83,10 @@
         </div>
 
         <div class="job-card-body">
+            <div class="job-actions">
+                {% if back_url %}<a href="{{ back_url }}" class="job-back-btn">← Назад: {{ back_label }}</a>{% endif %}
+                <a href="{% url 'directory:generation_job_list' %}" class="job-back-btn">📋 Все задачи</a>
+            </div>
             <div class="job-meta">
                 <div>Статус:
                     <span id="job-status" class="status-badge status-{{ job.status }}">

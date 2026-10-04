@@ -165,6 +165,7 @@ siz_patterns = [
     path('mass-generation/', siz.SIZMassGenerationView.as_view(), name='mass_generation'),
     path('mass-generation/generate/', siz.generate_siz_cards_bulk, name='mass_generation_generate'),
     path('positions/requires-siz/', siz.set_positions_requires_siz, name='set_positions_requires_siz'),
+    path('employee/<int:employee_id>/norms/', siz.get_employee_siz_norms, name='employee_siz_norms'),
     path('recipients/<int:subdivision_id>/', siz.get_siz_recipients, name='siz_recipients'),
     path('send-for-organization/<int:organization_id>/', siz.send_siz_cards_for_organization, name='send_for_organization'),
     path('send-for-subdivision/<int:subdivision_id>/', siz.send_siz_cards_single, name='send_for_subdivision'),

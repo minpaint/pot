@@ -21,6 +21,21 @@ class GenerationJobAccessMixin:
         return qs
 
 
+# Страница, откуда запускается генерация: тип задачи → (имя URL, подпись кнопки «Назад»)
+JOB_BACK_LINKS = {
+    'siz_cards_bulk': ('directory:siz:mass_generation', 'Карточки СИЗ'),
+    'siz_cards_org': ('directory:siz:mass_generation', 'Карточки СИЗ'),
+    'instruction_journal_unified': ('directory:documents:instruction_journal', 'Журнал инструктажей'),
+    'instruction_journal_by_sub': ('directory:documents:instruction_journal', 'Журнал инструктажей'),
+    'ot_card_bulk': ('directory:ot_card:mass_generation', 'Личные карточки по ОТ'),
+    'periodic_protocol': ('directory:documents:periodic_protocol', 'Проверка знаний'),
+    'periodic_protocol_by_sub': ('directory:documents:periodic_protocol', 'Проверка знаний'),
+    'periodic_certificates': ('directory:documents:periodic_protocol', 'Проверка знаний'),
+    'periodic_certificates_by_sub': ('directory:documents:periodic_protocol', 'Проверка знаний'),
+    'admin_hiring_generate': ('admin:directory_employeehiring_changelist', 'Приёмы на работу'),
+}
+
+
 class GenerationJobListView(LoginRequiredMixin, GenerationJobAccessMixin, ListView):
     model = GenerationJob
     template_name = 'directory/generation_jobs/list.html'
@@ -32,6 +47,14 @@ class GenerationJobDetailView(LoginRequiredMixin, GenerationJobAccessMixin, Deta
     model = GenerationJob
     template_name = 'directory/generation_jobs/detail.html'
     context_object_name = 'job'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        target = JOB_BACK_LINKS.get(self.object.job_type)
+        if target:
+            context['back_url'] = reverse(target[0])
+            context['back_label'] = target[1]
+        return context
 
 
 class GenerationJobStatusView(LoginRequiredMixin, GenerationJobAccessMixin, DetailView):

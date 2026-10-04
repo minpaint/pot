@@ -366,6 +366,7 @@ def run_siz_cards_bulk_job(job_id: int):
         has_effective_siz_norms,
         _subdivision_employee_queryset,
         _safe_name as siz_safe_name,
+        siz_card_file_name,
     )
 
     try:
@@ -422,7 +423,7 @@ def run_siz_cards_bulk_job(job_id: int):
                         errors.append(f'{emp.full_name_nominative}: {e}')
                         continue
                     if result and 'content' in result:
-                        zf.writestr(f'{siz_safe_name(emp.full_name_nominative)}_карточка_СИЗ.docx',
+                        zf.writestr(siz_card_file_name(emp),
                                     result['content'])
                         generated += 1
                     GenerationJob.objects.filter(pk=job.pk).update(progress_current=i)
@@ -460,7 +461,7 @@ def run_siz_cards_bulk_job(job_id: int):
                             continue
                         if result and 'content' in result:
                             zf.writestr(
-                                f'{siz_safe_name(sub.name)}/{siz_safe_name(emp.full_name_nominative)}_карточка_СИЗ.docx',
+                                f'{siz_safe_name(sub.name)}/{siz_card_file_name(emp)}',
                                 result['content']
                             )
                             generated += 1

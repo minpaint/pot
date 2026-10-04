@@ -261,6 +261,13 @@
 .att-header { display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: #fff3cd; color: #856404; font-weight: 700; cursor: pointer; user-select: none; }
 .att-header .toggle-icon { font-size: 0.7rem; margin-left: auto; transition: transform 0.25s; }
 .att-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+.att-header.att-ok { background: #d1f5d3; color: #1e7e34; }
+.att-header.att-ok .att-badge { color: #1e7e34; }
+.att-sub { font-weight: 400; font-size: 0.8rem; opacity: 0.85; }
+.att-actions { display: flex; align-items: center; gap: 12px; padding: 4px 18px 8px; }
+.att-check-all { font-size: 0.8rem; color: #6c757d; cursor: pointer; margin: 0; }
+.att-cb { width: 36px; }
+.att-hidden-toggle { background: #fafafa; }
 .att-badge { background: #fff; color: #856404; border-radius: 10px; padding: 1px 9px; font-size: 0.78rem; }
 .att-reason { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 18px 6px; border-top: 1px solid #f0f0f0; }
 .att-pill { display: inline-block; border-radius: 10px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
@@ -293,6 +300,8 @@
     /* Блок «Требуют внимания» */
     .att-header { padding: 8px 12px; }
     .att-reason { padding: 8px 12px 4px; }
+    .att-actions { padding: 4px 12px 8px; flex-wrap: wrap; }
+    .att-actions .btn { width: 100%; }
     .att-table thead { display: none; }
     .att-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
     .att-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 4px 12px; border: none; font-size: 0.82rem; }
@@ -367,14 +376,14 @@
         </div>
     </div>
 
-    {% if attention_total %}
+    {% if attention_total or hidden_total %}
     <!-- Требуют внимания: сотрудники, не попадающие в генерацию -->
     <div class="att-card">
-        <div class="att-header collapsed" onclick="toggleSizBlock(this, 'att-body')">
-            <span>⚠️</span>
+        <div class="att-header{% if not attention_total %} att-ok{% endif %} collapsed" id="att-header" onclick="toggleSizBlock(this, 'att-body')">
+            <span>{% if attention_total %}⚠️{% else %}✅{% endif %}</span>
             <span>Требуют внимания</span>
             <span class="att-badge">{{ attention_total }}</span>
-            <span class="text-muted" style="font-weight:400;font-size:0.8rem;">не попадают в генерацию карточек</span>
+            <span class="att-sub">{% if attention_total %}не попадают в генерацию карточек{% else %}все сотрудники учтены{% endif %}</span>
             <span class="toggle-icon">▼</span>
         </div>
         <div class="collapsible collapsed" id="att-body" style="max-height:0;">
@@ -383,14 +392,19 @@
                 <span class="att-pill att-pill-{{ group.code }}">{{ group.label }} · {{ group.count }}</span>
                 <span class="att-hint">{{ group.hint }}</span>
             </div>
+            <div class="att-actions">
+                <label class="att-check-all"><input type="checkbox" class="js-att-all" data-scope="att-no_norms"> Выбрать все</label>
+                <button type="button" class="btn btn-sm btn-outline-secondary js-att-apply" data-scope="att-no_norms" data-requires="0">✖ СИЗ не нужны</button>
+            </div>
             <div style="overflow-x:auto;">
-                <table class="att-table">
+                <table class="att-table" data-scope="att-no_norms">
                     <thead>
-                        <tr><th>Организация / подразделение</th><th>Должность</th><th>Сотрудники</th></tr>
+                        <tr><th style="width:36px;"></th><th>Организация / подразделение</th><th>Должность</th><th>Сотрудники</th></tr>
                     </thead>
                     <tbody>
                         {% for item in group.positions %}
                         <tr>
+                            <td class="att-cb"><input type="checkbox" class="js-att-cb" value="{{ item.position.id }}"></td>
                             <td data-label="Подразделение">{{ item.organization.short_name_ru }}{% if item.subdivision %} / {{ item.subdivision.name }}{% endif %}</td>
                             <td data-label="Должность">{% if user.is_staff %}<a href="{% url 'admin:directory_position_change' item.position.id %}" target="_blank">{{ item.position.position_name }}</a>{% else %}{{ item.position.position_name }}{% endif %}</td>
                             <td data-label="Сотрудники"><b>{{ item.employees|length }}</b> <span class="att-names">— {% for e in item.employees %}{{ e.full_name_nominative }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>
@@ -400,6 +414,36 @@
                 </table>
             </div>
             {% endfor %}
+
+            {% if hidden_group %}
+            <div class="att-reason att-hidden-toggle" onclick="toggleSizBlock(this, 'att-hidden-body')" style="cursor:pointer;">
+                <span class="att-pill att-pill-disabled">Скрыто: СИЗ не требуются · {{ hidden_group.count }}</span>
+                <span class="att-hint">Эти должности исключены из проверки. Нажмите, чтобы посмотреть или вернуть.</span>
+            </div>
+            <div class="collapsible collapsed" id="att-hidden-body" style="max-height:0;">
+                <div class="att-actions">
+                    <label class="att-check-all"><input type="checkbox" class="js-att-all" data-scope="att-hidden"> Выбрать все</label>
+                    <button type="button" class="btn btn-sm btn-outline-secondary js-att-apply" data-scope="att-hidden" data-requires="1">↩ Вернуть в проверку</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="att-table" data-scope="att-hidden">
+                        <thead>
+                            <tr><th style="width:36px;"></th><th>Организация / подразделение</th><th>Должность</th><th>Сотрудники</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in hidden_group.positions %}
+                            <tr>
+                                <td class="att-cb"><input type="checkbox" class="js-att-cb" value="{{ item.position.id }}"></td>
+                                <td data-label="Подразделение">{{ item.organization.short_name_ru }}{% if item.subdivision %} / {{ item.subdivision.name }}{% endif %}</td>
+                                <td data-label="Должность">{{ item.position.position_name }}</td>
+                                <td data-label="Сотрудники"><b>{{ item.employees|length }}</b> <span class="att-names">— {% for e in item.employees %}{{ e.full_name_nominative }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
@@ -880,6 +924,64 @@ function toggleSizBlock(headerEl, contentId) {
         headerEl.classList.add('collapsed');
     }
 }
+
+// Блок «Требуют внимания»: отключение/возврат «Требуются СИЗ» у должностей
+(function() {
+    const url = "{% url 'directory:siz:set_positions_requires_siz' %}";
+    const openKey = 'siz_att_open';
+
+    function csrf() {
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    document.querySelectorAll('.js-att-all').forEach(function(box) {
+        box.addEventListener('change', function() {
+            document.querySelectorAll('.att-table[data-scope="' + box.dataset.scope + '"] .js-att-cb')
+                .forEach(function(cb) { cb.checked = box.checked; });
+        });
+    });
+
+    document.querySelectorAll('.js-att-apply').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            const ids = Array.from(document.querySelectorAll(
+                '.att-table[data-scope="' + btn.dataset.scope + '"] .js-att-cb:checked')).map(function(cb) { return cb.value; });
+            if (!ids.length) { alert('Отметьте должности в списке.'); return; }
+            const off = btn.dataset.requires === '0';
+            const text = off
+                ? 'Отключить «Требуются СИЗ» у выбранных должностей (' + ids.length + ')? Карточки СИЗ для них создаваться не будут.'
+                : 'Вернуть выбранные должности (' + ids.length + ') в проверку СИЗ?';
+            if (!confirm(text)) return;
+            const body = new URLSearchParams();
+            ids.forEach(function(id) { body.append('position_ids', id); });
+            body.append('requires', btn.dataset.requires === '1' ? '1' : '0');
+            btn.disabled = true;
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': csrf(), 'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: body.toString(),
+                });
+                const data = await resp.json().catch(function() { return {}; });
+                if (!resp.ok) throw new Error(data.error || 'Ошибка сохранения');
+                try { sessionStorage.setItem(openKey, '1'); } catch (e) {}
+                location.reload();
+            } catch (e) {
+                alert(e.message);
+                btn.disabled = false;
+            }
+        });
+    });
+
+    // После перезагрузки оставляем блок раскрытым
+    try {
+        if (sessionStorage.getItem(openKey)) {
+            sessionStorage.removeItem(openKey);
+            const header = document.getElementById('att-header');
+            if (header) toggleSizBlock(header, 'att-body');
+        }
+    } catch (e) {}
+})();
 
 (function() {
     const storageKeys = {

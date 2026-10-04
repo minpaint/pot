@@ -974,9 +974,13 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
 
         context['orgs_with_direct_employees'] = orgs_with_direct_employees
 
-        attention_groups, attention_total = _build_attention_groups(orgs_for_context)
+        all_groups, _ = _build_attention_groups(orgs_for_context)
+        attention_groups = [g for g in all_groups if g['code'] == 'no_norms']
+        hidden_group = next((g for g in all_groups if g['code'] == 'disabled'), None)
         context['attention_groups'] = attention_groups
-        context['attention_total'] = attention_total
+        context['attention_total'] = sum(g['count'] for g in attention_groups)
+        context['hidden_group'] = hidden_group
+        context['hidden_total'] = hidden_group['count'] if hidden_group else 0
 
         context['gender_choices'] = Employee.GENDER_CHOICES
         context['height_choices'] = Employee.HEIGHT_CHOICES
@@ -984,6 +988,39 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
         context['shoe_size_choices'] = Employee.SHOE_SIZE_CHOICES
 
         return context
+
+
+@login_required
+@require_POST
+def set_positions_requires_siz(request):
+    """
+    AJAX: включает/отключает «Требуются СИЗ» у выбранных должностей.
+    Используется блоком «Требуют внимания»: отключённые должности уходят из зоны
+    внимания, а из скрытых можно вернуть. Флаг стоит на должности, поэтому
+    действие применяется ко всем сотрудникам этой должности.
+    """
+    try:
+        position_ids = [int(i) for i in request.POST.getlist('position_ids')]
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Некорректные данные'}, status=400)
+    if not position_ids:
+        return JsonResponse({'error': 'Не выбрано ни одной должности'}, status=400)
+
+    requires = request.POST.get('requires') == '1'
+    positions = list(Position.objects.filter(pk__in=position_ids).select_related('organization'))
+    if len(positions) != len(set(position_ids)):
+        return JsonResponse({'error': 'Должность не найдена'}, status=404)
+
+    for position in positions:
+        if not AccessControlHelper.can_access_object(request.user, position):
+            return JsonResponse({'error': 'Нет доступа'}, status=403)
+
+    Position.objects.filter(pk__in=[p.pk for p in positions]).update(requires_siz=requires)
+    logger.info(
+        "Пользователь %s: requires_siz=%s для должностей %s",
+        request.user.username, requires, [p.pk for p in positions],
+    )
+    return JsonResponse({'ok': True, 'updated': len(positions)})
 
 
 @login_required

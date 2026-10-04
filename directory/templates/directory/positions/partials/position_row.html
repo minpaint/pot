@@ -8,9 +8,9 @@
     </div>
     <div class="pos-info pos-field-main{% if not position.safety_instructions_numbers %} pos-info-empty{% endif %}">
         {% if position.safety_instructions_numbers %}
-        🧾 ИОТ: {{ position.safety_instructions_numbers }}
+        🧾 {{ position.safety_instructions_numbers }}
         {% elif not position.has_any_instructions %}
-        🧾 ИОТ: ⚠️ Нет инструкций
+        🧾 ⚠️ Нет инструкций
         {% endif %}
     </div>
     <div class="pos-info pos-field-contract{% if not position.contract_safety_instructions %} pos-info-blank{% endif %}">

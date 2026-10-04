@@ -256,6 +256,24 @@
     flex: 0 0 34px;
 }
 
+/* ── Блок «Требуют внимания» ── */
+.att-card { border: none; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px; background: #fff; }
+.att-header { display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: #fff3cd; color: #856404; font-weight: 700; cursor: pointer; user-select: none; }
+.att-header .toggle-icon { font-size: 0.7rem; margin-left: auto; transition: transform 0.25s; }
+.att-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+.att-badge { background: #fff; color: #856404; border-radius: 10px; padding: 1px 9px; font-size: 0.78rem; }
+.att-reason { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 18px 6px; border-top: 1px solid #f0f0f0; }
+.att-pill { display: inline-block; border-radius: 10px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
+.att-pill-no_norms { background: #fde8e8; color: #c0392b; }
+.att-pill-disabled { background: #f0f0f0; color: #999; }
+.att-hint { font-size: 0.8rem; color: #6c757d; }
+.att-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.att-table th { padding: 7px 18px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.35px; color: #9aa0ac; font-weight: 600; border-bottom: 2px solid #f0f0f0; background: #fff; white-space: nowrap; text-align: left; }
+.att-table td { padding: 8px 18px; vertical-align: top; border-bottom: 1px solid #f5f5f5; }
+.att-table tbody tr:hover td { background: #f0f7ff; }
+.att-table a { text-decoration: none; }
+.att-names { color: #6c757d; font-size: 0.82rem; }
+
 /* ── Мобильная адаптация ── */
 @media (max-width: 767px) {
     /* Панель управления */
@@ -270,6 +288,15 @@
     .mb-3.d-flex.gap-2.align-items-center { gap: 4px !important; }
     #expand-all-tree, #collapse-all-tree { font-size: 0.72rem; padding: 3px 8px; }
     #expand-all-tree + #collapse-all-tree + span { display: none; }
+
+
+    /* Блок «Требуют внимания» */
+    .att-header { padding: 8px 12px; }
+    .att-reason { padding: 8px 12px 4px; }
+    .att-table thead { display: none; }
+    .att-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
+    .att-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 4px 12px; border: none; font-size: 0.82rem; }
+    .att-table td::before { content: attr(data-label); font-size: 0.7rem; color: #999; font-weight: 600; flex-shrink: 0; }
 
     /* Вкладки */
     .siz-tabs { flex-wrap: wrap; }
@@ -339,6 +366,43 @@
             <span class="text-muted" id="selected-count" style="font-size:0.85rem;">Выбрано: 0</span>
         </div>
     </div>
+
+    {% if attention_total %}
+    <!-- Требуют внимания: сотрудники, не попадающие в генерацию -->
+    <div class="att-card">
+        <div class="att-header collapsed" onclick="toggleSizBlock(this, 'att-body')">
+            <span>⚠️</span>
+            <span>Требуют внимания</span>
+            <span class="att-badge">{{ attention_total }}</span>
+            <span class="text-muted" style="font-weight:400;font-size:0.8rem;">не попадают в генерацию карточек</span>
+            <span class="toggle-icon">▼</span>
+        </div>
+        <div class="collapsible collapsed" id="att-body" style="max-height:0;">
+            {% for group in attention_groups %}
+            <div class="att-reason">
+                <span class="att-pill att-pill-{{ group.code }}">{{ group.label }} · {{ group.count }}</span>
+                <span class="att-hint">{{ group.hint }}</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="att-table">
+                    <thead>
+                        <tr><th>Организация / подразделение</th><th>Должность</th><th>Сотрудники</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in group.positions %}
+                        <tr>
+                            <td data-label="Подразделение">{{ item.organization.short_name_ru }}{% if item.subdivision %} / {{ item.subdivision.name }}{% endif %}</td>
+                            <td data-label="Должность">{% if user.is_staff %}<a href="{% url 'admin:directory_position_change' item.position.id %}" target="_blank">{{ item.position.position_name }}</a>{% else %}{{ item.position.position_name }}{% endif %}</td>
+                            <td data-label="Сотрудники"><b>{{ item.employees|length }}</b> <span class="att-names">— {% for e in item.employees %}{{ e.full_name_nominative }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Вкладки -->
     <div class="siz-tabs" id="sizTabsCustom">

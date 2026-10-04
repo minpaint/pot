@@ -740,6 +740,63 @@ def _send_cards_group(
     }
 
 
+ATTENTION_REASONS = (
+    ('no_norms', 'Нет норм СИЗ',
+     'СИЗ для должности требуются, но нормы не заданы. Добавьте нормы или отключите «Требуются СИЗ».'),
+    ('disabled', 'Отключено «Требуются СИЗ»',
+     'Для должности СИЗ не требуются, карточки не создаются.'),
+)
+
+
+def _build_attention_groups(organizations):
+    """
+    Сотрудники, которые не попадают в генерацию карточек СИЗ, сгруппированные
+    по причине и должности. Позволяет увидеть, кого страница «молча» пропускает.
+    (Сотрудник без должности невозможен: поле position обязательно.)
+    """
+    employees = Employee.objects.active_for_operations().filter(
+        organization__in=organizations,
+        position__isnull=False,
+    ).select_related('position', 'organization', 'subdivision').order_by(
+        'organization__short_name_ru', 'subdivision__name', 'position__position_name',
+        'full_name_nominative',
+    )
+
+    effective_cache = {}
+    by_reason = {code: {} for code, _, _ in ATTENTION_REASONS}
+
+    for emp in employees:
+        position = emp.position
+        if not position.requires_siz:
+            code = 'disabled'
+        else:
+            if position.pk not in effective_cache:
+                effective_cache[position.pk] = has_effective_siz_norms(position)
+            if effective_cache[position.pk]:
+                continue
+            code = 'no_norms'
+        by_reason[code].setdefault(position.pk, {
+            'position': position,
+            'organization': emp.organization,
+            'subdivision': emp.subdivision,
+            'employees': [],
+        })['employees'].append(emp)
+
+    groups = []
+    total = 0
+    for code, label, hint in ATTENTION_REASONS:
+        positions = list(by_reason[code].values())
+        count = sum(len(item['employees']) for item in positions)
+        if not count:
+            continue
+        total += count
+        groups.append({
+            'code': code, 'label': label, 'hint': hint,
+            'count': count, 'positions': positions,
+        })
+    return groups, total
+
+
 class SIZMassGenerationView(LoginRequiredMixin, ListView):
     """📦 Карточки СИЗ - генерация по структурным подразделениям"""
     model = StructuralSubdivision
@@ -916,6 +973,10 @@ class SIZMassGenerationView(LoginRequiredMixin, ListView):
                 })
 
         context['orgs_with_direct_employees'] = orgs_with_direct_employees
+
+        attention_groups, attention_total = _build_attention_groups(orgs_for_context)
+        context['attention_groups'] = attention_groups
+        context['attention_total'] = attention_total
 
         context['gender_choices'] = Employee.GENDER_CHOICES
         context['height_choices'] = Employee.HEIGHT_CHOICES

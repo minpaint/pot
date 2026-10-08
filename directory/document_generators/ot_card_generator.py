@@ -35,6 +35,25 @@ def generate_personal_ot_card(employee, user=None, custom_context: Optional[Dict
         context.setdefault('ot_card_number', f"OT-{employee.id}")
         context.setdefault('card_date', context.get('current_date')) # Используем базовую текущую дату
 
+        # Графа 5 — ответственный по охране труда; п. 8 — тот, кто проводит вводный инструктаж
+        from directory.views.documents.utils import get_safety_responsible
+        from directory.utils.declension import get_initials_from_name
+
+        def _person(emp):
+            if not emp:
+                return '', '', ''
+            position = emp.position.position_name if emp.position else ''
+            position = position[:1].lower() + position[1:]
+            initials = get_initials_from_name(emp.full_name_nominative)
+            return initials, position, f"{position}, {initials}".strip(", ")
+
+        responsible, _lvl, _ok = get_safety_responsible(employee)
+        context.setdefault('instructor_name_initials', _person(responsible)[0])
+        briefer, _lvl, _ok = get_safety_responsible(employee, 'conducts_introductory_briefing')
+        _, briefer_position, briefer_full = _person(briefer)
+        context.setdefault('instructor_position', briefer_position)
+        context.setdefault('instructor_full', briefer_full)
+
         if custom_context:
             context.update(custom_context)
             logger.info(f"Контекст дополнен пользовательскими данными: {list(custom_context.keys())}")

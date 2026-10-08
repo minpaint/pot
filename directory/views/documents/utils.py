@@ -80,6 +80,39 @@ def get_internship_leader(employee):
     return None, None, False
 
 
+def get_safety_responsible(employee, flag='is_responsible_for_safety'):
+    """
+    Ищет ответственного по охране труда (инструктирующего) для сотрудника.
+    Ищет сотрудников с флагом должности flag=True (по умолчанию is_responsible_for_safety,
+    для вводного инструктажа — conducts_introductory_briefing)
+    по иерархии: отдел → подразделение → организация. Берётся первый найденный.
+    Если других ответственных нет, возвращается сам сотрудник (например, директор).
+
+    Returns:
+        tuple: (responsible, level, success)
+    """
+    scopes = []
+    if employee.department:
+        scopes.append(("department", {"department": employee.department}))
+    if employee.subdivision:
+        scopes.append(("subdivision", {"subdivision": employee.subdivision}))
+    if employee.organization:
+        scopes.append(("organization", {"organization": employee.organization}))
+
+    base = Employee.objects.active_for_operations().filter(**{f'position__{flag}': True})
+    for exclude_self in (True, False):
+        for level, lookup in scopes:
+            qs = base.filter(**lookup)
+            if exclude_self:
+                qs = qs.exclude(id=employee.id)
+            responsible = qs.order_by("id").first()
+            if responsible:
+                return responsible, level, True
+
+    logger.warning(f"Ответственный по охране труда для {employee.full_name_nominative} не найден")
+    return None, None, False
+
+
 def get_document_signer(employee):
     """
     Получает подписанта документов для сотрудника с учетом иерархии.

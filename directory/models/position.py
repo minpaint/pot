@@ -139,6 +139,11 @@ class Position(models.Model):
         default=False,
         verbose_name="Ответственный за ОТ"
     )
+    conducts_introductory_briefing = models.BooleanField(
+        default=False,
+        verbose_name="Проводит вводный инструктаж",
+        help_text="Должность и ФИО такого сотрудника подставляются в п. 8 личной карточки"
+    )
     is_electrical_personnel = models.BooleanField(
         default=False,
         verbose_name="Электротехнический персонал"

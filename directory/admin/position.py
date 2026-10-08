@@ -161,6 +161,7 @@ class PositionAdmin(TreeViewMixin, admin.ModelAdmin):
                 'department',
                 'responsibility_types',
                 'is_responsible_for_safety',
+                'conducts_introductory_briefing',
                 'can_be_internship_leader',
                 'can_sign_orders',
                 'is_electrical_personnel',

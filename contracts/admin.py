@@ -10,8 +10,23 @@ from django.http import HttpResponse
 from django.utils.html import format_html
 
 from .models import Client, Contract, Act
-from .docx_builder import build_contract, build_act, build_acts_combined, build_envelopes, last_day_of_month
+from .docx_builder import build_contract, build_act, build_acts_combined, build_envelopes, last_day_of_month, docx_to_pdf
 from .rates import convert_to_byn
+
+def _docx_response(request, buf, filename):
+    """Ответ с .docx; при ?pdf=1 — PDF inline (для печати без скачивания)."""
+    if request.GET.get("pdf"):
+        response = HttpResponse(docx_to_pdf(buf), content_type="application/pdf")
+        response["Content-Disposition"] = "inline"
+        response["X-Frame-Options"] = "SAMEORIGIN"
+        return response
+    response = HttpResponse(buf.read(), content_type=(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ))
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename.encode("utf-8").decode("latin-1", errors="replace")}"'
+    )
+    return response
 
 
 class SuperuserOnlyMixin:
@@ -677,13 +692,7 @@ class ActAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
         } for a in acts]
         filename = f"Акты_{month:02d}_{year}.docx"
         buf, _ = build_acts_combined(acts_params, filename, to_file=False)
-        response = HttpResponse(buf.read(), content_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ))
-        response["Content-Disposition"] = (
-            f'attachment; filename="{filename.encode("utf-8").decode("latin-1", errors="replace")}"'
-        )
-        return response
+        return _docx_response(request, buf, filename)
 
     def download_act(self, request, pk):
         act = Act.objects.select_related("contract__client").get(pk=pk)
@@ -692,10 +701,4 @@ class ActAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
             act.contract.client.to_dict(), float(act.amount),
             act.contract.service_desc, to_file=False,
         )
-        response = HttpResponse(buf.read(), content_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ))
-        response["Content-Disposition"] = (
-            f'attachment; filename="{filename.encode("utf-8").decode("latin-1", errors="replace")}"'
-        )
-        return response
+        return _docx_response(request, buf, filename)

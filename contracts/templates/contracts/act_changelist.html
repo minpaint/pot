@@ -8,6 +8,29 @@
 {{ block.super }}
 {% endblock %}
 
+{% block extrahead %}
+{{ block.super }}
+<script>
+// Печать акта без скачивания: PDF грузится в скрытый iframe и сразу открывает диалог печати.
+function printActs(url, btn) {
+  var label = btn.textContent;
+  btn.textContent = '⏳ Подготовка…';
+  var frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  frame.onload = function () {
+    btn.textContent = label;
+    try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+    catch (e) { window.open(url, '_blank'); }
+    setTimeout(function () { frame.remove(); }, 60000);
+  };
+  frame.onerror = function () { btn.textContent = label; window.open(url, '_blank'); };
+  frame.src = url;
+  document.body.appendChild(frame);
+  return false;
+}
+</script>
+{% endblock %}
+
 {% block result_list %}
 <div id="grouped-acts">
   {% if grouped_acts %}
@@ -52,6 +75,7 @@
             <div class="month-right">
               <a href="{{ group.create_acts_url }}" class="btn-month-create">+ Сформировать акты</a>
               <a href="{{ group.download_month_url }}" class="btn-month-download">↓ Скачать акты</a>
+              <a href="{{ group.download_month_url }}&pdf=1" class="btn-month-download" onclick="return printActs(this.href, this);">🖨️ Печать</a>
             </div>
           </div>
         </td>
@@ -89,7 +113,10 @@
             Перегенерировать
           </a>
         </td>
-        <td><a href="{{ act.download_url }}" class="button">Скачать</a></td>
+        <td>
+          <a href="{{ act.download_url }}" class="button">Скачать</a>
+          <a href="{{ act.download_url }}?pdf=1" class="button" onclick="return printActs(this.href, this);">🖨️ Печать</a>
+        </td>
       </tr>
       {% endfor %}
       {% endfor %}

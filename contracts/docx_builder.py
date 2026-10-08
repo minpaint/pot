@@ -6,6 +6,9 @@
 
 import os
 import calendar
+import shutil
+import subprocess
+import tempfile
 from datetime import date
 from io import BytesIO
 
@@ -328,3 +331,22 @@ def build_acts_combined(acts_params, filename, to_file=False):
     else:
         buf.seek(0)
         return buf, filename
+
+
+def docx_to_pdf(docx_buf):
+    """Конвертирует .docx (BytesIO) в PDF через LibreOffice; возвращает bytes."""
+    tmp = tempfile.mkdtemp(prefix="act_pdf_")
+    try:
+        src = os.path.join(tmp, "doc.docx")
+        with open(src, "wb") as f:
+            f.write(docx_buf.read())
+        subprocess.run(
+            ["soffice", "--headless", "--norestore",
+             f"-env:UserInstallation=file://{tmp}/profile",
+             "--convert-to", "pdf", "--outdir", tmp, src],
+            check=True, timeout=90, capture_output=True,
+        )
+        with open(os.path.join(tmp, "doc.pdf"), "rb") as f:
+            return f.read()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

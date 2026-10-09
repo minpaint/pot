@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Планирование{% endblock %}
+
+{% block extra_css %}
+<style>
+.plan-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.plan-head h1 { font-size: 1.35rem; font-weight: 700; color: #2c3e50; margin: 0; }
+
+/* вкладки */
+.plan-tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.plan-tab-btn { padding: 8px 18px; font-weight: 600; color: #6c757d; background: #f8f9fa; text-decoration: none;
+    border: 1px solid #dee2e6; border-bottom: none; border-radius: 8px 8px 0 0; font-size: 0.9rem; }
+.plan-tab-btn:hover { color: #2c3e50; text-decoration: none; }
+.plan-tab-btn.active { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; border-color: #3498db; }
+
+/* панель фильтров */
+.plan-topbar { background: #fff; border: 1px solid #dee2e6; border-radius: 10px; padding: 14px 20px; margin-bottom: 20px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.plan-topbar label { font-size: 0.78rem; font-weight: 600; color: #6c757d; margin-bottom: 3px; display: block;
+    text-transform: uppercase; letter-spacing: 0.3px; }
+.plan-topbar select, .plan-topbar input[type="text"] { border: 1px solid #ced4da; border-radius: 6px; padding: 6px 10px; font-size: 0.88rem; min-width: 150px; }
+.plan-check { display: flex; align-items: center; gap: 6px; padding-bottom: 7px; font-size: 0.85rem; font-weight: 600; color: #6c757d; cursor: pointer; }
+.plan-check input { width: 16px; height: 16px; }
+
+/* KPI */
+.plan-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.plan-kpi { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 14px 16px; border-left: 5px solid #3498db; text-decoration: none; display: block; }
+.plan-kpi:hover { text-decoration: none; background: #f0f7ff; }
+.plan-kpi .num { font-size: 1.7rem; font-weight: 700; color: #2c3e50; line-height: 1.1; }
+.plan-kpi .lbl { font-size: 0.72rem; font-weight: 600; color: #9aa0ac; text-transform: uppercase; letter-spacing: 0.35px; }
+.plan-kpi.danger { border-left-color: #c0392b; } .plan-kpi.danger .num { color: #c0392b; }
+.plan-kpi.warn { border-left-color: #e0a800; }
+.plan-kpi.ok { border-left-color: #1e7e34; }
+.plan-kpi.muted { border-left-color: #b5bac4; }
+
+/* карточки организаций */
+.plan-card { border: none; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px; background: #fff; }
+.plan-org-header { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; padding: 11px 18px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.plan-org-header .plan-hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.plan-progress { width: 110px; height: 7px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; }
+.plan-progress > span { display: block; height: 100%; background: #fff; }
+.cnt-badge { background: rgba(255,255,255,0.25); color: #fff; font-size: 0.74rem; padding: 2px 9px; border-radius: 10px; font-weight: 600; }
+.cnt-badge-danger { background: #fde8e8; color: #c0392b; }
+.plan-add-mini { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.5); border-radius: 6px; padding: 2px 10px; font-size: 0.78rem; cursor: pointer; }
+.plan-add-mini:hover { background: rgba(255,255,255,0.35); }
+.collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
+.collapsible.collapsed { max-height: 0 !important; opacity: 0; }
+
+/* таблица задач */
+.plan-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; table-layout: fixed; }
+.plan-table th:nth-child(1) { width: 44px; } .plan-table th:nth-child(3) { width: 150px; } .plan-table th:nth-child(4) { width: 125px; }
+.plan-table th:nth-child(5) { width: 125px; } .plan-table th:nth-child(6) { width: 170px; } .plan-table th:nth-child(7) { width: 90px; }
+.plan-table td { overflow-wrap: anywhere; }
+.plan-table th { padding: 9px 14px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.35px; color: #9aa0ac;
+    font-weight: 600; border-bottom: 2px solid #f0f0f0; background: #fff; white-space: nowrap; text-align: left; }
+.plan-table td { padding: 10px 14px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
+.plan-table tbody tr:hover td { background: #f0f7ff; }
+.plan-table tr.is-done td { color: #9aa0ac; }
+.plan-table tr.is-done .plan-text { text-decoration: line-through; }
+.plan-table .td-acts { white-space: nowrap; text-align: right; }
+.plan-text { font-weight: 500; color: #2c3e50; }
+.plan-note-ico { cursor: help; margin-left: 4px; }
+.plan-sub { font-size: 0.74rem; color: #9aa0ac; }
+
+.plan-check-btn { flex-shrink: 0; width: 22px; height: 22px; border: 2px solid #b5bac4; border-radius: 5px; background: #fff; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #fff; padding: 0; }
+.plan-check-btn.checked { background: #1e7e34; border-color: #1e7e34; }
+
+.pill { display: inline-block; font-size: 0.74rem; padding: 2px 9px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.pill-red { background: #fde8e8; color: #c0392b; }
+.pill-yellow { background: #fff3cd; color: #856404; }
+.pill-green { background: #d1f5d3; color: #1e7e34; }
+.pill-gray { background: #f0f0f0; color: #999; }
+.pill-blue { background: #e3eef8; color: #1a5276; }
+
+.plan-ico-btn { border: none; background: none; cursor: pointer; padding: 3px 6px; border-radius: 5px; font-size: 0.95rem; }
+.plan-ico-btn:hover { background: #e9ecef; }
+.plan-empty { padding: 18px; text-align: center; color: #9aa0ac; font-size: 0.88rem; }
+.plan-muted-line { font-size: 0.85rem; color: #6c757d; margin: -6px 0 18px; }
+
+/* вкладка «Списки» */
+.plan-lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; padding: 14px; }
+.plan-list-card { border: 1px solid #e6e9ee; border-left: 6px solid var(--list-color, #3498db); border-radius: 10px; overflow: hidden; background: #fff; }
+.plan-list-card.archived { opacity: 0.65; }
+.plan-list-header { background: #f8f9fa; padding: 9px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee; }
+.plan-list-title { font-weight: 700; color: #2c3e50; flex: 1; }
+.plan-items { list-style: none; margin: 0; padding: 4px 0; }
+.plan-items li { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid #f5f5f5; flex-wrap: wrap; }
+.plan-items li:hover { background: #f0f7ff; }
+.plan-items li.is-done .plan-text { text-decoration: line-through; color: #9aa0ac; }
+.plan-items .plan-text { flex: 1; min-width: 120px; }
+.plan-add-form { padding: 10px 14px; background: #fafafa; border-top: 1px solid #eee; display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-add-form input[type="text"] { flex: 1 1 100%; border: 1px solid #ced4da; border-radius: 6px; padding: 6px 10px; font-size: 0.86rem; }
+.plan-add-form select, .plan-add-form input[type="date"] { border: 1px solid #ced4da; border-radius: 6px; padding: 5px 8px; font-size: 0.82rem; }
+
+.plan-btn { border: none; border-radius: 6px; padding: 7px 16px; font-weight: 600; font-size: 0.86rem; cursor: pointer; }
+.plan-btn-primary { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; }
+.plan-btn-light { background: #fff; color: #495057; border: 1px solid #dee2e6; }
+.plan-btn:hover { filter: brightness(1.08); }
+
+/* модальное окно */
+.plan-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px; }
+.plan-modal-bg.show { display: flex; }
+.plan-modal { background: #fff; border-radius: 12px; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+.plan-modal-head { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; padding: 12px 18px; font-weight: 700; border-radius: 12px 12px 0 0; }
+.plan-modal-body { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.plan-modal-body .full { grid-column: 1 / -1; }
+.plan-modal-body label { font-size: 0.74rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 3px; }
+.plan-modal-body input, .plan-modal-body select, .plan-modal-body textarea { width: 100%; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 6px; padding: 7px 10px; font-size: 0.9rem; }
+.plan-modal-foot { padding: 12px 18px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* уведомления */
+.plan-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2c3e50; color: #fff; padding: 10px 18px;
+    border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); z-index: 3000; display: none; align-items: center; gap: 14px; font-size: 0.88rem; max-width: 92vw; }
+.plan-toast.show { display: flex; }
+.plan-toast button { background: none; border: none; color: #7fc4ff; font-weight: 700; cursor: pointer; }
+
+@media (max-width: 767px) {
+    .plan-kpis { grid-template-columns: repeat(2, 1fr); }
+    .plan-kpi:last-child { grid-column: 1 / -1; }
+    .plan-check-btn { width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; }
+    .plan-ico-btn { min-height: 34px; min-width: 34px; }
+    .plan-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .plan-topbar select, .plan-topbar input[type="text"], .plan-topbar .plan-btn { width: 100%; box-sizing: border-box; }
+    .plan-tabs { flex-wrap: wrap; }
+    .plan-tab-btn { flex: 1; text-align: center; }
+    .plan-head .plan-btn { width: 100%; }
+    .plan-org-header { padding: 10px 14px; }
+    .plan-org-header .plan-hdr-right { margin-left: 0; width: 100%; flex-wrap: wrap; }
+    .plan-table { table-layout: auto; }
+    .plan-table thead { display: none; }
+    .plan-table tbody tr { display: block; border-bottom: 1px solid #eee; padding: 8px 0; }
+    .plan-table td { display: flex; justify-content: space-between; align-items: center; padding: 4px 12px; border: none; font-size: 0.82rem; }
+    .plan-table td::before { content: attr(data-label); font-size: 0.7rem; color: #999; font-weight: 600; margin-right: 8px; flex-shrink: 0; }
+    .plan-table td.td-acts { justify-content: flex-end; }
+    .plan-table td.td-acts::before, .plan-table td.td-check::before { content: none; }
+    .plan-lists-grid { grid-template-columns: 1fr; padding: 10px; }
+    .plan-modal-body { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3" id="plan-page">
+
+    <div class="plan-head">
+        <h1>📋 Планирование</h1>
+        <button type="button" class="plan-btn plan-btn-primary" onclick="planOpenModal()">➕ Новая задача</button>
+    </div>
+
+    <div class="plan-tabs">
+        <a class="plan-tab-btn {% if tab == 'overview' %}active{% endif %}"
+           href="?tab=overview&org={% if selected_org_id %}{{ selected_org_id }}{% else %}all{% endif %}">📊 Обзор</a>
+        <a class="plan-tab-btn {% if tab == 'lists' %}active{% endif %}"
+           href="?tab=lists&org={% if selected_org_id %}{{ selected_org_id }}{% else %}all{% endif %}">✅ Списки</a>
+    </div>
+
+    <form method="get" class="plan-topbar" id="plan-filter-form" style="border-top-left-radius:0;">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <div>
+            <label>🏢 Организация</label>
+            <select name="org" onchange="this.form.submit()">
+                <option value="all" {% if not selected_org_id %}selected{% endif %}>Все организации</option>
+                {% for o in orgs_all %}
+                <option value="{{ o.id }}" {% if o.id == selected_org_id %}selected{% endif %}>{{ o.short_name_ru }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if tab == 'overview' %}
+        <div>
+            <label>📌 Статус</label>
+            <select name="status" onchange="this.form.submit()">
+                {% for code, label in statuses %}
+                <option value="{{ code }}" {% if f_status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>⚡ Приоритет</label>
+            <select name="priority" onchange="this.form.submit()">
+                <option value="">Любой</option>
+                <option value="high" {% if f_priority == 'high' %}selected{% endif %}>🔴 Высокий</option>
+                <option value="normal" {% if f_priority == 'normal' %}selected{% endif %}>🟡 Обычный</option>
+                <option value="low" {% if f_priority == 'low' %}selected{% endif %}>🟢 Низкий</option>
+            </select>
+        </div>
+        <div>
+            <label>🔍 Поиск</label>
+            <input type="text" name="q" value="{{ f_q }}" placeholder="Текст или комментарий">
+        </div>
+        <label class="plan-check"><input type="checkbox" name="mine" value="1" {% if f_mine %}checked{% endif %} onchange="this.form.submit()"> 👤 Только мои</label>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="plan-btn plan-btn-primary">Применить</button>
+            <a href="?tab=overview&org={% if selected_org_id %}{{ selected_org_id }}{% else %}all{% endif %}" class="plan-btn plan-btn-light" style="text-decoration:none;">Сбросить</a>
+        </div>
+        {% else %}
+        <label class="plan-check">
+            <input type="checkbox" name="archived" value="1" {% if show_archived %}checked{% endif %} onchange="this.form.submit()"> 📦 Показывать архив
+        </label>
+        {% endif %}
+    </form>
+
+    <div id="plan-root">
+    {% if tab == 'overview' %}
+
+        <div class="plan-kpis">
+            <a class="plan-kpi" href="?tab=overview&org={{ selected_org_id|default:'all' }}&status=open"><div class="num">{{ kpi.open }}</div><div class="lbl">📂 Открыто</div></a>
+            <a class="plan-kpi {% if kpi.overdue %}danger{% else %}ok{% endif %}" href="?tab=overview&org={{ selected_org_id|default:'all' }}&status=overdue"><div class="num">{{ kpi.overdue }}</div><div class="lbl">⚠️ Просрочено</div></a>
+            <a class="plan-kpi warn" href="?tab=overview&org={{ selected_org_id|default:'all' }}&status=week"><div class="num">{{ kpi.week }}</div><div class="lbl">📅 Срок ≤ 7 дней</div></a>
+            <a class="plan-kpi muted" href="?tab=overview&org={{ selected_org_id|default:'all' }}&status=nodue"><div class="num">{{ kpi.nodue }}</div><div class="lbl">⚪ Без срока</div></a>
+            <a class="plan-kpi ok" href="?tab=overview&org={{ selected_org_id|default:'all' }}&status=done"><div class="num">{{ kpi.done }}</div><div class="lbl">✅ Выполнено</div></a>
+        </div>
+
+        {% for b in org_blocks %}
+        <div class="plan-card">
+            <div class="plan-org-header" onclick="toggleBlock(this, 'org-body-{{ b.org.id }}')">
+                <span>🏢 {{ b.org.short_name_ru }}</span>
+                <div class="plan-hdr-right" onclick="event.stopPropagation()">
+                    <div class="plan-progress" title="Выполнено {{ b.percent }}%"><span style="width: {{ b.percent }}%;"></span></div>
+                    <span class="cnt-badge">{{ b.open }} откр.</span>
+                    {% if b.overdue %}<span class="cnt-badge cnt-badge-danger">⚠️ {{ b.overdue }}</span>{% endif %}
+                    <button type="button" class="plan-add-mini" onclick="planOpenModal({org: {{ b.org.id }}})">➕ Задача</button>
+                </div>
+            </div>
+            <div class="collapsible" id="org-body-{{ b.org.id }}">
+                {% if b.items %}
+                <div style="overflow-x:auto;">
+                <table class="plan-table">
+                    <thead>
+                        <tr><th style="width:36px;"></th><th>Задача</th><th>Список</th><th>Приоритет</th><th>Срок</th><th>Исполнитель</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    {% for it in b.items %}
+                        <tr id="item-{{ it.id }}" class="{% if it.is_done %}is-done{% endif %}"
+                            data-id="{{ it.id }}" data-org="{{ b.org.id }}" data-list="{{ it.task_list_id }}"
+                            data-text="{{ it.text }}" data-priority="{{ it.priority }}"
+                            data-due="{{ it.due_date|date:'Y-m-d' }}" data-assignee="{{ it.assignee_id|default:'' }}"
+                            data-note="{{ it.note }}" data-done="{{ it.is_done|yesno:'1,0' }}">
+                            <td class="td-check"><button type="button" class="plan-check-btn {% if it.is_done %}checked{% endif %}" onclick="planToggle({{ it.id }})" title="Отметить выполненной">{% if it.is_done %}✓{% endif %}</button></td>
+                            <td data-label="Задача">
+                                <span class="plan-text">{{ it.text }}</span>{% if it.note %}<span class="plan-note-ico" title="{{ it.note }}">💬</span>{% endif %}
+                            </td>
+                            <td data-label="Список"><span class="pill pill-blue">{{ it.task_list.title }}</span></td>
+                            <td data-label="Приоритет">
+                                {% if it.priority == 'high' %}<span class="pill pill-red">🔴 Высокий</span>
+                                {% elif it.priority == 'low' %}<span class="pill pill-green">🟢 Низкий</span>
+                                {% else %}<span class="pill pill-gray">🟡 Обычный</span>{% endif %}
+                            </td>
+                            <td data-label="Срок">
+                                {% if it.due_date %}
+                                    {% if it.is_done %}<span class="pill pill-gray">📅 {{ it.due_date|date:"d.m.Y" }}</span>
+                                    {% elif it.is_overdue %}<span class="pill pill-red">⚠️ {{ it.due_date|date:"d.m.Y" }}</span>
+                                    {% else %}<span class="pill pill-yellow">📅 {{ it.due_date|date:"d.m.Y" }}</span>{% endif %}
+                                {% else %}<span class="pill pill-gray">—</span>{% endif %}
+                            </td>
+                            <td data-label="Исполнитель">{% if it.assignee %}{{ it.assignee.get_full_name|default:it.assignee.username }}{% else %}<span class="plan-sub">не назначен</span>{% endif %}</td>
+                            <td class="td-acts">
+                                <button type="button" class="plan-ico-btn" title="Изменить" onclick="planEdit({{ it.id }})">✏️</button>
+                                <button type="button" class="plan-ico-btn" title="Удалить" onclick="planDelete({{ it.id }})">🗑️</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% else %}
+                <div class="plan-empty">{% if f_status == 'open' and not f_q and not f_priority and not f_mine %}🎉 Открытых задач нет{% else %}Нет задач по выбранным фильтрам{% endif %}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="plan-card"><div class="plan-empty">У организаций пока нет списков задач. Создайте список на вкладке «Списки».</div></div>
+        {% endfor %}
+
+        {% if orgs_without_lists %}
+        <p class="plan-muted-line">Без списков задач: {% for o in orgs_without_lists %}{{ o.short_name_ru }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+            <a href="?tab=lists&org=all">Создать на вкладке «Списки» →</a></p>
+        {% endif %}
+
+    {% else %}{# ─── вкладка «Списки» ─── #}
+
+        {% for od in task_orgs %}
+        <div class="plan-card">
+            <div class="plan-org-header" onclick="toggleBlock(this, 'lists-body-{{ od.org.id }}')">
+                <span>🏢 {{ od.org.short_name_ru }}</span>
+                <div class="plan-hdr-right"><span class="cnt-badge">{{ od.lists|length }} спис{{ od.lists|length|pluralize:"ок,ка,ков" }}</span></div>
+            </div>
+            <div class="collapsible" id="lists-body-{{ od.org.id }}">
+                <div class="plan-lists-grid">
+                {% for tl in od.lists %}
+                    <div class="plan-list-card {% if tl.is_archived %}archived{% endif %}" style="--list-color: {{ tl.color }};">
+                        <div class="plan-list-header">
+                            <span class="plan-list-title">{{ tl.title }}</span>
+                            {% if tl.overdue_count %}<span class="pill pill-red">⚠️ {{ tl.overdue_count }}</span>{% endif %}
+                            <span class="pill pill-blue">{{ tl.done_count }}/{{ tl.total_count }}</span>
+                            <button type="button" class="plan-ico-btn" title="{% if tl.is_archived %}Вернуть из архива{% else %}В архив{% endif %}" onclick="planArchiveList({{ tl.id }})">{% if tl.is_archived %}↩️{% else %}📦{% endif %}</button>
+                            <button type="button" class="plan-ico-btn" title="Удалить список" onclick="planDeleteList({{ tl.id }}, '{{ tl.title|escapejs }}')">🗑️</button>
+                        </div>
+                        <ul class="plan-items">
+                        {% for it in tl.items.all %}
+                            <li id="item-{{ it.id }}" class="{% if it.is_done %}is-done{% endif %}"
+                                data-id="{{ it.id }}" data-org="{{ od.org.id }}" data-list="{{ tl.id }}"
+                                data-text="{{ it.text }}" data-priority="{{ it.priority }}"
+                                data-due="{{ it.due_date|date:'Y-m-d' }}" data-assignee="{{ it.assignee_id|default:'' }}"
+                                data-note="{{ it.note }}" data-done="{{ it.is_done|yesno:'1,0' }}">
+                                <button type="button" class="plan-check-btn {% if it.is_done %}checked{% endif %}" onclick="planToggle({{ it.id }})">{% if it.is_done %}✓{% endif %}</button>
+                                <span class="plan-text">{{ it.text }}</span>{% if it.note %}<span class="plan-note-ico" title="{{ it.note }}">💬</span>{% endif %}
+                                {% if it.priority == 'high' %}<span class="pill pill-red">🔴</span>{% elif it.priority == 'low' %}<span class="pill pill-green">🟢</span>{% endif %}
+                                {% if it.due_date %}<span class="pill {% if it.is_overdue %}pill-red{% elif it.is_done %}pill-gray{% else %}pill-yellow{% endif %}">📅 {{ it.due_date|date:"d.m" }}</span>{% endif %}
+                                {% if it.assignee %}<span class="pill pill-blue" title="Исполнитель">👤 {{ it.assignee.get_full_name|default:it.assignee.username }}</span>{% endif %}
+                                <button type="button" class="plan-ico-btn" title="Изменить" onclick="planEdit({{ it.id }})">✏️</button>
+                                <button type="button" class="plan-ico-btn" title="Удалить" onclick="planDelete({{ it.id }})">🗑️</button>
+                            </li>
+                        {% empty %}
+                            <li class="plan-empty" style="display:block;">Нет задач</li>
+                        {% endfor %}
+                        </ul>
+                        {% if not tl.is_archived %}
+                        <form class="plan-add-form" onsubmit="planQuickAdd(event, {{ tl.id }})">
+                            <input type="text" name="text" placeholder="+ Новая задача…" maxlength="500" autocomplete="off">
+                            <select name="priority"><option value="normal">🟡</option><option value="high">🔴</option><option value="low">🟢</option></select>
+                            <input type="date" name="due_date" title="Срок (необязательно)">
+                            <button type="submit" class="plan-btn plan-btn-primary" style="padding:5px 12px;">➕</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                    <div class="plan-list-card" style="--list-color:#b5bac4; border-style:dashed;">
+                        <form class="plan-add-form" style="background:#fff; border:none;" onsubmit="planAddList(event, {{ od.org.id }})">
+                            <div style="flex:1 1 100%; font-weight:700; color:#2c3e50;">➕ Новый список</div>
+                            <input type="text" name="title" placeholder="Название списка" maxlength="200" autocomplete="off" required>
+                            <input type="color" name="color" value="#3498db" title="Цвет полоски списка" style="width:44px; height:34px; padding:2px; border:1px solid #ced4da; border-radius:6px;">
+                            <button type="submit" class="plan-btn plan-btn-primary">Создать</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="plan-card"><div class="plan-empty">Нет доступных организаций</div></div>
+        {% endfor %}
+
+    {% endif %}
+    </div>{# /plan-root #}
+</div>
+
+{# ─── Модальное окно: создание / редактирование задачи ─── #}
+<div class="plan-modal-bg" id="plan-modal-bg" onclick="if(event.target===this) planCloseModal()">
+    <div class="plan-modal">
+        <div class="plan-modal-head" id="plan-modal-title">➕ Новая задача</div>
+        <div class="plan-modal-body">
+            <div class="full">
+                <label>Задача</label>
+                <input type="text" id="pm-text" maxlength="500" autocomplete="off">
+            </div>
+            <div id="pm-org-wrap">
+                <label>🏢 Организация</label>
+                <select id="pm-org" onchange="planFillOrgDependent()">
+                    {% for o in orgs_all %}<option value="{{ o.id }}">{{ o.short_name_ru }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>📋 Список</label>
+                <select id="pm-list"></select>
+            </div>
+            <div>
+                <label>⚡ Приоритет</label>
+                <select id="pm-priority"><option value="normal">🟡 Обычный</option><option value="high">🔴 Высокий</option><option value="low">🟢 Низкий</option></select>
+            </div>
+            <div>
+                <label>📅 Срок</label>
+                <input type="date" id="pm-due">
+            </div>
+            <div class="full">
+                <label>👤 Исполнитель</label>
+                <select id="pm-assignee"></select>
+            </div>
+            <div class="full">
+                <label>💬 Комментарий</label>
+                <textarea id="pm-note" rows="3"></textarea>
+            </div>
+        </div>
+        <div class="plan-modal-foot">
+            <button type="button" class="plan-btn plan-btn-light" onclick="planCloseModal()">Отмена</button>
+            <button type="button" class="plan-btn plan-btn-primary" onclick="planSave()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<div class="plan-toast" id="plan-toast"><span id="plan-toast-text"></span><button type="button" id="plan-toast-undo" style="display:none;">Отменить</button></div>
+
+{{ org_lists_json|json_script:"plan-org-lists" }}
+{{ org_users_json|json_script:"plan-org-users" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Сворачиваемые блоки (общий стандарт проекта) ─────────────────────────────
+function toggleBlock(headerEl, contentId) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isCollapsed = content.classList.contains('collapsed');
+    if (isCollapsed) {
+        content.style.maxHeight = '9999px';
+        content.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+        planCollapsed.delete(contentId);
+    } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.getBoundingClientRect(); // reflow
+        content.style.maxHeight = '0';
+        content.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+        planCollapsed.add(contentId);
+    }
+    try { sessionStorage.setItem('plan_collapsed', JSON.stringify([...planCollapsed])); } catch (e) {}
+}
+let planCollapsed = new Set();
+try { planCollapsed = new Set(JSON.parse(sessionStorage.getItem('plan_collapsed') || '[]')); } catch (e) {}
+
+function planApplyCollapsed() {
+    document.querySelectorAll('#plan-root .collapsible').forEach(el => {
+        if (planCollapsed.has(el.id)) {
+            el.classList.add('collapsed');
+            el.style.maxHeight = '0';
+            if (el.previousElementSibling) el.previousElementSibling.classList.add('collapsed');
+        } else {
+            el.style.maxHeight = '9999px';
+        }
+    });
+}
+planApplyCollapsed();
+
+// ── Утилиты ──────────────────────────────────────────────────────────────────
+const PLAN_ORG_LISTS = JSON.parse(document.getElementById('plan-org-lists').textContent);
+const PLAN_ORG_USERS = JSON.parse(document.getElementById('plan-org-users').textContent);
+const PLAN_URLS = {
+    toggle: id => `/tasks/item/${id}/toggle/`,
+    del: id => `/tasks/item/${id}/delete/`,
+    update: id => `/tasks/item/${id}/update/`,
+    add: listId => `/tasks/list/${listId}/add/`,
+    addList: '/tasks/list/add/',
+    delList: id => `/tasks/list/${id}/delete/`,
+    archList: id => `/tasks/list/${id}/archive/`,
+};
+
+function planCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+}
+
+function planPost(url, data) {
+    const fd = new FormData();
+    Object.entries(data || {}).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
+    return fetch(url, { method: 'POST', body: fd, headers: { 'X-CSRFToken': planCsrf() } })
+        .then(r => r.json().then(j => ({ ok: r.ok, data: j })))
+        .catch(() => ({ ok: false, data: { error: 'network' } }));
+}
+
+let planToastTimer = null;
+function planToast(text, undoFn) {
+    const box = document.getElementById('plan-toast');
+    const undo = document.getElementById('plan-toast-undo');
+    document.getElementById('plan-toast-text').textContent = text;
+    undo.style.display = undoFn ? '' : 'none';
+    undo.onclick = () => { box.classList.remove('show'); if (undoFn) undoFn(); };
+    box.classList.add('show');
+    clearTimeout(planToastTimer);
+    planToastTimer = setTimeout(() => box.classList.remove('show'), undoFn ? 8000 : 3500);
+}
+
+// Обновление содержимого без перезагрузки страницы: подгружаем тот же адрес и подменяем #plan-root
+async function planRefresh() {
+    const y = window.scrollY;
+    try {
+        const resp = await fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const html = await resp.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const fresh = doc.getElementById('plan-root');
+        if (fresh) {
+            document.getElementById('plan-root').innerHTML = fresh.innerHTML;
+            planApplyCollapsed();
+            window.scrollTo(0, y);
+        } else { window.location.reload(); }
+    } catch (e) { window.location.reload(); }
+}
+
+function planRow(id) { return document.getElementById('item-' + id); }
+
+function planItemData(id) {
+    const r = planRow(id);
+    if (!r) return null;
+    const d = r.dataset;
+    return { id: d.id, org: d.org, list: d.list, text: d.text, priority: d.priority, due: d.due,
+             assignee: d.assignee, note: d.note, done: d.done === '1' };
+}
+
+// ── Действия над задачами ────────────────────────────────────────────────────
+async function planToggle(id) {
+    const res = await planPost(PLAN_URLS.toggle(id));
+    if (!res.ok) { planToast('Не удалось изменить задачу'); return; }
+    planRefresh();
+}
+
+async function planDelete(id) {
+    const it = planItemData(id);
+    const res = await planPost(PLAN_URLS.del(id));
+    if (!res.ok) { planToast('Не удалось удалить задачу'); return; }
+    planToast('Задача удалена', async () => {
+        const r = await planPost(PLAN_URLS.add(it.list), {
+            text: it.text, priority: it.priority, due_date: it.due, assignee: it.assignee, note: it.note });
+        if (r.ok && it.done) await planPost(PLAN_URLS.toggle(r.data.id));
+        planToast(r.ok ? 'Задача восстановлена' : 'Не удалось восстановить');
+        planRefresh();
+    });
+    planRefresh();
+}
+
+async function planQuickAdd(e, listId) {
+    e.preventDefault();
+    const f = e.target;
+    const text = f.text.value.trim();
+    if (!text) return;
+    const res = await planPost(PLAN_URLS.add(listId), { text, priority: f.priority.value, due_date: f.due_date.value });
+    if (!res.ok) { planToast('Не удалось добавить задачу'); return; }
+    planRefresh();
+}
+
+async function planAddList(e, orgId) {
+    e.preventDefault();
+    const f = e.target;
+    const title = f.title.value.trim();
+    if (!title) return;
+    const res = await planPost(PLAN_URLS.addList, { org_id: orgId, title, color: f.color.value });
+    if (!res.ok) { planToast('Не удалось создать список'); return; }
+    planToast('Список создан');
+    planRefresh();
+}
+
+async function planDeleteList(id, title) {
+    if (!confirm('Удалить список «' + title + '» со всеми задачами? Действие необратимо.')) return;
+    const res = await planPost(PLAN_URLS.delList(id));
+    if (!res.ok) { planToast('Не удалось удалить список'); return; }
+    planToast('Список удалён');
+    planRefresh();
+}
+
+async function planArchiveList(id) {
+    const res = await planPost(PLAN_URLS.archList(id));
+    if (!res.ok) { planToast('Не удалось изменить список'); return; }
+    planToast(res.data.is_archived ? 'Список перенесён в архив' : 'Список возвращён из архива');
+    planRefresh();
+}
+
+// ── Модальное окно ───────────────────────────────────────────────────────────
+let planEditId = null;
+
+function planFillOrgDependent(selectedList, selectedAssignee) {
+    const org = document.getElementById('pm-org').value;
+    const lists = PLAN_ORG_LISTS[org] || [];
+    const listSel = document.getElementById('pm-list');
+    listSel.innerHTML = lists.length
+        ? lists.map(l => `<option value="${l.id}">${l.title.replace(/</g, '&lt;')}</option>`).join('')
+        : '<option value="">— нет списков —</option>';
+    if (selectedList) listSel.value = selectedList;
+    const users = PLAN_ORG_USERS[org] || [];
+    const asg = document.getElementById('pm-assignee');
+    asg.innerHTML = '<option value="">— не назначен —</option>' +
+        users.map(u => `<option value="${u.id}">${u.name.replace(/</g, '&lt;')}</option>`).join('');
+    if (selectedAssignee) asg.value = selectedAssignee;
+}
+
+function planOpenModal(opts) {
+    opts = opts || {};
+    planEditId = null;
+    document.getElementById('plan-modal-title').textContent = '➕ Новая задача';
+    const orgSel = document.getElementById('pm-org');
+    const preferred = opts.org || {{ selected_org_id|default:'null' }};
+    if (preferred && orgSel.querySelector(`option[value="${preferred}"]`)) orgSel.value = preferred;
+    document.getElementById('pm-org-wrap').style.display = '';
+    document.getElementById('pm-text').value = '';
+    document.getElementById('pm-priority').value = 'normal';
+    document.getElementById('pm-due').value = '';
+    document.getElementById('pm-note').value = '';
+    planFillOrgDependent();
+    document.getElementById('plan-modal-bg').classList.add('show');
+    setTimeout(() => document.getElementById('pm-text').focus(), 50);
+}
+
+function planEdit(id) {
+    const it = planItemData(id);
+    if (!it) return;
+    planEditId = id;
+    document.getElementById('plan-modal-title').textContent = '✏️ Изменить задачу';
+    document.getElementById('pm-org').value = it.org;
+    document.getElementById('pm-org-wrap').style.display = 'none';  // организацию менять нельзя
+    document.getElementById('pm-text').value = it.text;
+    document.getElementById('pm-priority').value = it.priority;
+    document.getElementById('pm-due').value = it.due || '';
+    document.getElementById('pm-note').value = it.note || '';
+    planFillOrgDependent(it.list, it.assignee);
+    document.getElementById('plan-modal-bg').classList.add('show');
+    setTimeout(() => document.getElementById('pm-text').focus(), 50);
+}
+
+function planCloseModal() { document.getElementById('plan-modal-bg').classList.remove('show'); }
+
+async function planSave() {
+    const text = document.getElementById('pm-text').value.trim();
+    const listId = document.getElementById('pm-list').value;
+    if (!text) { document.getElementById('pm-text').focus(); return; }
+    if (!listId) { planToast('Сначала создайте список на вкладке «Списки»'); return; }
+    const payload = {
+        text, priority: document.getElementById('pm-priority').value,
+        due_date: document.getElementById('pm-due').value,
+        assignee: document.getElementById('pm-assignee').value,
+        note: document.getElementById('pm-note').value,
+    };
+    let res;
+    if (planEditId) { payload.list_id = listId; res = await planPost(PLAN_URLS.update(planEditId), payload); }
+    else { res = await planPost(PLAN_URLS.add(listId), payload); }
+    if (!res.ok) { planToast('Не удалось сохранить задачу'); return; }
+    planCloseModal();
+    planToast(planEditId ? 'Изменения сохранены' : 'Задача добавлена');
+    planRefresh();
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') planCloseModal();
+    if (e.key === 'Enter' && e.target && e.target.id === 'pm-text') { e.preventDefault(); planSave(); }
+});
+</script>
+{% endblock %}

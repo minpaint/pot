@@ -653,11 +653,9 @@ display: none;
 
 {% endif %}
 
-{# ─── ✅ Задачи по организациям ─── #}
-<link rel="stylesheet" href="{% static 'tasks/tasks.css' %}">
-{% if task_orgs %}
-{% include "tasks/_widget.html" %}
-{% endif %}
+{# ─── ✅ Задачи: компактный блок, полный раздел — «Планирование» ─── #}
+{% load tasks_tags %}
+{% tasks_home_block %}
 
 </div>{# /container-fluid #}
 {% endblock %}

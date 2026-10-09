@@ -1,0 +1,49 @@
+<style>
+.th-card { border: none; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin: 1rem 0 1.5rem; background: #fff; }
+.th-head { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; padding: 10px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-weight: 600; }
+.th-head .th-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.th-badge { background: rgba(255,255,255,0.25); color: #fff; font-size: 0.74rem; padding: 2px 9px; border-radius: 10px; font-weight: 600; }
+.th-badge-danger { background: #fde8e8; color: #c0392b; }
+.th-link { color: #fff; font-size: 0.8rem; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); border-radius: 6px; padding: 2px 10px; }
+.th-link:hover { background: rgba(255,255,255,0.25); color: #fff; text-decoration: none; }
+.th-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.th-table td { padding: 8px 14px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.th-table tr:hover td { background: #f0f7ff; }
+.th-pill { display: inline-block; font-size: 0.72rem; padding: 2px 9px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.th-red { background: #fde8e8; color: #c0392b; } .th-yellow { background: #fff3cd; color: #856404; }
+.th-gray { background: #f0f0f0; color: #999; } .th-blue { background: #e3eef8; color: #1a5276; }
+.th-empty { padding: 16px; text-align: center; color: #9aa0ac; font-size: 0.86rem; }
+@media (max-width: 767px) {
+    .th-head .th-right { margin-left: 0; width: 100%; }
+    .th-table td { display: block; padding: 3px 14px; border: none; }
+    .th-table tr { display: block; border-bottom: 1px solid #eee; padding: 6px 0; }
+}
+</style>
+<div class="th-card">
+    <div class="th-head">
+        <span>📋 Задачи</span>
+        <div class="th-right">
+            <span class="th-badge">{{ open_count }} откр.</span>
+            {% if overdue_count %}<span class="th-badge th-badge-danger">⚠️ {{ overdue_count }} просрочено</span>{% endif %}
+            <a class="th-link" href="{% url 'tasks:planning' %}">Открыть планирование →</a>
+        </div>
+    </div>
+    {% if items %}
+    <table class="th-table">
+        <tbody>
+        {% for it in items %}
+            <tr>
+                <td style="font-weight:500; color:#2c3e50;">{{ it.text }}</td>
+                <td>{% if multi_org %}<span class="th-pill th-blue">{{ it.task_list.organization.short_name_ru }}</span>{% else %}<span class="th-pill th-blue">{{ it.task_list.title }}</span>{% endif %}</td>
+                <td>
+                    {% if it.priority == 'high' %}<span class="th-pill th-red">🔴 Высокий</span>{% endif %}
+                    {% if it.due_date %}<span class="th-pill {% if it.is_overdue %}th-red{% else %}th-yellow{% endif %}">{% if it.is_overdue %}⚠️{% else %}📅{% endif %} {{ it.due_date|date:"d.m.Y" }}</span>{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="th-empty">🎉 Открытых задач нет</div>
+    {% endif %}
+</div>

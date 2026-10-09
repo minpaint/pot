@@ -71,6 +71,16 @@ class TaskItem(models.Model):
     due_date = models.DateField('Срок', null=True, blank=True)
     done_at = models.DateTimeField('Выполнена в', null=True, blank=True)
     order = models.PositiveIntegerField('Порядок', default=0)
+    assignee = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='assigned_tasks', verbose_name='Исполнитель',
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_task_items', verbose_name='Создал',
+    )
+    created_at = models.DateTimeField('Создана', auto_now_add=True, null=True)
+    note = models.TextField('Комментарий', blank=True, default='')
 
     class Meta:
         verbose_name = 'Задача'
@@ -79,6 +89,10 @@ class TaskItem(models.Model):
 
     def __str__(self):
         return self.text
+
+    @property
+    def priority_rank(self):
+        return PRIORITY_ORDER.get(self.priority, 1)
 
     @property
     def is_overdue(self):

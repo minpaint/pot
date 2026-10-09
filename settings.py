@@ -114,6 +114,7 @@ TEMPLATES = [
                 'django.template.context_processors.media', # Добавлен процессор для MEDIA_URL
                 'deadline_control.context_processors.notifications.deadline_notifications', # Уведомления о сроках
                 'directory.context_processors.selected_organization', # Глобальный селектор организации
+                'tasks.context_processors.tasks_badge', # Бейдж просроченных задач в меню
             ],
         },
     },

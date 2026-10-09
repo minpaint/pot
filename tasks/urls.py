@@ -4,6 +4,8 @@ from . import views
 app_name = 'tasks'
 
 urlpatterns = [
+    path('',                        views.PlanningView.as_view(), name='planning'),
+    path('item/<int:pk>/update/',   views.update_item,  name='update_item'),
     path('item/<int:pk>/toggle/',   views.toggle_item,  name='toggle_item'),
     path('item/<int:pk>/delete/',   views.delete_item,  name='delete_item'),
     path('list/<int:list_pk>/add/', views.add_item,     name='add_item'),

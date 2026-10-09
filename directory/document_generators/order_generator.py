@@ -11,7 +11,8 @@ from directory.document_generators.base import (
     get_document_template, prepare_employee_context, generate_docx_from_template
 )
 from directory.utils.declension import (
-    decline_phrase, decline_full_name, get_initials_from_name, join_phrase_parts
+    decline_phrase, decline_full_name, get_initials_from_name, get_initials_before_surname,
+    join_phrase_parts,
 )
 
 # Настройка логирования
@@ -149,6 +150,10 @@ def generate_all_orders(employee, user=None, custom_context: Optional[Dict[str, 
 
         context = prepare_internship_context(employee, context, internship_leader_override=internship_leader_override)
         logger.info("Контекст дополнен информацией о руководителе стажировки")
+
+        # В строке подписи распоряжения — «И.Г. Кокорев» (инициалы перед фамилией)
+        if context.get('director_name'):
+            context['director_name_initials'] = get_initials_before_surname(context['director_name'])
 
         now = datetime.datetime.now()
         # Добавляем номер и дату распоряжения по умолчанию, если они не переданы

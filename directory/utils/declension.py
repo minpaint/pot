@@ -264,6 +264,40 @@ def decline_full_name(full_name: str, target_case: str) -> str:
     return " ".join(declined_parts)
 
 
+def _decline_masc_consonant_surname(surname: str, target_case: str, gender: str, result: str):
+    """
+    Мужские фамилии на согласный или -ь (Баслык, Савчук, Янковец, Ильюшонок, Бурдь, Руппель),
+    которые pymorphy3 не смог просклонять (считает несклоняемыми или разбирает как другую форму),
+    склоняются по 2-му склонению с выпадением беглой гласной (Янковец -> Янковцу,
+    Ильюшонок -> Ильюшонку).
+    Возвращает склонённую форму или None, если правило неприменимо.
+    """
+    if gender != 'masc' or target_case == 'nomn' or result != surname:
+        return None
+    low = surname.lower()
+    if low.endswith('ь'):
+        base = surname[:-1]
+        endings = {'gent': 'я', 'datv': 'ю', 'accs': 'я', 'ablt': 'ем', 'loct': 'е'}
+    elif re.search(r'[бвгджзклмнпрстфхцчшщ]$', low) and not low.endswith(('ых', 'их')):
+        base = surname
+        # Беглая гласная: Янковец -> Янковца, Ильюшонок -> Ильюшонка, Лобанок -> Лобанка
+        if len(low) > 4 and low.endswith('ец'):
+            prev = low[-3]
+            if prev in 'аеёиоуыэюя':
+                base = surname[:-2] + 'йц'      # Шевчуец -> Шевчуйца
+            elif prev == 'л':
+                base = surname[:-2] + 'ьц'      # Стрелец -> Стрельца
+            else:
+                base = surname[:-2] + 'ц'
+        elif len(low) > 4 and low.endswith(('ок', 'ёк')) and low[-3] not in 'аеёиоуыэюя':
+            base = surname[:-2] + 'к'
+        soft = low[-1] in 'жшчщц'
+        endings = {'gent': 'а', 'datv': 'у', 'accs': 'а', 'ablt': 'ем' if soft else 'ом', 'loct': 'е'}
+    else:
+        return None
+    return base + endings[target_case] if target_case in endings else None
+
+
 def decline_surname(surname: str, target_case: str, gender: str) -> str:
     """
     Склоняет фамилию с учётом её типа и пола.
@@ -308,11 +342,11 @@ def decline_surname(surname: str, target_case: str, gender: str) -> str:
         if target_case in endings:
             return base + endings[target_case]
 
-    # Женские фамилии на согласный обычно несклоняемые (Кожан, Билан, и т.п.)
+    # Женские фамилии на согласный и на -ь несклоняемые (Кожан, Билан, Бурдь, Зыль и т.п.)
     if gender == 'femn':
-        if re.search(r'[бвгджзйклмнпрстфхцчшщ]$', surname_lower):
+        if re.search(r'[бвгджзйклмнпрстфхцчшщь]$', surname_lower):
             # Исключаем явно склоняемые женские окончания
-            if not surname_lower.endswith(('а', 'я', 'ая', 'яя', 'ова', 'ева', 'ёва', 'ина', 'ына', 'ь')):
+            if not surname_lower.endswith(('а', 'я', 'ая', 'яя', 'ова', 'ева', 'ёва', 'ина', 'ына')):
                 return surname
 
     # Женские фамилии на -ич/-вич/-евич чаще всего несклоняемые
@@ -331,7 +365,9 @@ def decline_surname(surname: str, target_case: str, gender: str) -> str:
     if best_parse:
         # Нашли как фамилию - склоняем стандартно
         form = best_parse.inflect({target_case, gender})
-        return form.word if form else surname
+        result = form.word if form else surname
+        fixed = _decline_masc_consonant_surname(surname, target_case, gender, result)
+        return fixed or result
 
     # Фамилии на -а/-я (Симака, Пётра, и т.д.) - склоняются как сущ. 1 склонения
     if surname_lower.endswith(('а', 'я')) and not surname_lower.endswith(('ова', 'ева', 'ина', 'ына')):
@@ -353,7 +389,9 @@ def decline_surname(surname: str, target_case: str, gender: str) -> str:
         return surname
 
     # Если ничего не подошло, используем стандартную функцию
-    return decline_word_to_case(surname, target_case, gender)
+    result = decline_word_to_case(surname, target_case, gender)
+
+    return _decline_masc_consonant_surname(surname, target_case, gender, result) or result
 
 
 def get_all_cases(text: str, is_full_name: bool = False) -> dict:

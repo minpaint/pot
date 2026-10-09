@@ -1165,6 +1165,98 @@ class CreateHiringFromEmployeeView(LoginRequiredMixin, FormView):
 
 
 @login_required
+def hiring_mass_generate(request):
+    """
+    Массовая генерация документов приёма из списка: ставит задачу GenerationJob
+    в очередь и возвращает адрес страницы прогресса/скачивания.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Требуется POST запрос'}, status=400)
+
+    try:
+        ids = [int(x) for x in request.POST.getlist('hiring_ids')]
+    except ValueError:
+        return JsonResponse({'error': 'Некорректные записи'}, status=400)
+    document_types = request.POST.getlist('document_types')
+    if not ids:
+        return JsonResponse({'error': 'Не выбрано ни одной записи'}, status=400)
+    if not document_types:
+        return JsonResponse({'error': 'Не выбран ни один документ'}, status=400)
+
+    hirings = list(EmployeeHiring.objects.filter(pk__in=ids).select_related('employee', 'organization'))
+    hirings = [h for h in hirings if AccessControlHelper.can_access_object(request.user, h)]
+    if not hirings:
+        return JsonResponse({'error': 'Нет прав доступа'}, status=403)
+
+    from directory.models import GenerationJob
+    from directory.generation_tasks import run_admin_hiring_generate_job
+
+    allowed = {c[0] for c in DocumentSelectionForm().fields['document_types'].choices}
+    document_types = [d for d in document_types if d in allowed]
+    if not document_types:
+        return JsonResponse({'error': 'Не выбран ни один документ'}, status=400)
+
+    org = hirings[0].organization
+    title = f'Документы приёма — {org.short_name_ru if org else ""} ({len(hirings)} чел.)'
+    job = GenerationJob.objects.create(
+        user=request.user,
+        job_type='admin_hiring_generate',
+        status='pending',
+        title=title,
+        params={'hiring_ids': [h.id for h in hirings], 'document_types': document_types},
+        progress_total=len(hirings),
+    )
+    run_admin_hiring_generate_job.enqueue(job.id)
+    return JsonResponse({'url': reverse('directory:generation_job_detail', args=[job.id])})
+
+
+@login_required
+def hiring_download_options(request, hiring_id):
+    """
+    AJAX endpoint для модального окна «Скачать документы» в списке приёмов.
+
+    Возвращает доступные типы документов, предвыбранные по должности сотрудника,
+    и руководителя стажировки (авто + список кандидатов).
+    """
+    hiring = get_object_or_404(
+        EmployeeHiring.objects.select_related('employee__position', 'employee__organization'),
+        pk=hiring_id,
+    )
+    if not AccessControlHelper.can_access_object(request.user, hiring):
+        return JsonResponse({'error': 'Нет прав доступа'}, status=403)
+
+    employee = hiring.employee
+    selected = list(get_auto_selected_document_types(employee))
+    training_assignment = employee.training_assignments.select_related('training').first()
+    if training_assignment:
+        selected.append('training_documents')
+
+    form = DocumentSelectionForm(include_training_documents=bool(training_assignment))
+    choices = [{'value': v, 'text': str(t)} for v, t in form.fields['document_types'].choices]
+
+    from directory.views.documents.utils import get_internship_leader
+    leader, _level, _ok = get_internship_leader(employee)
+    candidates = Employee.objects.active_for_operations().filter(
+        organization=employee.organization,
+        position__can_be_internship_leader=True,
+    ).exclude(id=employee.id).select_related('position').order_by('full_name_nominative')
+
+    return JsonResponse({
+        'employee': employee.full_name_nominative,
+        'employee_id': employee.id,
+        'detail_url': reverse('directory:hiring:hiring_detail', args=[hiring.pk]),
+        'choices': choices,
+        'selected': selected,
+        'drives_vehicle': bool(employee.position and employee.position.drives_company_vehicle),
+        'leader': leader.full_name_nominative if leader else '',
+        'leader_candidates': [
+            {'id': c.id, 'name': c.full_name_nominative + (f' ({c.position.position_name})' if c.position else '')}
+            for c in candidates
+        ],
+    })
+
+
+@login_required
 def preview_hiring_email(request, hiring_id):
     """
     AJAX endpoint для предпросмотра письма с документами приема.

@@ -49,6 +49,19 @@ ORG_LEGAL_FORMS = [
     'Индивидуальный предприниматель',
 ]
 
+# Сокращения ОПФ → полная форма (если в полном названии организации указано сокращение)
+ORG_LEGAL_FORM_ABBR = {
+    'ООО': 'Общество с ограниченной ответственностью',
+    'ОДО': 'Общество с дополнительной ответственностью',
+    'ЗАО': 'Закрытое акционерное общество',
+    'ОАО': 'Открытое акционерное общество',
+    'АО': 'Акционерное общество',
+    'ЧУП': 'Частное унитарное предприятие',
+    'ГУП': 'Государственное унитарное предприятие',
+    'УП': 'Унитарное предприятие',
+    'ИП': 'Индивидуальный предприниматель',
+}
+
 
 def parse_organization_name(full_name: str) -> tuple:
     """
@@ -71,10 +84,15 @@ def parse_organization_name(full_name: str) -> tuple:
         if name.startswith(legal_form):
             # Нашли форму, остальное - название
             company_name = name[len(legal_form):].strip()
-            # Если название не в кавычках - добавляем их
-            if company_name and not company_name.startswith('"'):
+            # Если название не в кавычках (прямых или «ёлочках») - добавляем их
+            if company_name and company_name[0] not in '"«„“”':
                 company_name = f'"{company_name}"'
             return (legal_form, company_name)
+
+    # Сокращённая форма: 'ООО "Ромашка"' -> ('Общество с ограниченной ответственностью', '"Ромашка"')
+    abbr, _, rest = name.partition(' ')
+    if abbr in ORG_LEGAL_FORM_ABBR and rest.strip():
+        return parse_organization_name(f'{ORG_LEGAL_FORM_ABBR[abbr]} {rest.strip()}')
 
     # Не нашли известную форму - возвращаем всё как название
     return ('', full_name)

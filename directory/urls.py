@@ -190,6 +190,8 @@ hiring_patterns = [
 
     # ✉️ Отправка документов приема
     path('send-documents/<int:hiring_id>/', hiring.send_hiring_documents, name='send_hiring_documents'),
+    path('mass-generate/', hiring.hiring_mass_generate, name='hiring_mass_generate'),
+    path('<int:hiring_id>/download-options/', hiring.hiring_download_options, name='hiring_download_options'),
     path('<int:hiring_id>/preview-email/', preview_hiring_email, name='preview_hiring_email'),
 
     path('create-from-employee/<int:employee_id>/', hiring.CreateHiringFromEmployeeView.as_view(),

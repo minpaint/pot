@@ -568,12 +568,17 @@ def run_admin_hiring_generate_job(job_id: int):
                         result = generator_func(employee=employee, user=user)
 
                     initials = get_initials_from_name(employee.full_name_nominative)
+
+                    def _name(fn):
+                        # генераторы часто уже кладут ФИО в имя файла — тогда префикс не нужен
+                        return fn if initials in fn else f'{initials}_{fn}'
+
                     if isinstance(result, list):
                         for doc in result:
                             if isinstance(doc, dict) and 'content' in doc and 'filename' in doc:
-                                all_files.append((doc['content'], f'{initials}_{doc["filename"]}'))
+                                all_files.append((doc['content'], _name(doc['filename'])))
                     elif isinstance(result, dict) and 'content' in result and 'filename' in result:
-                        all_files.append((result['content'], f'{initials}_{result["filename"]}'))
+                        all_files.append((result['content'], _name(result['filename'])))
                 except Exception as e:
                     logger.error(f'Ошибка {doc_type} для {employee.full_name_nominative}: {e}', exc_info=True)
 
@@ -585,8 +590,15 @@ def run_admin_hiring_generate_job(job_id: int):
 
         zip_buffer = BytesIO()
         with ZipFile(zip_buffer, 'w', ZIP_DEFLATED) as zf:
+            used = set()
             for content, filename in all_files:
-                zf.writestr(filename, content)
+                base, dot, ext = filename.rpartition('.')
+                name, n = filename, 1
+                while name in used:
+                    n += 1
+                    name = f'{base} ({n}).{ext}' if dot else f'{filename} ({n})'
+                used.add(name)
+                zf.writestr(name, content)
 
         if len(hirings) == 1:
             initials = get_initials_from_name(hirings[0].employee.full_name_nominative)

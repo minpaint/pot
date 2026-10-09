@@ -32,7 +32,7 @@ JOB_BACK_LINKS = {
     'periodic_protocol_by_sub': ('directory:documents:periodic_protocol', 'Проверка знаний'),
     'periodic_certificates': ('directory:documents:periodic_protocol', 'Проверка знаний'),
     'periodic_certificates_by_sub': ('directory:documents:periodic_protocol', 'Проверка знаний'),
-    'admin_hiring_generate': ('admin:directory_employeehiring_changelist', 'Приёмы на работу'),
+    'admin_hiring_generate': ('directory:hiring:hiring_list', 'Приёмы на работу'),
 }
 
 

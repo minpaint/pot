@@ -180,6 +180,41 @@
     .hl-apply-row { display: flex; gap: 6px; flex-basis: 100%; }
     .hl-apply-row .btn { flex: 1; }
 }
+/* модальное окно «Скачать документы» */
+.dl-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1060; align-items: center; justify-content: center; padding: 16px; }
+.dl-bg.show { display: flex; }
+.dl-modal { background: #fff; border-radius: 10px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+.dl-head { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; padding: 12px 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.dl-head .dl-close { margin-left: auto; background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; line-height: 1; }
+.dl-body { padding: 16px 18px; overflow-y: auto; }
+.dl-emp { font-size: 0.9rem; font-weight: 600; color: #2c3e50; margin-bottom: 10px; }
+.dl-tools { display: flex; gap: 8px; margin-bottom: 8px; }
+.dl-tools button { background: none; border: none; color: #3498db; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; }
+.dl-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 6px; cursor: pointer; font-size: 0.88rem; }
+.dl-item:hover { background: #f0f7ff; border-color: #3498db; }
+.dl-item.checked { background: #f0f7ff; border-color: #3498db; }
+.dl-item input { width: 17px; height: 17px; flex-shrink: 0; }
+.dl-label { font-size: 0.78rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px; margin: 14px 0 4px; }
+.dl-body select { width: 100%; border: 1px solid #ced4da; border-radius: 6px; padding: 6px 10px; font-size: 0.88rem; }
+.dl-err { background: #fde8e8; color: #c0392b; border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; margin-top: 10px; display: none; }
+.dl-foot { padding: 12px 18px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 767px) {
+    .dl-bg { padding: 8px; align-items: flex-end; }
+    .dl-foot { flex-direction: column-reverse; }
+    .dl-foot .btn { width: 100%; }
+}
+
+/* массовый выбор */
+.hl-bulkbar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 18px; background: #f0f7ff; border-bottom: 1px solid #dee2e6; font-size: 0.88rem; font-weight: 600; color: #2c3e50; }
+.hl-bulkbar.show { display: flex; }
+.hl-table .td-sel { width: 34px; }
+.hl-table input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+@media (max-width: 767px) {
+    .hl-bulkbar { flex-direction: column; align-items: stretch; padding: 10px 14px; text-align: center; }
+    .hl-bulkbar .btn { width: 100%; }
+    .hl-table td.td-sel { justify-content: flex-start; }
+    .hl-table td.td-sel::before { content: 'Выбрать'; }
+}
 </style>
 {% endblock %}
 
@@ -246,12 +281,21 @@
             {% endif %}
         </div>
 
+        {% if hiring_records %}
+        <div class="hl-bulkbar" id="hlBulkBar">
+            <span id="hlSelCount">Выбрано: 0</span>
+            <button type="button" class="btn btn-sm btn-success" onclick="openDlModal(null)">📥 Скачать документы выбранным</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hlToggleAll(false)">Снять выбор</button>
+        </div>
+        {% endif %}
+
         <div style="background:#fff;">
             {% if hiring_records %}
             <div class="table-responsive">
                 <table class="hl-table">
                     <thead>
                         <tr>
+                            <th style="width:34px;"><input type="checkbox" id="hlSelectAll" title="Выбрать все на странице" onchange="hlToggleAll(this.checked)"></th>
                             <th>Дата</th>
                             <th>Сотрудник</th>
                             <th>Должность</th>
@@ -263,6 +307,7 @@
                     <tbody>
                         {% for h in hiring_records %}
                         <tr class="{% if not h.is_active %}inactive{% endif %}">
+                            <td class="td-sel"><input type="checkbox" class="hl-sel" value="{{ h.pk }}" onchange="hlSelChanged()"></td>
                             <td data-label="Дата" style="white-space:nowrap;">
                                 {{ h.hiring_date|date:"d.m.Y" }}
                             </td>
@@ -286,6 +331,9 @@
                                 </span>
                             </td>
                             <td class="td-acts text-end" style="white-space:nowrap;">
+                                <button type="button" class="btn btn-sm btn-success" style="font-size:0.78rem; padding:3px 10px;"
+                                        title="Выбрать и скачать документы приёма"
+                                        onclick="openDlModal({{ h.pk }})">📥 Скачать</button>
                                 <a href="{% url 'directory:hiring:hiring_detail' h.pk %}" class="btn btn-sm btn-outline-primary" style="font-size:0.78rem; padding:3px 10px;" title="Документы приёма">
                                     📄 Документы
                                 </a>
@@ -342,10 +390,165 @@
     {% endif %}
 
 </div>
+
+<!-- Модальное окно выбора документов -->
+<div class="dl-bg" id="dlBg" onclick="if(event.target===this) closeDlModal()">
+    <div class="dl-modal">
+        <div class="dl-head">📥 Скачать документы
+            <button type="button" class="dl-close" onclick="closeDlModal()">✕</button>
+        </div>
+        <div class="dl-body">
+            <div class="dl-emp" id="dlEmp"></div>
+            <div id="dlLoading" style="color:#6c757d;font-size:0.88rem;">⏳ Загрузка…</div>
+            <div id="dlContent" style="display:none;">
+                <div class="dl-tools">
+                    <button type="button" onclick="dlSetAll(true)">Выбрать все</button>
+                    <button type="button" onclick="dlSetAll(false)">Снять все</button>
+                </div>
+                <div id="dlList"></div>
+                <div id="dlLeaderWrap">
+                    <div class="dl-label">👤 Руководитель стажировки</div>
+                    <select id="dlLeader"></select>
+                </div>
+            </div>
+            <div class="dl-err" id="dlErr"></div>
+        </div>
+        <div class="dl-foot">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeDlModal()">Отмена</button>
+            <button type="button" class="btn btn-sm btn-success" id="dlGo" onclick="dlDownload()" disabled>📥 Скачать выбранные</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+
+let dlHiringId = null, dlDetailUrl = '', dlEmployeeId = null, dlIds = [];
+const DL_MASS_URL = "{% url 'directory:hiring:hiring_mass_generate' %}";
+
+function hlSelected() { return [...document.querySelectorAll('.hl-sel:checked')].map(cb => cb.value); }
+function hlSelChanged() {
+    const n = hlSelected().length, all = document.querySelectorAll('.hl-sel');
+    document.getElementById('hlSelCount').textContent = 'Выбрано: ' + n;
+    document.getElementById('hlBulkBar').classList.toggle('show', n > 0);
+    const sa = document.getElementById('hlSelectAll');
+    if (sa) { sa.checked = n > 0 && n === all.length; sa.indeterminate = n > 0 && n < all.length; }
+}
+function hlToggleAll(v) { document.querySelectorAll('.hl-sel').forEach(cb => cb.checked = v); hlSelChanged(); }
+const DL_OPTIONS_URL = id => "{% url 'directory:hiring:hiring_download_options' 0 %}".replace('/0/', '/' + id + '/');
+
+function dlErr(msg) { const e = document.getElementById('dlErr'); e.textContent = msg || ''; e.style.display = msg ? 'block' : 'none'; }
+function dlUpdateGo() {
+    document.getElementById('dlGo').disabled = !document.querySelector('#dlList input:checked');
+}
+function dlSetAll(v) {
+    document.querySelectorAll('#dlList input').forEach(cb => { cb.checked = v; cb.closest('.dl-item').classList.toggle('checked', v); });
+    dlUpdateGo();
+}
+function closeDlModal() { document.getElementById('dlBg').classList.remove('show'); }
+
+async function openDlModal(id) {
+    // id === null — массовый режим (выбранные галочками записи)
+    dlIds = id === null ? hlSelected() : [];
+    if (id === null && !dlIds.length) return;
+    const mass = id === null;
+    dlHiringId = mass ? dlIds[0] : id;
+    id = dlHiringId;
+    dlErr('');
+    document.getElementById('dlBg').classList.add('show');
+    document.getElementById('dlEmp').textContent = '';
+    document.getElementById('dlLoading').style.display = '';
+    document.getElementById('dlContent').style.display = 'none';
+    document.getElementById('dlGo').disabled = true;
+    try {
+        const r = await fetch(DL_OPTIONS_URL(id));
+        const d = await r.json();
+        if (!r.ok) { dlErr(d.error || 'Не удалось загрузить список документов'); document.getElementById('dlLoading').style.display = 'none'; return; }
+        dlDetailUrl = d.detail_url; dlEmployeeId = d.employee_id;
+        document.getElementById('dlEmp').textContent = mass ? '👥 Сотрудников: ' + dlIds.length : '👤 ' + d.employee;
+        if (mass) { d.choices = d.choices.filter(c => c.value !== 'training_documents'); d.selected = d.selected.filter(v => v !== 'training_documents'); d.leader_candidates = []; }
+        const list = document.getElementById('dlList');
+        list.innerHTML = '';
+        d.choices.forEach((c, i) => {
+            const on = d.selected.includes(c.value);
+            const row = document.createElement('label');
+            row.className = 'dl-item' + (on ? ' checked' : '');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.value = c.value; cb.checked = on;
+            cb.onchange = () => { row.classList.toggle('checked', cb.checked); dlUpdateGo(); };
+            const span = document.createElement('span');
+            span.textContent = c.text;
+            row.append(cb, span);
+            if (c.value === 'all_orders' && d.drives_vehicle) {
+                const b = document.createElement('span'); b.textContent = '🚗 +1 документ'; b.style.cssText = 'margin-left:auto;font-size:0.75rem;color:#856404;';
+                row.append(b);
+            }
+            list.append(row);
+        });
+        const sel = document.getElementById('dlLeader');
+        sel.innerHTML = '';
+        const auto = document.createElement('option');
+        auto.value = ''; auto.textContent = '— Авто' + (d.leader ? ': ' + d.leader : '');
+        sel.append(auto);
+        d.leader_candidates.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.append(o); });
+        document.getElementById('dlLeaderWrap').style.display = d.leader_candidates.length ? '' : 'none';
+        document.getElementById('dlLoading').style.display = 'none';
+        document.getElementById('dlContent').style.display = '';
+        dlUpdateGo();
+    } catch (e) {
+        document.getElementById('dlLoading').style.display = 'none';
+        dlErr('Ошибка соединения');
+    }
+}
+
+async function dlDownload() {
+    const types = [...document.querySelectorAll('#dlList input:checked')].map(cb => cb.value);
+    if (!types.length) return;
+    const btn = document.getElementById('dlGo');
+    btn.disabled = true; btn.textContent = '⏳ Генерация…'; dlErr('');
+    const fd = new FormData();
+    fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    if (dlIds.length) {
+        dlIds.forEach(i => fd.append('hiring_ids', i));
+        types.forEach(t => fd.append('document_types', t));
+        try {
+            const r = await fetch(DL_MASS_URL, { method: 'POST', body: fd });
+            const d = await r.json();
+            if (r.ok && d.url) { window.location.href = d.url; return; }
+            dlErr(d.error || 'Не удалось запустить генерацию');
+        } catch (e) { dlErr('Ошибка соединения'); }
+        btn.textContent = '📥 Скачать выбранные';
+        dlUpdateGo();
+        return;
+    }
+    fd.append('generate_documents', '1');
+    fd.append('employee_id', dlEmployeeId);
+    types.forEach(t => fd.append('document_types', t));
+    const leader = document.getElementById('dlLeader').value;
+    if (leader) fd.append('internship_leader_id', leader);
+    try {
+        const r = await fetch(dlDetailUrl, { method: 'POST', body: fd });
+        const ct = r.headers.get('Content-Type') || '';
+        if (r.ok && ct.includes('zip')) {
+            const m = /filename\*=UTF-8''([^;]+)/.exec(r.headers.get('Content-Disposition') || '');
+            const name = m ? decodeURIComponent(m[1]) : 'Документы.zip';
+            const url = URL.createObjectURL(await r.blob());
+            const a = document.createElement('a'); a.href = url; a.download = name;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+            closeDlModal();
+        } else {
+            dlErr('Не удалось сформировать документы. Откройте «📄 Документы» для подробностей.');
+        }
+    } catch (e) {
+        dlErr('Ошибка соединения');
+    }
+    btn.textContent = '📥 Скачать выбранные';
+    dlUpdateGo();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDlModal(); });
+
 function toggleHiringFilters() {
     const panel = document.getElementById('hiringFilters');
     const btn = document.getElementById('filterToggleBtn');

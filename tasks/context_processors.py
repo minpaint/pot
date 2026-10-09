@@ -8,7 +8,7 @@ from .models import TaskItem
 
 
 def tasks_badge(request):
-    """Счётчик просроченных задач для бейджа пункта «Планирование» в боковом меню."""
+    """Счётчик просроченных задач для бейджа пункта «Задачи» в боковом меню."""
     user = getattr(request, 'user', None)
     if user is None or not user.is_authenticated:
         return {}

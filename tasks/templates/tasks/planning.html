@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Планирование{% endblock %}
+{% block title %}Задачи{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -147,7 +147,7 @@
 <div class="container-fluid mt-3" id="plan-page">
 
     <div class="plan-head">
-        <h1>📋 Планирование</h1>
+        <h1>📋 Задачи</h1>
         <button type="button" class="plan-btn plan-btn-primary" onclick="planOpenModal()">➕ Новая задача</button>
     </div>
 
@@ -319,7 +319,7 @@
                         {% endfor %}
                         </ul>
                         {% if not tl.is_archived %}
-                        <form class="plan-add-form" onsubmit="planQuickAdd(event, {{ tl.id }})">
+                        <form class="plan-add-form" data-list-id="{{ tl.id }}" onsubmit="planQuickAdd(event, {{ tl.id }})">
                             <input type="text" name="text" placeholder="+ Новая задача…" maxlength="500" autocomplete="off">
                             <select name="priority"><option value="normal">🟡</option><option value="high">🔴</option><option value="low">🟢</option></select>
                             <input type="date" name="due_date" title="Срок (необязательно)">
@@ -526,7 +526,10 @@ async function planQuickAdd(e, listId) {
     if (!text) return;
     const res = await planPost(PLAN_URLS.add(listId), { text, priority: f.priority.value, due_date: f.due_date.value });
     if (!res.ok) { planToast('Не удалось добавить задачу'); return; }
-    planRefresh();
+    await planRefresh();
+    // курсор сразу в поле следующей задачи этого же списка
+    const next = document.querySelector(`.plan-add-form[data-list-id="${listId}"] input[name="text"]`);
+    if (next) next.focus();
 }
 
 async function planAddList(e, orgId) {

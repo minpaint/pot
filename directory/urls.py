@@ -23,7 +23,6 @@ from .views import (
     commissions,
     quiz_views,
     quiz_import_views,
-    debug_permissions,
 )
 from .views.home import HomePageView, IntroductoryBriefingView, SetOrganizationView
 from .views.documents.siz_integration import generate_siz_card_docx_view
@@ -34,7 +33,6 @@ from directory.views.employees import EmployeeTreeView, employee_tree_children, 
 
 from directory.views import quiz_views  # 📝 Импортируем модуль с представлениями экзаменов
 from directory.views import quiz_import_views  # 📥 Импорт вопросов
-from directory.views.debug_permissions import debug_permissions_view  # Отладка прав
 
 from directory.views.documents import (
     DocumentSelectionView,
@@ -314,7 +312,6 @@ urlpatterns = [
     path('generation-jobs/<int:pk>/status/', GenerationJobStatusView.as_view(), name='generation_job_status'),
     path('generation-jobs/<int:pk>/download/', GenerationJobDownloadView.as_view(), name='generation_job_download'),
     path('introductory-briefing/', IntroductoryBriefingView.as_view(), name='introductory_briefing'),
-    path('debug-permissions/', debug_permissions_view, name='debug_permissions'),  # Отладка
     path('auth/', include((auth_patterns, 'auth'))),
     path('autocomplete/', include(autocomplete_patterns)),
     path('employees/', include((employee_patterns, 'employees'))),

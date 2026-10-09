@@ -6,8 +6,6 @@ import os
 from datetime import datetime
 from django.http import JsonResponse, FileResponse
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
@@ -244,7 +242,6 @@ class EmployeeReferralDataView(LoginRequiredMixin, View):
         return JsonResponse(data)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class GenerateReferralView(LoginRequiredMixin, View):
     """
     API endpoint для генерации направления на медосмотр.

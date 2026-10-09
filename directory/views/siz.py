@@ -556,9 +556,26 @@ def _request_bool(request, key, default=False):
     return str(raw).strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
+# Режимы даты выдачи в карточках СИЗ (поле issue_date):
+#   ''      — без даты выдачи
+#   'hire'  — дата трудоустройства каждого сотрудника (дата приёма, если нет — дата начала работы)
+#   YYYY-MM-DD — произвольная дата для всех
+ISSUE_DATE_HIRE = 'hire'
+
+
+def resolve_card_issue_date(employee, issue_date_display):
+    """Дата выдачи для карточки конкретного сотрудника (в формате ДД.ММ.ГГГГ или пусто)."""
+    if issue_date_display == ISSUE_DATE_HIRE:
+        hire = employee.hire_date or employee.start_date
+        return hire.strftime('%d.%m.%Y') if hire else ''
+    return issue_date_display or ''
+
+
 def _parse_issue_date(issue_date_raw):
     if not issue_date_raw:
         return None, ''
+    if issue_date_raw == ISSUE_DATE_HIRE:
+        return None, ISSUE_DATE_HIRE
     try:
         parsed = datetime.strptime(issue_date_raw, '%Y-%m-%d').date()
         return parsed, parsed.strftime('%d.%m.%Y')
@@ -623,7 +640,8 @@ def _create_cards_archive(employees, user, custom_context, folder_name):
                 result = generate_siz_card_docx(
                     employee,
                     user,
-                    custom_context,
+                    {**custom_context, 'siz_issue_date': resolve_card_issue_date(
+                        employee, custom_context.get('siz_issue_date', ''))},
                     raise_on_error=True,
                 )
             except Exception as exc:
@@ -637,14 +655,14 @@ def _create_cards_archive(employees, user, custom_context, folder_name):
             zip_file.writestr(f"{safe_folder}/{siz_card_file_name(employee)}", result['content'])
             generated_count += 1
 
-        summary = (
-            f"Карточки СИЗ\n"
-            f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-            f"Сгенерировано: {generated_count}\n"
-        )
-        if errors:
-            summary += "\nОшибки:\n" + "\n".join(errors)
-        zip_file.writestr("_summary.txt", summary.encode('utf-8'))
+        if errors:  # сводка нужна только при ошибках
+            summary = (
+                f"Карточки СИЗ\n"
+                f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
+                f"Сгенерировано: {generated_count}\n"
+                "\nОшибки:\n" + "\n".join(errors)
+            )
+            zip_file.writestr("_summary.txt", summary.encode('utf-8'))
 
     if generated_count == 0:
         return None, 0, errors
@@ -753,7 +771,8 @@ def _send_cards_group(
         'organization_name': organization.full_name_ru,
         'subdivision_name': subdivision_name,
         'department_name': department_name,
-        'date': issue_date_display or datetime.now().strftime('%d.%m.%Y'),
+        'date': ('по дате трудоустройства' if issue_date_display == ISSUE_DATE_HIRE
+                 else issue_date_display or datetime.now().strftime('%d.%m.%Y')),
         'employee_count': len(employees),
         'cards_count': cards_count,
     }

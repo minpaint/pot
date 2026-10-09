@@ -294,7 +294,22 @@
 .att-names { color: #6c757d; font-size: 0.82rem; }
 
 /* ── Мобильная адаптация ── */
+.siz-datemode { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.siz-datemode .siz-datemode-opt {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;
+    padding: 6px 12px; border: 1px solid #dee2e6; border-radius: 16px; background: #f8f9fa;
+    font-size: 0.82rem; font-weight: 600; color: #6c757d; text-transform: none; letter-spacing: 0;
+}
+.siz-datemode .siz-datemode-opt:has(input:checked) {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; border-color: #3498db;
+}
+.siz-datemode .siz-datemode-opt input { margin: 0; }
+.siz-datemode input[type="date"]:disabled { opacity: 0.4; }
+
 @media (max-width: 767px) {
+    .siz-datemode { flex-direction: column; align-items: stretch; }
+    .siz-datemode .siz-datemode-opt { justify-content: flex-start; }
+    .siz-datemode input[type="date"] { width: 100%; box-sizing: border-box; }
     /* Панель управления */
     .siz-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
     .siz-topbar input[type="date"] { width: 100%; box-sizing: border-box; }
@@ -378,7 +393,12 @@
     <div class="siz-topbar">
         <div>
             <label>📅 Дата выдачи</label>
-            <input type="date" id="id_issue_date">
+            <div class="siz-datemode">
+                <label class="siz-datemode-opt"><input type="radio" name="issue_date_mode" value="custom" checked> Произвольная</label>
+                <label class="siz-datemode-opt"><input type="radio" name="issue_date_mode" value="hire"> Дата трудоустройства</label>
+                <label class="siz-datemode-opt"><input type="radio" name="issue_date_mode" value="none"> Без даты выдачи</label>
+                <input type="date" id="id_issue_date">
+            </div>
         </div>
         <div style="padding-bottom: 2px;">
             <div style="margin-top: 20px; display: flex; align-items: center; gap: 8px;">
@@ -784,15 +804,12 @@
                                     <span class="cnt-badge-dark">{{ item.employees_count }}</span>
                                 </td>
                                 <td data-label="Рассылка">
-                                    <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" style="display:inline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="org_id" value="{{ item.org.id }}">
-                                        <input type="hidden" name="issue_date" id="issue_date_org_{{ item.org.id }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-success btn-act js-org-generate"
-                                                data-issue-field="issue_date_org_{{ item.org.id }}">
-                                            📥 Сгенерировать ZIP
-                                        </button>
-                                    </form>
+                                    {# форма вынесена за пределы основной (вложенные формы в HTML недопустимы) — связь через атрибут form #}
+                                    <button type="submit" form="org-gen-form-{{ item.org.id }}"
+                                            class="btn btn-sm btn-outline-success btn-act js-org-generate"
+                                            data-issue-field="issue_date_org_{{ item.org.id }}">
+                                        📥 Сгенерировать ZIP
+                                    </button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -802,6 +819,13 @@
             </div>
         </div>
     </form>
+    {% for item in orgs_with_direct_employees %}
+    <form method="post" action="{% url 'directory:siz:mass_generation_generate' %}" id="org-gen-form-{{ item.org.id }}" style="display:none">
+        {% csrf_token %}
+        <input type="hidden" name="org_id" value="{{ item.org.id }}">
+        <input type="hidden" name="issue_date" id="issue_date_org_{{ item.org.id }}">
+    </form>
+    {% endfor %}
     {% else %}
     <div class="text-center py-5 text-muted">
         <div style="font-size:2.5rem;">🛡️</div>
@@ -1076,10 +1100,29 @@ function toggleSizBlock(headerEl, contentId) {
 (function() {
     const storageKeys = {
         date: 'siz_mass_issue_date',
+        dateMode: 'siz_mass_issue_date_mode',
         testMode: 'siz_mass_test_mode'
     };
 
     const issueDateInput = document.getElementById('id_issue_date');
+    const dateModeInputs = Array.from(document.querySelectorAll('input[name="issue_date_mode"]'));
+
+    function getDateMode() {
+        const checked = dateModeInputs.find(r => r.checked);
+        return checked ? checked.value : 'custom';
+    }
+
+    // Значение issue_date для сервера: ISO-дата / 'hire' (дата трудоустройства) / '' (без даты)
+    function getIssueDateValue() {
+        const mode = getDateMode();
+        if (mode === 'hire') return 'hire';
+        if (mode === 'none') return '';
+        return issueDateInput ? issueDateInput.value : '';
+    }
+
+    function applyDateMode() {
+        if (issueDateInput) issueDateInput.disabled = getDateMode() !== 'custom';
+    }
     const testModeInput = document.getElementById('id_test_mode');
     const form = document.getElementById('mass-generation-form');
     const selectedCountEl = document.getElementById('selected-count');
@@ -1152,6 +1195,7 @@ function toggleSizBlock(headerEl, contentId) {
     }
 
     function persistFilters() {
+        try { localStorage.setItem(storageKeys.dateMode, getDateMode()); } catch (e) {}
         if (issueDateInput) {
             localStorage.setItem(storageKeys.date, issueDateInput.value || '');
         }
@@ -1161,6 +1205,12 @@ function toggleSizBlock(headerEl, contentId) {
     }
 
     function restoreFilters() {
+        try {
+            const savedMode = localStorage.getItem(storageKeys.dateMode);
+            const radio = dateModeInputs.find(r => r.value === savedMode);
+            if (radio) radio.checked = true;
+        } catch (e) {}
+        applyDateMode();
         if (issueDateInput) {
             const savedDate = localStorage.getItem(storageKeys.date);
             if (savedDate) {
@@ -1283,7 +1333,7 @@ function toggleSizBlock(headerEl, contentId) {
         if (!url) return;
 
         const payload = {
-            issue_date: issueDateInput ? issueDateInput.value : '',
+            issue_date: getIssueDateValue(),
             test_mode: testModeInput && testModeInput.checked ? '1' : '0',
             summary_mode: summaryMode ? '1' : '0'
         };
@@ -1319,7 +1369,7 @@ function toggleSizBlock(headerEl, contentId) {
         if (!ok) return;
 
         const payload = {
-            issue_date: issueDateInput ? issueDateInput.value : '',
+            issue_date: getIssueDateValue(),
             test_mode: testModeInput && testModeInput.checked ? '1' : '0',
             summary_mode: '0'
         };
@@ -1359,9 +1409,15 @@ function toggleSizBlock(headerEl, contentId) {
             return;
         }
 
-        if (issueDateInput) {
-            issueDateInput.value = issueDateInput.value || '';
+        // Дата выдачи уходит вместе с формой (ранее поле даты в форму не попадало)
+        let dateField = form.querySelector('input[name="issue_date"]');
+        if (!dateField) {
+            dateField = document.createElement('input');
+            dateField.type = 'hidden';
+            dateField.name = 'issue_date';
+            form.appendChild(dateField);
         }
+        dateField.value = getIssueDateValue();
 
         showLoading(true);
     }
@@ -1377,6 +1433,7 @@ function toggleSizBlock(headerEl, contentId) {
     }
 
     issueDateInput && issueDateInput.addEventListener('change', persistFilters);
+    dateModeInputs.forEach(r => r.addEventListener('change', () => { applyDateMode(); persistFilters(); }));
     testModeInput && testModeInput.addEventListener('change', persistFilters);
 
     document.querySelectorAll('.subdivision-checkbox').forEach(cb => {
@@ -1407,8 +1464,8 @@ function toggleSizBlock(headerEl, contentId) {
     document.querySelectorAll('.js-org-generate').forEach(btn => {
         btn.addEventListener('click', function() {
             const issueFieldId = btn.dataset.issueField;
-            if (issueFieldId && issueDateInput) {
-                document.getElementById(issueFieldId).value = issueDateInput.value || '';
+            if (issueFieldId) {
+                document.getElementById(issueFieldId).value = getIssueDateValue();
             }
             showLoading(true);
         });
@@ -1447,7 +1504,7 @@ function toggleSizBlock(headerEl, contentId) {
     // Скачивание карточки СИЗ с подстановкой даты выдачи
     document.querySelectorAll('.js-single-card').forEach(link => {
         link.addEventListener('click', function(e) {
-            const date = issueDateInput ? issueDateInput.value : '';
+            const date = getIssueDateValue();
             if (date) {
                 const url = new URL(this.href, window.location.origin);
                 url.searchParams.set('issue_date', date);

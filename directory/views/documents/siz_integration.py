@@ -38,7 +38,10 @@ def generate_siz_card_docx_view(request, employee_id):
     # Дата выдачи из GET-параметра
     issue_date_str = request.GET.get('issue_date', '')
     issue_date_display = ''
-    if issue_date_str:
+    if issue_date_str == 'hire':
+        hire = employee.hire_date or employee.start_date
+        issue_date_display = hire.strftime('%d.%m.%Y') if hire else ''
+    elif issue_date_str:
         from datetime import datetime as dt
         try:
             issue_date_display = dt.strptime(issue_date_str, '%Y-%m-%d').strftime('%d.%m.%Y')

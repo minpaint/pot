@@ -249,16 +249,15 @@ def run_ot_card_bulk_job(job_id: int):
 
                 GenerationJob.objects.filter(pk=job.pk).update(progress_current=i)
 
-            summary = (
-                f"Массовая генерация личных карточек по охране труда\n"
-                f"Дата генерации: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-                f"Вид инструктажа: {instruction_type}\n"
-                f"Дата инструктажа: {'дата начала работы (или приёма) сотрудника' if is_primary else (instruction_date or 'не указана')}\n"
-                f"Сгенерировано карточек: {generated}\n"
-            )
-            if errors:
-                summary += "\nОшибки:\n" + "\n".join(errors)
-            zf.writestr('_summary.txt', summary.encode('utf-8'))
+            if errors:  # сводка нужна только при ошибках
+                summary = (
+                    f"Массовая генерация личных карточек по охране труда\n"
+                    f"Дата генерации: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
+                    f"Вид инструктажа: {instruction_type}\n"
+                    f"Сгенерировано карточек: {generated}\n"
+                    "\nОшибки:\n" + "\n".join(errors)
+                )
+                zf.writestr('_summary.txt', summary.encode('utf-8'))
 
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
         _finalize(job, status='done', file_bytes=zip_buffer.getvalue(),
@@ -367,6 +366,8 @@ def run_siz_cards_bulk_job(job_id: int):
         _subdivision_employee_queryset,
         _safe_name as siz_safe_name,
         siz_card_file_name,
+        resolve_card_issue_date,
+        ISSUE_DATE_HIRE,
     )
 
     try:
@@ -381,7 +382,9 @@ def run_siz_cards_bulk_job(job_id: int):
         jt = job.job_type
         issue_date = job.params.get('issue_date', '')
         issue_date_display = ''
-        if issue_date:
+        if issue_date == ISSUE_DATE_HIRE:
+            issue_date_display = ISSUE_DATE_HIRE
+        elif issue_date:
             try:
                 issue_date_display = datetime.strptime(issue_date, '%Y-%m-%d').strftime('%d.%m.%Y')
             except ValueError:
@@ -418,7 +421,10 @@ def run_siz_cards_bulk_job(job_id: int):
                         GenerationJob.objects.filter(pk=job.pk).update(progress_current=i)
                         continue
                     try:
-                        result = generate_siz_card_docx(emp, user, custom_context, raise_on_error=True)
+                        result = generate_siz_card_docx(
+                            emp, user,
+                            {**custom_context, 'siz_issue_date': resolve_card_issue_date(emp, issue_date_display)},
+                            raise_on_error=True)
                     except Exception as e:
                         errors.append(f'{emp.full_name_nominative}: {e}')
                         continue
@@ -453,7 +459,10 @@ def run_siz_cards_bulk_job(job_id: int):
                             GenerationJob.objects.filter(pk=job.pk).update(progress_current=done)
                             continue
                         try:
-                            result = generate_siz_card_docx(emp, user, custom_context, raise_on_error=True)
+                            result = generate_siz_card_docx(
+                            emp, user,
+                            {**custom_context, 'siz_issue_date': resolve_card_issue_date(emp, issue_date_display)},
+                            raise_on_error=True)
                         except Exception as e:
                             errors.append(f'{emp.full_name_nominative}: {e}')
                             done += 1
@@ -482,6 +491,9 @@ def run_siz_cards_bulk_job(job_id: int):
 
 
 def _add_summary(zf, generated, errors, extra=''):
+    """Кладёт _summary.txt в архив только если были ошибки."""
+    if not errors:
+        return
     summary = (
         f"Массовая генерация карточек СИЗ\n"
         f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"

@@ -360,6 +360,9 @@ def process_siz_card_tables(doc, context):
         # Обрабатываем оборотную сторону только с ВЫБРАННЫМИ нормами
         issued_data = context.get("issued_siz", [])
         issue_date = context.get("siz_issue_date", "") or ""
+        if issue_date == "hire":  # заглушка: дата трудоустройства сотрудника
+            hire = employee.hire_date or employee.start_date
+            issue_date = hire.strftime("%d.%m.%Y") if hire else ""
         logger.info(f"Получено выбранных норм для оборотной стороны: {len(issued_data)}")
 
         if issued_data:

@@ -512,10 +512,19 @@ def generate_periodic_protocol(
     grouping_name: Optional[str] = None,
     check_type: str = 'периодическая',
     height_only: bool = False,
+    height_mode: str = 'include',
 ) -> Optional[Dict[str, Any]]:
     """
     Сформировать протокол периодической проверки знаний для списка сотрудников.
+
+    height_mode: 'include' — основные строки и строка «работы на высоте» (по умолчанию),
+                 'only' — только строки по высоте, 'exclude' — без строк по высоте.
+    height_only=True оставлен для совместимости и равен height_mode='only'.
     """
+    if height_only:
+        height_mode = 'only'
+    if height_mode not in ('include', 'only', 'exclude'):
+        height_mode = 'include'
     try:
         if not employees:
             raise ValueError("Не переданы сотрудники для протокола")
@@ -612,7 +621,7 @@ def generate_periodic_protocol(
             )
             height_label = _get_height_label(emp.position) if has_height else ''
 
-            if height_only:
+            if height_mode == 'only':
                 # Только строка по высоте; сотрудники без группы пропускаются
                 if has_height and height_label:
                     employees_data.append({
@@ -646,8 +655,8 @@ def generate_periodic_protocol(
                         'ticket_number': '',
                     })
 
-            # Строка по работе на высоте
-            if has_height and height_label:
+            # Строка по работе на высоте (кроме режима «без высоты»)
+            if height_mode != 'exclude' and has_height and height_label:
                 employees_data.append({
                     'fio_nominative': fio,
                     'position_nominative': f"{pos_name}, {height_label}",

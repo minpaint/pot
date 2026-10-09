@@ -101,13 +101,13 @@ def run_periodic_protocol_job(job_id: int):
         jt = job.job_type
 
         check_type = job.params.get('check_type', 'периодическая') or 'периодическая'
-        height_only = bool(job.params.get('height_only', False))
+        height_mode = job.params.get('height_mode') or ('only' if job.params.get('height_only') else 'include')
 
         if jt == 'periodic_protocol':
             grouping_name = job.params.get('grouping_name') or None
             doc = generate_periodic_protocol(
                 employees, user=user, grouping_name=grouping_name,
-                check_type=check_type, height_only=height_only,
+                check_type=check_type, height_mode=height_mode,
             )
             if not doc:
                 _finalize(job, status='failed', error='Не удалось сформировать протокол')
@@ -145,7 +145,7 @@ def run_periodic_protocol_job(job_id: int):
                     if jt == 'periodic_protocol_by_sub':
                         doc = generate_periodic_protocol(
                             emps, user=user, grouping_name=key,
-                            check_type=check_type, height_only=height_only,
+                            check_type=check_type, height_mode=height_mode,
                         )
                     else:
                         doc = generate_safety_certificates(emps, grouping_name=key)

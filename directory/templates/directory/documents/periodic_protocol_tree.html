@@ -219,7 +219,18 @@
     color: #6c757d;
     transition: all 0.15s;
 }
-.pp-check-btn.active {
+.pp-height-btn {
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #fff;
+    color: #6c757d;
+    transition: all 0.15s;
+}
+.pp-check-btn.active, .pp-height-btn.active {
     background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
     color: #fff;
     border-color: #3498db;
@@ -306,7 +317,7 @@
         <input type="hidden" name="scope_type" id="scopeTypeField" value="">
         <input type="hidden" name="scope_id" id="scopeIdField" value="">
         <input type="hidden" name="check_type" id="checkTypeField" value="периодическая">
-        <input type="hidden" name="height_only" id="heightOnlyField" value="">
+        <input type="hidden" name="height_mode" id="heightModeField" value="include">
 
         <!-- Карточка: заголовок + actionbar + treebar + таблица -->
         <div class="pp-card">
@@ -326,9 +337,17 @@
                             <button type="button" class="pp-check-btn active" data-value="периодическая">Периодическая</button>
                             <button type="button" class="pp-check-btn" data-value="внеочередная">Внеочередная</button>
                         </div>
-                        <div class="form-check mb-0 ms-1">
-                            <input class="form-check-input" type="checkbox" id="heightOnly">
-                            <label class="form-check-label small" for="heightOnly">🪜 Только на высоте</label>
+                    </div>
+                </div>
+                <div class="vr"></div>
+                <!-- Блок: Работы на высоте -->
+                <div class="pp-action-group">
+                    <div class="pp-action-group-label">🪜 Работы на высоте</div>
+                    <div class="pp-action-group-btns">
+                        <div class="pp-check-type" id="heightModeBtns">
+                            <button type="button" class="pp-height-btn active" data-mode="include" title="Основные строки и строка «работы на высоте»">С высотой</button>
+                            <button type="button" class="pp-height-btn" data-mode="only" title="Только строки по работам на высоте">Только высота</button>
+                            <button type="button" class="pp-height-btn" data-mode="exclude" title="Без строки «работы на высоте»">Без высоты</button>
                         </div>
                     </div>
                 </div>
@@ -606,23 +625,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Фильтр «Только работы на высоте»
-    const heightOnlyCheckbox = document.getElementById('heightOnly');
-    const heightOnlyField = document.getElementById('heightOnlyField');
-    function applyHeightFilter() {
-        const heightOnly = heightOnlyCheckbox && heightOnlyCheckbox.checked;
-        if (heightOnlyField) heightOnlyField.value = heightOnly ? '1' : '';
+    // Режим «Работы на высоте»: с высотой / только высота / без высоты
+    const heightModeField = document.getElementById('heightModeField');
+    function applyHeightMode(mode) {
+        const heightOnly = mode === 'only';
+        if (heightModeField) heightModeField.value = mode;
+        document.querySelectorAll('.pp-height-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
         document.querySelectorAll('.employee-checkbox').forEach(cb => {
             const row = cb.closest('tr');
             const hasHeight = row && row.dataset.hasHeight === 'true';
-            if (heightOnly) {
-                if (!hasHeight) {
-                    row.classList.add('hidden-by-height');
-                    cb.checked = false;
-                } else {
-                    row.classList.remove('hidden-by-height');
-                    cb.checked = true;
-                }
+            if (heightOnly && !hasHeight) {
+                row.classList.add('hidden-by-height');
+                cb.checked = false;
             } else {
                 row.classList.remove('hidden-by-height');
                 cb.checked = true;
@@ -630,9 +644,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         updateCounter();
     }
-    if (heightOnlyCheckbox) {
-        heightOnlyCheckbox.addEventListener('change', applyHeightFilter);
-    }
+    document.querySelectorAll('.pp-height-btn').forEach(btn => {
+        btn.addEventListener('click', function() { applyHeightMode(this.dataset.mode); });
+    });
 
     const form = document.getElementById('periodicProtocolForm');
     const actionField = document.getElementById('actionField');

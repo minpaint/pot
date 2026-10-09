@@ -457,7 +457,9 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
         title = f'{title_map.get(job_type, job_type)} — {org_name} ({len(employees)} чел.)'
 
         check_type = request.POST.get('check_type', 'периодическая') or 'периодическая'
-        height_only = request.POST.get('height_only') == '1'
+        height_mode = request.POST.get('height_mode') or ('only' if request.POST.get('height_only') == '1' else 'include')
+        if height_mode not in ('include', 'only', 'exclude'):
+            height_mode = 'include'
 
         job = GenerationJob.objects.create(
             user=request.user,
@@ -468,7 +470,8 @@ class PeriodicProtocolView(LoginRequiredMixin, TemplateView):
                 'employee_ids': employee_ids,
                 'grouping_name': grouping_name,
                 'check_type': check_type,
-                'height_only': height_only,
+                'height_mode': height_mode,
+                'height_only': height_mode == 'only',
             },
             progress_total=len(employees),
         )

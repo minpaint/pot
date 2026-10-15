@@ -28,6 +28,8 @@ LABEL_EQUIPMENT_TYPES = {
 
 _LADDER_TYPE_ID = None
 
+LADDER_INSPECTION_RESULT = 'Исправна, дефектов не выявлено'
+
 
 def _get_ladder_type_id():
     global _LADDER_TYPE_ID
@@ -463,10 +465,10 @@ def _append_ladder_labels(doc, equipment_list, inspection_date=None):
         location_parts = [part for part in [organization_name, subdivision_name] if part]
         location_label = " / ".join(location_parts) if location_parts else "Без подразделения"
 
-        next_date = ''
-        resolved_date = _resolve_inspection_date(inspection_date)
-        if resolved_date and equipment.maintenance_period_months:
-            next_date = _add_months(resolved_date, equipment.maintenance_period_months).strftime('%d.%m.%Y')
+        next_date_value = _ladder_next_inspection_date(
+            equipment, _resolve_inspection_date(inspection_date)
+        )
+        next_date = next_date_value.strftime('%d.%m.%Y') if next_date_value else ''
 
         lines = [
             location_label,
@@ -508,6 +510,16 @@ def _add_months(base_date, months):
     last_day = calendar.monthrange(year, month)[1]
     day = min(base_date.day, last_day)
     return datetime.date(year, month, day)
+
+
+def _ladder_next_inspection_date(equipment, resolved_date):
+    """
+    Дата следующего осмотра лестницы — одинаково для журнала и бирки:
+    дата осмотра + периодичность, иначе дата из карточки оборудования.
+    """
+    if resolved_date and equipment.maintenance_period_months:
+        return _add_months(resolved_date, equipment.maintenance_period_months)
+    return equipment.next_maintenance_date
 
 
 def _build_equipment_records(equipment_list, inspection_date=None, use_two_level_location=False):
@@ -575,16 +587,14 @@ def _build_ladder_records(equipment_list, inspection_date=None):
         else:
             inspection_date_str = ''
 
-        if eq.next_maintenance_date:
-            next_date_str = eq.next_maintenance_date.strftime('%d.%m.%Y')
-        else:
-            next_date_str = ''
+        next_date = _ladder_next_inspection_date(eq, resolved_date)
+        next_date_str = next_date.strftime('%d.%m.%Y') if next_date else ''
 
         records.append({
             'object_name': eq.equipment_name,
             'inspection_date': inspection_date_str,
             'inventory_number': eq.inventory_number,
-            'result': '',
+            'result': LADDER_INSPECTION_RESULT if inspection_date_str else '',
             'next_inspection_date': next_date_str,
         })
 
@@ -789,7 +799,7 @@ def generate_equipment_journal(organization, equipment_type_name, start_date=Non
         if equipment_type_name in LABEL_EQUIPMENT_TYPES:
             _append_equipment_labels(doc, equipment_list)
         if template_code == 'lestnicy-journal':
-            _append_ladder_labels(doc, equipment_list, inspection_date=date_for_name)
+            _append_ladder_labels(doc, equipment_list, inspection_date=inspection_date)
 
         label = _get_equipment_label(equipment_type_name)
         date_for_name = _resolve_inspection_date(inspection_date) or start_date or datetime.date.today()

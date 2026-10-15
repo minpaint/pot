@@ -324,6 +324,19 @@ def _assemble_document(template_bytes: bytes, employees: List, commission_cache:
     return final_doc
 
 
+def _exclude_commission_members(employees):
+    """Члены комиссий уже имеют удостоверения (сдали в вышестоящей организации) — не печатаем."""
+    from directory.models import CommissionMember
+    member_ids = set(
+        CommissionMember.objects.filter(is_active=True, commission__is_active=True)
+        .values_list('employee_id', flat=True)
+    )
+    skipped = [e for e in employees if e.id in member_ids]
+    if skipped:
+        logger.info("Пропущены члены комиссий: %s", ", ".join(e.full_name_nominative for e in skipped))
+    return [e for e in employees if e.id not in member_ids]
+
+
 def generate_safety_certificates_rowwise(
     employees: List[Any],
     grouping_name: Optional[str] = None
@@ -347,6 +360,7 @@ def generate_safety_certificates_rowwise(
         Или None в случае ошибки
     """
     # Проверки безопасности
+    employees = _exclude_commission_members(employees)
     if not employees:
         logger.warning("Пустой список сотрудников")
         return None

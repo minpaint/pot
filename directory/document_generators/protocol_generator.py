@@ -77,7 +77,7 @@ def generate_knowledge_protocol(
         chairman = cdata.get('chairman', {})
         has_chairman = bool(chairman.get('name'))
         context.setdefault('chairman_role_label', 'Председатель комиссии:' if has_chairman else '')
-        context.setdefault('chairman_name', chairman.get('name', ''))
+        context.setdefault('chairman_name', get_initials_from_name(chairman.get('name', '')))
         context.setdefault('chairman_position', chairman.get('position', '').lower() if chairman.get('position') else '')
         context.setdefault('chairman_name_initials', chairman.get('name_initials', ''))
 
@@ -85,7 +85,7 @@ def generate_knowledge_protocol(
         vice_chairman = cdata.get('vice_chairman', {})
         has_vice_chairman = bool(vice_chairman.get('name'))
         context.setdefault('vice_chairman_role_label', 'Заместитель председателя комиссии:' if has_vice_chairman else '')
-        context.setdefault('vice_chairman_name', vice_chairman.get('name', ''))
+        context.setdefault('vice_chairman_name', get_initials_from_name(vice_chairman.get('name', '')))
         context.setdefault('vice_chairman_position', vice_chairman.get('position', '').lower() if vice_chairman.get('position') else '')
         context.setdefault('vice_chairman_name_initials', vice_chairman.get('name_initials', ''))
 
@@ -93,7 +93,7 @@ def generate_knowledge_protocol(
         secretary = cdata.get('secretary', {})
         has_secretary = bool(secretary.get('name'))
         context.setdefault('secretary_role_label', 'Секретарь комиссии:' if has_secretary else '')
-        context.setdefault('secretary_name', secretary.get('name', ''))
+        context.setdefault('secretary_name', get_initials_from_name(secretary.get('name', '')))
         context.setdefault('secretary_position', secretary.get('position', '').lower() if secretary.get('position') else '')
         context.setdefault('secretary_name_initials', secretary.get('name_initials', ''))
 
@@ -103,7 +103,7 @@ def generate_knowledge_protocol(
 
         # 4.5) Параграфы «ФИО – должность»
         members_paragraphs = [
-            f"{m['name']} - {m['position'].lower()}"
+            f"{get_initials_from_name(m['name'])} - {m['position'].lower()}"
             for m in members
         ]
         context['members_paragraphs'] = members_paragraphs
@@ -505,6 +505,33 @@ def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type:
                     run.font.size = Pt(12)
 
 
+from directory.utils.declension import get_initials_from_name
+
+
+def _add_tiny_trailing_paragraph(doc_bytes: bytes) -> bytes:
+    """
+    После таблицы Word обязательно ставит абзац. Если clean_document его удалил,
+    Word добавляет абзац обычного размера, и при заполненной странице он уезжает
+    на пустую вторую страницу (с повторённым колонтитулом). Ставим абзац высотой 1 пт.
+    """
+    from docx import Document as DocxDocument
+    from docx.oxml import parse_xml
+    from docx.oxml.ns import nsdecls
+
+    doc = DocxDocument(BytesIO(doc_bytes))
+    body = doc.element.body
+    last = [el for el in body if not el.tag.endswith('}sectPr')]
+    if last and last[-1].tag.endswith('}tbl'):
+        p = parse_xml(
+            '<w:p %s><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>'
+            '<w:rPr><w:sz w:val="2"/></w:rPr></w:pPr></w:p>' % nsdecls('w')
+        )
+        last[-1].addnext(p)
+    out = BytesIO()
+    doc.save(out)
+    return out.getvalue()
+
+
 def generate_periodic_protocol(
     employees: List,
     user=None,
@@ -555,28 +582,28 @@ def generate_periodic_protocol(
         chairman = cdata.get('chairman', {})
         has_chairman = bool(chairman.get('name'))
         context.setdefault('chairman_role_label', 'Председатель комиссии:' if has_chairman else '')
-        context.setdefault('chairman_name', chairman.get('name', ''))
+        context.setdefault('chairman_name', get_initials_from_name(chairman.get('name', '')))
         context.setdefault('chairman_position', chairman.get('position', '').lower() if chairman.get('position') else '')
         context.setdefault('chairman_name_initials', chairman.get('name_initials', ''))
 
         vice_chairman = cdata.get('vice_chairman', {})
         has_vice_chairman = bool(vice_chairman.get('name'))
         context.setdefault('vice_chairman_role_label', 'Заместитель председателя комиссии:' if has_vice_chairman else '')
-        context.setdefault('vice_chairman_name', vice_chairman.get('name', ''))
+        context.setdefault('vice_chairman_name', get_initials_from_name(vice_chairman.get('name', '')))
         context.setdefault('vice_chairman_position', vice_chairman.get('position', '').lower() if vice_chairman.get('position') else '')
         context.setdefault('vice_chairman_name_initials', vice_chairman.get('name_initials', ''))
 
         secretary = cdata.get('secretary', {})
         has_secretary = bool(secretary.get('name'))
         context.setdefault('secretary_role_label', 'Секретарь комиссии:' if has_secretary else '')
-        context.setdefault('secretary_name', secretary.get('name', ''))
+        context.setdefault('secretary_name', get_initials_from_name(secretary.get('name', '')))
         context.setdefault('secretary_position', secretary.get('position', '').lower() if secretary.get('position') else '')
         context.setdefault('secretary_name_initials', secretary.get('name_initials', ''))
 
         members = cdata.get('members_formatted', [])
         context['members_formatted'] = members
         context['members_paragraphs'] = [
-            f"{m['name']} - {m['position'].lower()}"
+            f"{get_initials_from_name(m['name'])} - {m['position'].lower()}"
             for m in members
         ]
         context['members_initials_paragraphs'] = [
@@ -699,6 +726,7 @@ def generate_periodic_protocol(
 
         # Очищаем пустые параграфы и строки (колонтитулы шаблона сохраняем)
         cleaned_content = clean_document(buf2.getvalue(), keep_headers_footers=True)
+        cleaned_content = _add_tiny_trailing_paragraph(cleaned_content)
 
         # Формируем имя файла на основе grouping_name или организации
         if grouping_name:

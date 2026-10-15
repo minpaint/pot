@@ -107,10 +107,24 @@ def _build_employee_slot(employee, commission_cache: Optional[Dict[int, Dict[str
     }
 
 
+def _exclude_commission_members(employees):
+    """Члены комиссий уже имеют удостоверения (сдали в вышестоящей организации) — не печатаем."""
+    from directory.models import CommissionMember
+    member_ids = set(
+        CommissionMember.objects.filter(is_active=True, commission__is_active=True)
+        .values_list('employee_id', flat=True)
+    )
+    skipped = [e for e in employees if e.id in member_ids]
+    if skipped:
+        logger.info("Пропущены члены комиссий: %s", ", ".join(e.full_name_nominative for e in skipped))
+    return [e for e in employees if e.id not in member_ids]
+
+
 def generate_safety_certificates(
     employees: List[Any],
     grouping_name: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
+    employees = _exclude_commission_members(employees)
     if not employees:
         return None
 

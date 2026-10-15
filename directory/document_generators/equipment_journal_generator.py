@@ -267,7 +267,7 @@ def _fill_equipment_journal_rows(table, equipment_records: List[Dict[str, str]],
 
 def _fill_ladder_journal_rows(table, ladder_records: List[Dict[str, str]]):
     """
-    Заполняет таблицу журнала испытаний лестниц.
+    Заполняет таблицу журнала учета и осмотра лестниц.
 
     Ожидаемые поля записи:
     - object_name
@@ -472,7 +472,7 @@ def _append_ladder_labels(doc, equipment_list, inspection_date=None):
             location_label,
             f"Тип (марка): {equipment.equipment_name}",
             f"Инв. № {equipment.inventory_number}",
-            f"Следующее испытание: {next_date}" if next_date else "Следующее испытание: -",
+            f"Следующий осмотр: {next_date}" if next_date else "Следующий осмотр: -",
         ]
 
         paragraph = cell.paragraphs[0]

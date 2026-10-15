@@ -480,7 +480,7 @@ def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type:
         if cols > 5:
             cells[5].text = ""
         if cols > 6:
-            cells[6].text = ""
+            cells[6].text = "✓"
 
         # Запрещаем разрыв строки при переносе на новую страницу
         tr = row._tr
@@ -498,7 +498,7 @@ def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type:
         for cell_idx, cell in enumerate(cells):
             for paragraph in cell.paragraphs:
                 # Центрируем первую колонку (№ п/п)
-                if cell_idx == 0:
+                if cell_idx in (0, 6):
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'

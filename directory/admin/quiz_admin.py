@@ -7,6 +7,7 @@ from django.utils.safestring import mark_safe
 from django.conf import settings
 from django import forms
 from django.http import HttpResponse
+from django.utils.http import content_disposition_header
 from django.shortcuts import redirect
 from django.contrib import messages
 from tablib import Dataset
@@ -355,7 +356,7 @@ class QuestionAdmin(NestedModelAdmin):
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Disposition'] = content_disposition_header(True, filename)
 
         # Сохраняем книгу в response
         wb.save(response)

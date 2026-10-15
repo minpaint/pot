@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.utils.dateparse import parse_date
+from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from collections import defaultdict
@@ -461,7 +462,7 @@ class EquipmentJournalView(LoginRequiredMixin, TemplateView):
             doc['content'],
             content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
-        response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"'
+        response['Content-Disposition'] = content_disposition_header(True, doc["filename"])
         messages.success(self.request, f'Журнал "{doc["filename"]}" успешно сгенерирован')
         return response
 
@@ -506,7 +507,7 @@ class EquipmentJournalView(LoginRequiredMixin, TemplateView):
 
         buffer.seek(0)
         response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = 'attachment; filename="Журналы_по_подразделениям.zip"'
+        response['Content-Disposition'] = content_disposition_header(True, 'Журналы_по_подразделениям.zip')
         messages.success(self.request, f'Сгенерировано файлов: {files_generated}')
         return response
 
@@ -1174,7 +1175,7 @@ def generate_equipment_journal_view(request):
                     result['content'],
                     content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 )
-                response['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
+                response['Content-Disposition'] = content_disposition_header(True, result["filename"])
                 messages.success(request, f'Журнал "{result["filename"]}" успешно сгенерирован')
                 return response
             else:
@@ -1419,7 +1420,7 @@ class EquipmentUnifiedView(LoginRequiredMixin, TemplateView):
                 doc['content'],
                 content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             )
-            response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"'
+            response['Content-Disposition'] = content_disposition_header(True, doc["filename"])
             return response
 
         elif action == 'download_organization':
@@ -1449,7 +1450,7 @@ class EquipmentUnifiedView(LoginRequiredMixin, TemplateView):
                 doc['content'],
                 content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             )
-            response['Content-Disposition'] = f'attachment; filename="{doc["filename"]}"'
+            response['Content-Disposition'] = content_disposition_header(True, doc["filename"])
             return response
 
         elif action == 'email_subdivision':
@@ -1511,5 +1512,5 @@ def download_cart_journal_view(request):
         result['content'],
         content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     )
-    response['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
+    response['Content-Disposition'] = content_disposition_header(True, result["filename"])
     return response

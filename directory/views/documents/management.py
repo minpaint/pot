@@ -9,6 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
+from django.utils.http import content_disposition_header
 from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext as _
 
@@ -121,6 +122,6 @@ def document_download(request, pk):
         file_handle,
         content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = content_disposition_header(True, filename)
 
     return response

@@ -10,6 +10,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 from django.http import HttpResponse
+from django.utils.http import content_disposition_header
 from django.urls import reverse, path
 from django.contrib import messages
 from django.shortcuts import get_object_or_404
@@ -990,7 +991,7 @@ class TrainingAssignmentAdmin(admin.ModelAdmin):
         zip_filename = f"Документы_обучения_{safe_name}_{timestamp}.zip"
 
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        response['Content-Disposition'] = content_disposition_header(True, zip_filename)
 
         self.message_user(
             request,

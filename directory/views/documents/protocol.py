@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 from django.http import HttpResponse
+from django.utils.http import content_disposition_header
 from django.db.models import Q
 from django.utils.text import slugify
 import logging
@@ -221,9 +222,7 @@ class KnowledgeProtocolCreateView(LoginRequiredMixin, FormView):
                 generated_doc['content'],
                 content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             )
-            from urllib.parse import quote
-            filename_encoded = quote(generated_doc['filename'])
-            response['Content-Disposition'] = f'attachment; filename="{generated_doc["filename"]}"; filename*=UTF-8\'\'{filename_encoded}'
+            response['Content-Disposition'] = content_disposition_header(True, generated_doc['filename'])
 
             messages.success(self.request, 'Протокол проверки знаний успешно сгенерирован')
             return response

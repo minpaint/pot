@@ -214,6 +214,7 @@
                 📄 Журнал осмотра тележек
             </button>
             {% endif %}
+            <a href="{% url 'deadline_control:equipment:export_deadlines' %}" class="btn btn-sm btn-outline-primary" title="Таблица сроков ТО: № п/п, наименование, дата проведения, дата окончания">📥 Скачать сроки (Excel)</a>
             <a href="{% url 'deadline_control:equipment:create' %}" class="btn btn-sm btn-success">➕ Добавить оборудование</a>
         </div>
     </div>

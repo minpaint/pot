@@ -1514,3 +1514,93 @@ def download_cart_journal_view(request):
     )
     response['Content-Disposition'] = content_disposition_header(True, result["filename"])
     return response
+
+
+@login_required
+def export_equipment_deadlines_xlsx(request):
+    """
+    Выгрузка сроков ТО оборудования в Excel: № п/п, наименование, инв. номер,
+    дата проведения, дата окончания. Выбранная организация — один лист;
+    без выбора — по листу на каждую доступную организацию.
+    """
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    qs = AccessControlHelper.filter_queryset(
+        Equipment.objects.select_related('organization'), request.user, request
+    )
+    selected_org_id = request.session.get('selected_org_id')
+    if selected_org_id:
+        qs = qs.filter(organization_id=selected_org_id)
+
+    by_org = {}
+    for eq in qs.order_by('organization__short_name_ru', 'equipment_name', 'inventory_number'):
+        by_org.setdefault(eq.organization, []).append(eq)
+
+    if not by_org:
+        messages.error(request, 'Нет оборудования для выгрузки.')
+        return redirect('deadline_control:equipment:list')
+
+    today = date.today()
+    thin = Side(style='thin', color='999999')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    head_fill = PatternFill('solid', fgColor='D9E2F3')
+    overdue_fill = PatternFill('solid', fgColor='FDE8E8')
+    headers = ['№ п/п', 'Наименование', 'Инвентарный номер', 'Дата проведения', 'Дата окончания']
+    widths = [8, 60, 28, 18, 18]
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    used_titles = set()
+    for org, items in by_org.items():
+        title = ''.join(c for c in org.short_name_ru if c not in '[]:*?/\\')[:28] or 'Оборудование'
+        base, n = title, 1
+        while title in used_titles:
+            n += 1
+            title = f'{base[:26]}_{n}'
+        used_titles.add(title)
+        ws = wb.create_sheet(title)
+
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+        ws['A1'] = f'Сроки проведения ТО оборудования — {org.short_name_ru}'
+        ws['A1'].font = Font(bold=True, size=13)
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+        ws['A2'] = f'По состоянию на {today:%d.%m.%Y}'
+
+        for col, (h, w) in enumerate(zip(headers, widths), start=1):
+            c = ws.cell(row=4, column=col, value=h)
+            c.font = Font(bold=True)
+            c.fill = head_fill
+            c.border = border
+            c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws.column_dimensions[get_column_letter(col)].width = w
+
+        for i, eq in enumerate(items, start=1):
+            row = 4 + i
+            values = [i, eq.equipment_name, eq.inventory_number,
+                      eq.last_maintenance_date, eq.next_maintenance_date]
+            for col, v in enumerate(values, start=1):
+                c = ws.cell(row=row, column=col, value=v)
+                c.border = border
+                c.alignment = Alignment(
+                    horizontal='left' if col in (2, 3) else 'center',
+                    vertical='center', wrap_text=True,
+                )
+                if col in (4, 5):
+                    c.number_format = 'DD.MM.YYYY'
+            if eq.next_maintenance_date and eq.next_maintenance_date < today:
+                ws.cell(row=row, column=5).fill = overdue_fill
+        ws.freeze_panes = 'A5'
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    first = next(iter(by_org))
+    name = f'Сроки_ТО_оборудования_{first.short_name_ru if len(by_org) == 1 else "все_организации"}_{today:%d.%m.%Y}.xlsx'
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = content_disposition_header(True, name)
+    return response

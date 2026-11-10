@@ -21,7 +21,7 @@ from directory.utils import (
     is_employee_commission_member,
 )
 # Для склонения названий в родительном падеже
-from directory.utils.declension import decline_phrase
+from directory.utils.declension import decline_phrase, get_initials_from_name
 # Для очистки пустых параграфов в сгенерированных документах
 from directory.utils.docx_cleaner import clean_document
 
@@ -197,7 +197,6 @@ def generate_knowledge_protocol(
         # 9) Очищаем пустые параграфы и строки (колонтитулы шаблона сохраняем)
         cleaned_content = clean_document(buffer.getvalue(), keep_headers_footers=True)
 
-        from directory.utils.declension import get_initials_from_name
         employee_initials = get_initials_from_name(context.get('fio_nominative', ''))
         filename = f"Протокол_{employee_initials}.docx"
 
@@ -504,8 +503,6 @@ def _fill_periodic_rows(table, employees_data: List[Dict[str, str]], check_type:
                     run.font.name = 'Times New Roman'
                     run.font.size = Pt(12)
 
-
-from directory.utils.declension import get_initials_from_name
 
 
 def _add_tiny_trailing_paragraph(doc_bytes: bytes) -> bytes:
